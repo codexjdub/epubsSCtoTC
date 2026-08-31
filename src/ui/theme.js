@@ -8,6 +8,7 @@
   'use strict';
 
   var KEY = 'epub-tc:theme';
+  var DEFAULT = 'green';
 
   var THEMES = [
     { id: 'system', label: 'System' },
@@ -27,20 +28,21 @@
   function stored() {
     try {
       var v = window.localStorage.getItem(KEY);
-      return isValid(v) ? v : 'system';
+      return isValid(v) ? v : DEFAULT;
     } catch (e) { return 'system'; }
   }
 
   function apply(id) {
-    if (!isValid(id)) id = 'system';
-    if (id === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', id);
+    if (!isValid(id)) id = DEFAULT;
+    /* Every theme stamps an attribute, "system" included: bare :root carries
+     * the default palette so the page paints correctly before scripts run. */
+    document.documentElement.setAttribute('data-theme', id);
     try { window.localStorage.setItem(KEY, id); } catch (e) { /* ignore */ }
     return id;
   }
 
   function current() {
-    return document.documentElement.getAttribute('data-theme') || 'system';
+    return document.documentElement.getAttribute('data-theme') || DEFAULT;
   }
 
   /* What the theme actually resolves to right now, for callers that need to
@@ -59,6 +61,7 @@
     current: current,
     resolved: resolved,
     isValid: isValid,
+    DEFAULT: DEFAULT,
     init: function () { return apply(stored()); }
   };
 

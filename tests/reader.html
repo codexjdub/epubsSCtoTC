@@ -182,11 +182,22 @@
               shadowFg && shadowFg !== 'rgb(0, 0, 0)', shadowFg);
 
       App.theme.apply('system');
-      t.check('system removes the attribute',
-              !document.documentElement.hasAttribute('data-theme'), 'attribute still set');
+      t.eq('system stamps its own attribute',
+           document.documentElement.getAttribute('data-theme'), 'system');
       t.check('resolved() names a concrete theme',
               ['light', 'dark'].indexOf(App.theme.resolved()) >= 0, App.theme.resolved());
-      t.eq('invalid theme falls back to system', App.theme.apply('nonsense'), 'system');
+      t.eq('invalid theme falls back to the default', App.theme.apply('nonsense'), 'green');
+
+      /* Green must be the default, and it must come from CSS rather than from
+       * script: with ~1.5MB of inlined JS to parse first, a JS-applied default
+       * would render the wrong palette on every load before correcting itself. */
+      t.eq('the default theme is green', App.theme.DEFAULT, 'green');
+      document.documentElement.removeAttribute('data-theme');
+      t.eq('bare :root already paints the default palette',
+           getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+           '#d8e6d0');
+      t.eq('an unset preference resolves to green', App.theme.stored(), 'green');
+      App.theme.apply('green');
 
       // ---- reading the original, unconverted ----
       await reader.show(0);

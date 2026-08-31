@@ -7,15 +7,30 @@
 <style>
 /* Themes.
  *
- * Light tokens live on bare :root so they are the default. The OS preference
- * applies only when the reader has NOT chosen explicitly -- hence
- * :root:not([data-theme]) -- and each explicit choice overrides both.
+ * Green is the default and lives on bare :root, so it paints on first render
+ * rather than after the inlined scripts have parsed -- a JS-applied default
+ * would flash light first. "System" therefore stamps its own attribute
+ * instead of relying on the attribute being absent.
  *
  * These are custom properties, which inherit THROUGH the shadow boundary, so
  * the reader's shadow root picks up the active theme with no extra plumbing.
  */
 :root,
-:root[data-theme="light"] {
+:root[data-theme="green"] {
+  --bg: #d8e6d0;
+  --fg: #1f2b1b;
+  --muted: #4e6144;
+  --line: #b5c9ab;
+  --panel: #e5efdf;
+  --accent: #3f6b2a;
+  --accent-fg: #ffffff;
+  --warn: #664600;
+  --warn-bg: #e6ecd6;
+  --ok: #2b6b3a;
+}
+
+:root[data-theme="light"],
+:root[data-theme="system"] {
   --bg: #fbfaf8;
   --fg: #1c1b19;
   --muted: #6b6862;
@@ -57,20 +72,6 @@
   --ok: #1f5c33;
 }
 
-/* Desaturated green: low glare, keeps contrast well above 4.5:1. */
-:root[data-theme="green"] {
-  --bg: #d8e6d0;
-  --fg: #1f2b1b;
-  --muted: #4e6144;
-  --line: #b5c9ab;
-  --panel: #e5efdf;
-  --accent: #3f6b2a;
-  --accent-fg: #ffffff;
-  --warn: #664600;
-  --warn-bg: #e6ecd6;
-  --ok: #2b6b3a;
-}
-
 :root[data-theme="grey"] {
   --bg: #3c3c3a;
   --fg: #dedcd6;
@@ -98,7 +99,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
+  :root[data-theme="system"] {
     --bg: #171614;
     --fg: #eae7e1;
     --muted: #9a958c;
@@ -2449,6 +2450,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   'use strict';
 
   var KEY = 'epub-tc:theme';
+  var DEFAULT = 'green';
 
   var THEMES = [
     { id: 'system', label: 'System' },
@@ -2468,20 +2470,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   function stored() {
     try {
       var v = window.localStorage.getItem(KEY);
-      return isValid(v) ? v : 'system';
+      return isValid(v) ? v : DEFAULT;
     } catch (e) { return 'system'; }
   }
 
   function apply(id) {
-    if (!isValid(id)) id = 'system';
-    if (id === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', id);
+    if (!isValid(id)) id = DEFAULT;
+    /* Every theme stamps an attribute, "system" included: bare :root carries
+     * the default palette so the page paints correctly before scripts run. */
+    document.documentElement.setAttribute('data-theme', id);
     try { window.localStorage.setItem(KEY, id); } catch (e) { /* ignore */ }
     return id;
   }
 
   function current() {
-    return document.documentElement.getAttribute('data-theme') || 'system';
+    return document.documentElement.getAttribute('data-theme') || DEFAULT;
   }
 
   /* What the theme actually resolves to right now, for callers that need to
@@ -2500,6 +2503,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     current: current,
     resolved: resolved,
     isValid: isValid,
+    DEFAULT: DEFAULT,
     init: function () { return apply(stored()); }
   };
 
