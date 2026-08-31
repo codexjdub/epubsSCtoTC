@@ -29,6 +29,7 @@
 <script src="../src/convert/text.js"></script>
 <script src="../src/convert/book.js"></script>
 <script src="../src/reader/render.js"></script>
+<script src="../src/reader/fonts.js"></script>
 <script src="../src/reader/nav.js"></script>
 <script src="../src/reader/keys.js"></script>
 <script src="../src/ui/theme.js"></script>
@@ -148,8 +149,13 @@
             'scroll mode restored');
 
       // ---- font override ----
-      t.has(reader.shadow.querySelector('style').textContent, 'PingFang HK',
-            'reader font override applied');
+      /* The reader must impose its own face over the book's, because embedded
+       * subset fonts cannot render the converted text. Which family that is
+       * now depends on the chosen style, so assert the override mechanism
+       * rather than a specific hard-coded name. */
+      t.check('reader forces its own font family over the book\'s',
+              /font-family:[^;]+!important/.test(reader.shadow.querySelector('style').textContent),
+              'no forced font-family');
       t.check('book @font-face not carried into reader',
               reader.shadow.querySelector('style').textContent.indexOf('@font-face') < 0,
               'font-face leaked into reader');
@@ -238,6 +244,70 @@
               reader.content.querySelectorAll('[data-overridden]').length === 0,
               'override leaked');
       await reader.setSource('converted');
+
+      // ---- reading fonts ----
+      var RF = App.readingFonts;
+      t.eq('three typeface choices', RF.STYLES.map(function (x) { return x.id; }).join(','),
+           'serif,sans,kai');
+
+      /* Glyph region must follow the conversion target, or Hong Kong text gets
+       * rendered with Taiwan glyph shapes. */
+      t.eq('hk preset maps to hk glyphs', RF.regionFor('hk'), 'hk');
+      t.eq('hkp maps to hk glyphs too', RF.regionFor('hkp'), 'hk');
+      t.eq('tw preset maps to tw glyphs', RF.regionFor('tw'), 'tw');
+      t.eq('twp maps to tw glyphs too', RF.regionFor('twp'), 'tw');
+      t.eq('plain traditional defaults to tw glyphs', RF.regionFor('t'), 'tw');
+
+      var hkSerif = RF.stackFor('serif', 'hk');
+      var twSerif = RF.stackFor('serif', 'tw');
+      t.check('hk and tw serif stacks differ', hkSerif !== twSerif, 'identical');
+      t.check('hk serif leads with an HK face', /^"(Noto Serif CJK HK|Source Han Serif HC)"/.test(hkSerif),
+              hkSerif.slice(0, 40));
+      t.check('tw serif leads with a TC face', /^"Songti TC"/.test(twSerif), twSerif.slice(0, 40));
+
+      t.check('every stack ends in a generic family',
+              ['serif', 'sans', 'kai'].every(function (style) {
+                return ['hk', 'tw', 'cn'].every(function (r) {
+                  return /(serif|sans-serif)$/.test(RF.stackFor(style, r === 'cn' ? 't' : r));
+                });
+              }), 'a stack has no generic fallback');
+      t.check('sans stack is sans-serif terminated',
+              /sans-serif$/.test(RF.stackFor('sans', 'hk')), RF.stackFor('sans', 'hk'));
+      t.check('every family is quoted',
+              RF.stackFor('kai', 'tw').split(', ').slice(0, -1).every(function (f) {
+                return f.charAt(0) === '"' && f.charAt(f.length - 1) === '"';
+              }), RF.stackFor('kai', 'tw'));
+      t.eq('an unknown style falls back to serif', RF.stackFor('nonsense', 'tw'), twSerif);
+
+      // ---- the reader applies it ----
+      await reader.show(0);
+      var css = function () { return reader.shadow.querySelector('style').textContent; };
+      t.check('reader renders with the HK serif stack by default',
+              css().indexOf('Noto Serif CJK HK') >= 0, 'stack not applied');
+
+      await reader.setFontStyle('kai');
+      t.check('switching to 楷書 changes the stack', css().indexOf('Kaiti TC') >= 0, 'kai not applied');
+      t.check('and drops the previous one', css().indexOf('Noto Serif CJK HK') < 0, 'serif stack lingered');
+      await reader.setFontStyle('sans');
+      t.check('switching to 黑體 applies a sans stack', css().indexOf('PingFang HK') >= 0, 'sans not applied');
+      await reader.setFontStyle('serif');
+
+      /* A book converted to Taiwan forms must render with Taiwan faces. */
+      var twBook = await App.parse.load(await App.fixtures.build('epub2'));
+      await App.convert.book(twBook, 'tw');
+      var twReader = App.reader.create(document.getElementById('stage'), twBook);
+      await twReader.show(0);
+      var twCss = twReader.shadow.querySelector('style').textContent;
+      t.check('a tw-converted book renders with TC faces',
+              twCss.indexOf('Songti TC') >= 0 && twCss.indexOf('Noto Serif CJK HK') < 0,
+              'stack did not follow the preset');
+      twReader.destroy();
+
+      // ---- leading ----
+      await reader.setLineHeight(2.2);
+      t.check('line height applies', /line-height: 2\.2/.test(css()), 'not applied');
+      t.eq('line height is remembered in state', reader.state.lineHeight, 2.2);
+      await reader.setLineHeight(1.9);
 
       // ---- new themes ----
       var ids = App.theme.THEMES.map(function (x) { return x.id; });

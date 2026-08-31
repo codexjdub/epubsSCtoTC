@@ -67,7 +67,7 @@
     var state = {
       index: 0,
       mode: saved.mode || opts.mode || 'scroll',
-      fontFamily: opts.fontFamily || '"PingFang HK", "Songti TC", "Noto Serif CJK HK", serif',
+      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle) ? saved.fontStyle : 'serif',
       fontScale: saved.fontScale || 1,
       lineHeight: saved.lineHeight || 1.9,
       showMarks: saved.showMarks !== false,
@@ -134,6 +134,13 @@
       else s.el.scrollLeft = -s.el.scrollWidth;
     }
 
+    /* Glyph region follows the conversion target, so the rendering does not
+     * undo what the conversion just did. */
+    function fontStack() {
+      var preset = book.report && book.report.preset ? book.report.preset.id : 'hk';
+      return App.readingFonts.stackFor(state.fontStyle, preset);
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -145,6 +152,7 @@
       store.write({
         index: state.index,
         mode: state.mode,
+        fontStyle: state.fontStyle,
         fontScale: state.fontScale,
         lineHeight: state.lineHeight,
         showMarks: state.showMarks,
@@ -231,7 +239,7 @@
 
     function styleFor(chapterCss) {
       return BASE_CSS +
-        fontCss(state.fontFamily, state.fontScale, state.lineHeight) +
+        fontCss(fontStack(), state.fontScale, state.lineHeight) +
         modeCss(state.mode) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
@@ -286,6 +294,10 @@
     }
 
     function setMode(mode) { state.mode = mode; return show(state.index); }
+    function setFontStyle(id) {
+      state.fontStyle = App.readingFonts.isValidStyle(id) ? id : 'serif';
+      return show(state.index);
+    }
     function setFontScale(scale) { state.fontScale = scale; return show(state.index); }
     function setLineHeight(v) { state.lineHeight = v; return show(state.index); }
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
@@ -308,6 +320,8 @@
       next: function () { return show(state.index + 1); },
       prev: function () { return show(state.index - 1); },
       setMode: setMode,
+      setFontStyle: setFontStyle,
+      fontStack: fontStack,
       setFontScale: setFontScale,
       setLineHeight: setLineHeight,
       setShowMarks: setShowMarks,

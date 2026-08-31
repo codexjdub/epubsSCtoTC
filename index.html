@@ -46,6 +46,10 @@
         <button id="toggleVertical" type="button">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
+        <label><select id="fontStyle" title="Typeface"></select></label>
+        <label class="range">行距
+          <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
+        </label>
         <button id="toggleMarks" type="button">Hide marks</button>
         <button id="toggleVim" type="button" title="Vim navigation (press ? for keys)">Vim</button>
         <label><select id="theme"></select></label>
@@ -94,6 +98,7 @@
 <script src="src/convert/fonts.js"></script>
 <script src="src/convert/punct.js"></script>
 <script src="src/reader/render.js"></script>
+<script src="src/reader/fonts.js"></script>
 <script src="src/reader/nav.js"></script>
 <script src="src/reader/keys.js"></script>
 <script src="src/export/write.js"></script>

@@ -341,6 +341,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
 }
 
+/* ---- typeface + leading controls ---- */
+.topbar-more label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.topbar-more input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+@media (max-width: 700px) {
+  .topbar-more input[type="range"] { min-height: 44px; }
+}
+
 </style>
 </head>
 <body>
@@ -383,6 +390,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
         <button id="toggleVertical" type="button">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
+        <label><select id="fontStyle" title="Typeface"></select></label>
+        <label class="range">行距
+          <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
+        </label>
         <button id="toggleMarks" type="button">Hide marks</button>
         <button id="toggleVim" type="button" title="Vim navigation (press ? for keys)">Vim</button>
         <label><select id="theme"></select></label>
@@ -1757,6 +1768,96 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 })(window.App = window.App || {});
 
 </script>
+<script>/* src/reader/fonts.js */
+/* Reading fonts.
+ *
+ * System fonts only. A CJK webfont carries 20,000+ glyphs -- Noto Serif CJK is
+ * ~16MB per weight, a few MB even subset -- which would wreck the
+ * single-file design and reintroduce a network dependency the page is built
+ * to avoid.
+ *
+ * There is deliberately no availability detection. It cannot be done reliably
+ * for CJK: document.fonts.check() returns true for any family name at all, and
+ * width measurement cannot discriminate because CJK glyphs are uniformly
+ * full-width across virtually every CJK face. So each choice is an ordered
+ * stack and the browser silently uses the first family that is installed.
+ *
+ * The stacks are ordered by REGION as well as style. Taiwan and Hong Kong
+ * standards draw the same codepoints with different glyph shapes (骨, 直, 者
+ * among others), so text converted to Hong Kong forms should be rendered by a
+ * Hong Kong font where one exists -- otherwise the page shows Taiwan glyph
+ * shapes on Hong Kong text, undoing in the rendering what the conversion just
+ * did.
+ */
+(function (App) {
+  'use strict';
+
+  var GENERIC = { serif: 'serif', sans: 'sans-serif', kai: 'serif' };
+
+  /* Per style, per region, most-preferred first. Windows, macOS and Noto
+   * names are interleaved rather than grouped: what matters is glyph region,
+   * not which OS happens to supply the face. */
+  var STACKS = {
+    serif: {
+      hk: ['Noto Serif CJK HK', 'Source Han Serif HC', 'MingLiU_HKSCS',
+           'Songti TC', 'PMingLiU', 'Songti SC'],
+      tw: ['Songti TC', 'PMingLiU', 'MingLiU', 'Noto Serif CJK TC',
+           'Source Han Serif TC', 'LiSong Pro'],
+      cn: ['Songti SC', 'SimSun', 'Noto Serif CJK SC', 'Source Han Serif SC']
+    },
+    sans: {
+      hk: ['PingFang HK', 'Noto Sans CJK HK', 'Source Han Sans HC',
+           'Microsoft JhengHei', 'Hiragino Sans CNS', 'Heiti TC'],
+      tw: ['PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC',
+           'Source Han Sans TC', 'Hiragino Sans CNS', 'Heiti TC'],
+      cn: ['PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
+           'Hiragino Sans GB', 'STHeiti', 'SimHei']
+    },
+    /* 楷書 has no regional cuts worth distinguishing; DFKai-SB is the standard
+     * Taiwan textbook face and the most widely installed on Windows. */
+    kai: {
+      hk: ['Kaiti TC', 'DFKai-SB', 'BiauKai', 'Kaiti SC', 'KaiTi'],
+      tw: ['Kaiti TC', 'DFKai-SB', 'BiauKai', 'Kaiti SC', 'KaiTi'],
+      cn: ['Kaiti SC', 'KaiTi', 'Kaiti TC', 'DFKai-SB']
+    }
+  };
+
+  var STYLES = [
+    { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
+    { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
+    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' }
+  ];
+
+  /* Which glyph region a conversion preset implies. */
+  function regionFor(presetId) {
+    if (presetId === 'tw' || presetId === 'twp') return 'tw';
+    if (presetId === 'hk' || presetId === 'hkp') return 'hk';
+    return 'tw';   // plain traditional: Taiwan shapes are the common default
+  }
+
+  function isValidStyle(id) {
+    for (var i = 0; i < STYLES.length; i++) if (STYLES[i].id === id) return true;
+    return false;
+  }
+
+  function stackFor(styleId, presetId) {
+    var style = isValidStyle(styleId) ? styleId : 'serif';
+    var families = STACKS[style][regionFor(presetId)] || STACKS[style].tw;
+    return families.map(function (f) { return '"' + f + '"'; })
+      .concat([GENERIC[style]]).join(', ');
+  }
+
+  App.fonts = App.fonts || {};
+  App.readingFonts = {
+    STYLES: STYLES,
+    STACKS: STACKS,
+    stackFor: stackFor,
+    regionFor: regionFor,
+    isValidStyle: isValidStyle
+  };
+})(window.App = window.App || {});
+
+</script>
 <script>/* src/reader/nav.js */
 /* Reader engine: spine state, shadow-root mounting, link interception,
  * reading-position memory, and the tap-to-flip override model. */
@@ -1827,7 +1928,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var state = {
       index: 0,
       mode: saved.mode || opts.mode || 'scroll',
-      fontFamily: opts.fontFamily || '"PingFang HK", "Songti TC", "Noto Serif CJK HK", serif',
+      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle) ? saved.fontStyle : 'serif',
       fontScale: saved.fontScale || 1,
       lineHeight: saved.lineHeight || 1.9,
       showMarks: saved.showMarks !== false,
@@ -1894,6 +1995,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       else s.el.scrollLeft = -s.el.scrollWidth;
     }
 
+    /* Glyph region follows the conversion target, so the rendering does not
+     * undo what the conversion just did. */
+    function fontStack() {
+      var preset = book.report && book.report.preset ? book.report.preset.id : 'hk';
+      return App.readingFonts.stackFor(state.fontStyle, preset);
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -1905,6 +2013,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       store.write({
         index: state.index,
         mode: state.mode,
+        fontStyle: state.fontStyle,
         fontScale: state.fontScale,
         lineHeight: state.lineHeight,
         showMarks: state.showMarks,
@@ -1991,7 +2100,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     function styleFor(chapterCss) {
       return BASE_CSS +
-        fontCss(state.fontFamily, state.fontScale, state.lineHeight) +
+        fontCss(fontStack(), state.fontScale, state.lineHeight) +
         modeCss(state.mode) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
@@ -2046,6 +2155,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     function setMode(mode) { state.mode = mode; return show(state.index); }
+    function setFontStyle(id) {
+      state.fontStyle = App.readingFonts.isValidStyle(id) ? id : 'serif';
+      return show(state.index);
+    }
     function setFontScale(scale) { state.fontScale = scale; return show(state.index); }
     function setLineHeight(v) { state.lineHeight = v; return show(state.index); }
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
@@ -2068,6 +2181,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       next: function () { return show(state.index + 1); },
       prev: function () { return show(state.index - 1); },
       setMode: setMode,
+      setFontStyle: setFontStyle,
+      fontStack: fontStack,
       setFontScale: setFontScale,
       setLineHeight: setLineHeight,
       setShowMarks: setShowMarks,
@@ -2731,6 +2846,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     setStatus('');
 
     await reader.resume();
+    el.fontStyle.value = reader.state.fontStyle;
+    el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
 
@@ -2789,6 +2906,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.themeLanding = $('themeLanding');
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
+    el.fontStyle = $('fontStyle');
+    el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
@@ -2972,6 +3091,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     syncVim();
 
     api.drawerOpen = drawerOpen;
+
+    App.readingFonts.STYLES.forEach(function (f) {
+      var opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.label;
+      opt.title = f.note;
+      el.fontStyle.appendChild(opt);
+    });
+    el.fontStyle.addEventListener('change', function () {
+      if (current.reader) current.reader.setFontStyle(this.value);
+    });
+    el.lineHeight.addEventListener('input', function () {
+      if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
+    });
 
     el.toggleSource.addEventListener('click', async function () {
       if (!current.reader) return;

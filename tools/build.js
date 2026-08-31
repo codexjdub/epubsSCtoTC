@@ -17,6 +17,7 @@ const SCRIPTS = [
   'src/convert/fonts.js',
   'src/convert/punct.js',
   'src/reader/render.js',
+  'src/reader/fonts.js',
   'src/reader/nav.js',
   'src/reader/keys.js',
   'src/export/write.js',

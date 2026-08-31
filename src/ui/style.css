@@ -333,3 +333,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 
 }
+
+/* ---- typeface + leading controls ---- */
+.topbar-more label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.topbar-more input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+@media (max-width: 700px) {
+  .topbar-more input[type="range"] { min-height: 44px; }
+}

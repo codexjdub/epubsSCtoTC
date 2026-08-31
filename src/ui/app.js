@@ -217,6 +217,8 @@
     setStatus('');
 
     await reader.resume();
+    el.fontStyle.value = reader.state.fontStyle;
+    el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
 
@@ -275,6 +277,8 @@
     el.themeLanding = $('themeLanding');
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
+    el.fontStyle = $('fontStyle');
+    el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
@@ -458,6 +462,20 @@
     syncVim();
 
     api.drawerOpen = drawerOpen;
+
+    App.readingFonts.STYLES.forEach(function (f) {
+      var opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.label;
+      opt.title = f.note;
+      el.fontStyle.appendChild(opt);
+    });
+    el.fontStyle.addEventListener('change', function () {
+      if (current.reader) current.reader.setFontStyle(this.value);
+    });
+    el.lineHeight.addEventListener('input', function () {
+      if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
+    });
 
     el.toggleSource.addEventListener('click', async function () {
       if (!current.reader) return;
