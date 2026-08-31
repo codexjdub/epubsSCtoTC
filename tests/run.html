@@ -196,6 +196,45 @@
       check('TOC nesting preserved after conversion', book2.toc[0].children.length === 1,
             String(book2.toc[0].children.length));
 
+      // ---- confidence filter on the marks ----
+      /* Marking every occurrence of an ambiguous character buries the real
+       * cases. Where a phrase rule overrode the dictionary default, the
+       * decision rests on evidence and needs no mark; where the bare default
+       * applied, nothing disambiguated it. */
+      var fConv = App.convert.createConverter('hk');
+      function marksOf(text, solo) {
+        var d = new DOMParser().parseFromString(
+          '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body><p>' +
+          text + '</p></body></html>', 'application/xml');
+        return App.convert.convertDocument(d, fConv, App.ambiguityTable, solo).marks;
+      }
+      var corpus = '她的头发很长，这个城市发展得很快。房间很干净，他是干部。' +
+                   '老板买了一块木板。皇后走了，后来再也没有回来。';
+      var unfiltered = marksOf(corpus, null);
+      var filtered = marksOf(corpus, App.convert.createSoloCache(fConv));
+
+      check('the filter removes marks', filtered.length < unfiltered.length,
+            unfiltered.length + ' -> ' + filtered.length);
+      check('passing null disables the filter', unfiltered.length > 0, 'no marks at all');
+
+      function marked(list, ch, chosen) {
+        return list.some(function (m) { return m.source === ch && m.chosen === chosen; });
+      }
+      check('a phrase-resolved reading is not marked', !marked(filtered, '发', '髮'),
+            '头发 was still marked');
+      check('but it is marked with the filter off', marked(unfiltered, '发', '髮'),
+            'baseline missing the phrase case');
+      check('a bare-default reading stays marked', marked(filtered, '发', '發'),
+            '发展 lost its mark');
+      check('老板 is treated as confident', !marked(filtered, '板', '闆'), '老板 still marked');
+      check('木板 stays marked', marked(filtered, '板', '板'), '木板 lost its mark');
+      check('皇后 is treated as confident', !marked(filtered, '后', '后'), '皇后 still marked');
+      check('后来 stays marked', marked(filtered, '后', '後'), '后来 lost its mark');
+
+      var cache = App.convert.createSoloCache(fConv);
+      check('the solo cache is consistent', cache('发') === cache('发') && cache('发') === '發',
+            cache('发'));
+
       // ---- annotation records ----
       check('ambiguity marks recorded', report.markCount > 0, String(report.markCount));
       var marks1 = report.marks.get('OEBPS/text/chapter1.xhtml') || [];

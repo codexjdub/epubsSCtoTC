@@ -56,12 +56,27 @@
    * is no honest correspondence, so annotation for that node is skipped
    * rather than guessed. This is checked per node, not assumed per preset.
    */
-  function markNode(source, output, table, nodeIndex, into) {
+  function markNode(source, output, table, nodeIndex, into, solo) {
     if (source.length !== output.length) return false;
     for (var i = 0; i < source.length; i++) {
-      var candidates = table[source.charAt(i)];
+      var ch = source.charAt(i);
+      var candidates = table[ch];
       if (!candidates) continue;
       var chosen = output.charAt(i);
+
+      /* Confidence filter.
+       *
+       * Converting the character on its own gives the dictionary's default
+       * reading. If the full pass produced something ELSE at this position, a
+       * phrase rule matched the surrounding context and overrode that default
+       * -- 头发 -> 頭髮 rather than the default 發 -- which is a decision made
+       * on evidence, not a guess. Those need no mark.
+       *
+       * Where the output equals the solo default, nothing disambiguated it and
+       * the reader may want a say. Marking every occurrence regardless buried
+       * the real cases: a full-length book produced over eight thousand marks.
+       */
+      if (solo && chosen !== solo(ch)) continue;
       /* The neighbouring SOURCE characters are recorded so a reader override
        * can be scoped to the word it was made in. Keying an override on the
        * bare character would be wrong: choosing 髮 for 发 must not also
@@ -69,7 +84,7 @@
       into.push({
         nodeIndex: nodeIndex,
         offset: i,
-        source: source.charAt(i),
+        source: ch,
         chosen: chosen,
         before: i > 0 ? source.charAt(i - 1) : '',
         after: i + 1 < source.length ? source.charAt(i + 1) : '',
@@ -85,7 +100,18 @@
    * (text-node index, character offset) -- a stable address the reader can
    * resolve by re-walking the same document in the same order, so the
    * exported markup stays free of marker elements. */
-  function convertDocument(doc, converter, table) {
+  function createSoloCache(converter) {
+    var cache = {};
+    return function (ch) {
+      if (cache[ch] === undefined) cache[ch] = converter.convert(ch);
+      return cache[ch];
+    };
+  }
+
+  /* Pass solo explicitly as null to disable the confidence filter (used by the
+   * tests to measure what it removes); omit it and one is built. */
+  function convertDocument(doc, converter, table, solo) {
+    if (solo === undefined) solo = createSoloCache(converter);
     var walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT, null, false);
     var marks = [];
     var nodeIndex = 0;
@@ -103,7 +129,7 @@
         node.nodeValue = output;
         changedNodes++;
       }
-      if (!markNode(source, output, table, nodeIndex, marks)) unaligned++;
+      if (!markNode(source, output, table, nodeIndex, marks, solo)) unaligned++;
       nodeIndex++;
     }
 
@@ -148,6 +174,7 @@
   App.convert.convertDocument = convertDocument;
   App.convert.retagLanguage = retagLanguage;
   App.convert.contextKey = contextKey;
+  App.convert.createSoloCache = createSoloCache;
   App.convert.SKIP_TAGS = SKIP_TAGS;
   App.convert.TEXT_ATTRS = TEXT_ATTRS;
 })(window.App = window.App || {});

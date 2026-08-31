@@ -345,6 +345,37 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .topbar-more input[type="range"] { min-height: 44px; }
 }
 
+/* ---- saved books ---- */
+.library { width: 100%; max-width: 560px; }
+.library.hidden { display: none !important; }
+.library h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin: 0 0 10px; text-align: center;
+}
+.library-list { display: flex; flex-direction: column; gap: 8px; }
+.library-row {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.library-row .open {
+  flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
+  padding: 11px 13px; display: flex; align-items: baseline; gap: 10px;
+}
+.library-row .name {
+  flex: 1 1 auto; min-width: 0; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.library-row .remove {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 11px 13px; font-size: 16px; line-height: 1;
+}
+.library-row .remove:hover { color: var(--warn); }
+
+@media (max-width: 700px) {
+  .library-row .open, .library-row .remove { min-height: 44px; }
+}
+
 </style>
 </head>
 <body>
@@ -365,6 +396,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <label>Convert to <select id="preset"></select></label>
       <label><input type="checkbox" id="punct"/> Convert quotation marks to 「 」</label>
       <label>Theme <select id="themeLanding"></select></label>
+    </div>
+
+    <div class="library hidden" id="library">
+      <h2>Your books</h2>
+      <div class="library-list" id="libraryList"></div>
+      <p class="hint" id="libraryNote"></p>
     </div>
 
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
@@ -957,12 +994,27 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * is no honest correspondence, so annotation for that node is skipped
    * rather than guessed. This is checked per node, not assumed per preset.
    */
-  function markNode(source, output, table, nodeIndex, into) {
+  function markNode(source, output, table, nodeIndex, into, solo) {
     if (source.length !== output.length) return false;
     for (var i = 0; i < source.length; i++) {
-      var candidates = table[source.charAt(i)];
+      var ch = source.charAt(i);
+      var candidates = table[ch];
       if (!candidates) continue;
       var chosen = output.charAt(i);
+
+      /* Confidence filter.
+       *
+       * Converting the character on its own gives the dictionary's default
+       * reading. If the full pass produced something ELSE at this position, a
+       * phrase rule matched the surrounding context and overrode that default
+       * -- 头发 -> 頭髮 rather than the default 發 -- which is a decision made
+       * on evidence, not a guess. Those need no mark.
+       *
+       * Where the output equals the solo default, nothing disambiguated it and
+       * the reader may want a say. Marking every occurrence regardless buried
+       * the real cases: a full-length book produced over eight thousand marks.
+       */
+      if (solo && chosen !== solo(ch)) continue;
       /* The neighbouring SOURCE characters are recorded so a reader override
        * can be scoped to the word it was made in. Keying an override on the
        * bare character would be wrong: choosing 髮 for 发 must not also
@@ -970,7 +1022,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       into.push({
         nodeIndex: nodeIndex,
         offset: i,
-        source: source.charAt(i),
+        source: ch,
         chosen: chosen,
         before: i > 0 ? source.charAt(i - 1) : '',
         after: i + 1 < source.length ? source.charAt(i + 1) : '',
@@ -986,7 +1038,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * (text-node index, character offset) -- a stable address the reader can
    * resolve by re-walking the same document in the same order, so the
    * exported markup stays free of marker elements. */
-  function convertDocument(doc, converter, table) {
+  function createSoloCache(converter) {
+    var cache = {};
+    return function (ch) {
+      if (cache[ch] === undefined) cache[ch] = converter.convert(ch);
+      return cache[ch];
+    };
+  }
+
+  /* Pass solo explicitly as null to disable the confidence filter (used by the
+   * tests to measure what it removes); omit it and one is built. */
+  function convertDocument(doc, converter, table, solo) {
+    if (solo === undefined) solo = createSoloCache(converter);
     var walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT, null, false);
     var marks = [];
     var nodeIndex = 0;
@@ -1004,7 +1067,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         node.nodeValue = output;
         changedNodes++;
       }
-      if (!markNode(source, output, table, nodeIndex, marks)) unaligned++;
+      if (!markNode(source, output, table, nodeIndex, marks, solo)) unaligned++;
       nodeIndex++;
     }
 
@@ -1049,6 +1112,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.convert.convertDocument = convertDocument;
   App.convert.retagLanguage = retagLanguage;
   App.convert.contextKey = contextKey;
+  App.convert.createSoloCache = createSoloCache;
   App.convert.SKIP_TAGS = SKIP_TAGS;
   App.convert.TEXT_ATTRS = TEXT_ATTRS;
 })(window.App = window.App || {});
@@ -1152,6 +1216,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   async function convertBook(book, presetId, onProgress) {
     var converter = App.convert.createConverter(presetId);
     var table = App.ambiguityTable;
+    var solo = App.convert.createSoloCache(converter);
 
     var docs = [];
     book.manifest.forEach(function (item) {
@@ -1188,7 +1253,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
                              'HTML parser and converted');
       }
 
-      var result = App.convert.convertDocument(doc, converter, table);
+      var result = App.convert.convertDocument(doc, converter, table, solo);
 
       var html = P.tags(doc, 'html')[0];
       if (html) {
@@ -2726,6 +2791,167 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 })(window.App = window.App || {});
 
 </script>
+<script>/* src/ui/library.js */
+/* Persistent library.
+ *
+ * Books are kept in IndexedDB so they can be reopened without dropping the
+ * file again. Reading position and character overrides already persist per
+ * book in localStorage, keyed the same way, so a reopened book lands where it
+ * was left.
+ *
+ * Gated on a real origin. IndexedDB at file:// is unreliable -- a local file is
+ * an opaque origin in Chrome and Safari is stricter still -- so rather than
+ * write to storage that may silently vanish, the library simply does not offer
+ * itself there. Everything else in the app works unchanged.
+ *
+ * Nothing leaves the browser: this is the same device, the same profile.
+ */
+(function (App) {
+  'use strict';
+
+  var DB_NAME = 'epub-tc';
+  var STORE = 'books';
+  var VERSION = 1;
+  var MAX_BYTES = 60 * 1024 * 1024;   // refuse to silently swallow huge files
+
+  function available() {
+    return (location.protocol === 'http:' || location.protocol === 'https:') &&
+           typeof indexedDB !== 'undefined';
+  }
+
+  function reason() {
+    if (available()) return '';
+    if (typeof indexedDB === 'undefined') return 'This browser has no IndexedDB.';
+    return 'Saving books needs the page to be served; a local file cannot store them reliably.';
+  }
+
+  function open() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(DB_NAME, VERSION);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB unavailable')); };
+      req.onblocked = function () { reject(new Error('IndexedDB is blocked by another tab')); };
+    });
+  }
+
+  function tx(db, mode, fn) {
+    return new Promise(function (resolve, reject) {
+      var t = db.transaction(STORE, mode);
+      var store = t.objectStore(STORE);
+      var result;
+      try { result = fn(store); } catch (e) { reject(e); return; }
+      t.oncomplete = function () {
+        /* Unwrap the IDBRequest properly. Testing `result.result !== undefined`
+         * fell through to the request object on a key miss, which then got
+         * handed to put() and threw DataCloneError. */
+        var isRequest = typeof IDBRequest !== 'undefined' && result instanceof IDBRequest;
+        resolve(isRequest ? result.result : result);
+      };
+      t.onerror = function () { reject(t.error); };
+      t.onabort = function () { reject(t.error || new Error('transaction aborted')); };
+    });
+  }
+
+  /* Same identity the reader uses for its saved position, so the two agree. */
+  function idFor(book) {
+    return App.reader.hashKey(book);
+  }
+
+  async function list() {
+    if (!available()) return [];
+    var db = await open();
+    var rows = await tx(db, 'readonly', function (store) { return store.getAll(); });
+    db.close();
+    return (rows || []).map(function (r) {
+      return { id: r.id, title: r.title, creator: r.creator, language: r.language,
+               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt };
+    }).sort(function (a, b) { return (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0); });
+  }
+
+  async function save(book, bytes, filename) {
+    if (!available()) return { saved: false, reason: reason() };
+    if (bytes.byteLength > MAX_BYTES) {
+      return { saved: false, reason: 'Too large to save (' +
+        Math.round(bytes.byteLength / 1048576) + ' MB); it will still open normally.' };
+    }
+    var record = {
+      id: idFor(book),
+      title: book.metadata.original ? book.metadata.original.title : book.metadata.title,
+      creator: book.metadata.creator || '',
+      language: book.metadata.language || '',
+      filename: filename || '',
+      size: bytes.byteLength,
+      bytes: bytes,
+      addedAt: Date.now(),
+      lastOpenedAt: Date.now()
+    };
+    try {
+      var db = await open();
+      var existing = await tx(db, 'readonly', function (s) { return s.get(record.id); });
+      if (existing && existing.addedAt) record.addedAt = existing.addedAt;
+      await tx(db, 'readwrite', function (s) { return s.put(record); });
+      db.close();
+      return { saved: true, id: record.id };
+    } catch (e) {
+      return { saved: false, reason: e.message };
+    }
+  }
+
+  async function load(id) {
+    if (!available()) return null;
+    var db = await open();
+    var row = await tx(db, 'readonly', function (s) { return s.get(id); });
+    if (row && row.bytes) {
+      row.lastOpenedAt = Date.now();
+      await tx(db, 'readwrite', function (s) { return s.put(row); });
+    }
+    db.close();
+    return row && row.bytes ? row.bytes : null;
+  }
+
+  async function remove(id) {
+    if (!available()) return;
+    var db = await open();
+    await tx(db, 'readwrite', function (s) { return s.delete(id); });
+    db.close();
+  }
+
+  /* Browsers may evict IndexedDB under storage pressure. This asks for
+   * exemption; the user grants it or not, and either way the app works. */
+  async function requestPersistence() {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        if (await navigator.storage.persisted()) return true;
+        return await navigator.storage.persist();
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  async function usage() {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        var e = await navigator.storage.estimate();
+        return { used: e.usage || 0, quota: e.quota || 0 };
+      }
+    } catch (e) { /* ignore */ }
+    return { used: 0, quota: 0 };
+  }
+
+  App.library = {
+    available: available, reason: reason, list: list, save: save, load: load,
+    remove: remove, requestPersistence: requestPersistence, usage: usage,
+    idFor: idFor, MAX_BYTES: MAX_BYTES, DB_NAME: DB_NAME
+  };
+})(window.App = window.App || {});
+
+</script>
 <script>/* src/ui/app.js */
 /* Application shell: drop a book in, read it converted, export if wanted. */
 (function (App) {
@@ -2944,6 +3170,16 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     buildToc(book, reader, reader.state.source === 'original');
     renderReport(book, fontReport);
 
+    /* Store the ORIGINAL bytes, not the converted ones: reopening should
+     * start from the source so the preset can still be changed. */
+    if (App.library.available()) {
+      App.library.requestPersistence();
+      App.library.save(book, buffer, filename).then(function (r) {
+        if (!r.saved && r.reason) setStatus(r.reason);
+        return renderLibrary();
+      });
+    }
+
     show(el.landing, false);
     show(el.chrome, true);
     setStatus('');
@@ -2953,6 +3189,89 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.fontStyle.value = reader.state.fontStyle;
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
+  }
+
+  /* ---- saved books ---- */
+
+  function formatSize(bytes) {
+    return bytes >= 1048576
+      ? (bytes / 1048576).toFixed(1) + ' MB'
+      : Math.round(bytes / 1024) + ' KB';
+  }
+
+  function formatWhen(ts) {
+    if (!ts) return '';
+    var days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 30) return days + ' days ago';
+    return new Date(ts).toLocaleDateString();
+  }
+
+  async function openFromLibrary(entry, row) {
+    clearError();
+    row.classList.add('busy');
+    setStatus('Opening ' + entry.title + '…');
+    try {
+      var bytes = await App.library.load(entry.id);
+      if (!bytes) throw new Error('that book is no longer stored');
+      await loadBuffer(bytes, entry.title);
+    } catch (e) {
+      setStatus('');
+      showError('Could not open it: ' + e.message);
+    }
+    row.classList.remove('busy');
+  }
+
+  async function renderLibrary() {
+    if (!App.library.available()) { show(el.library, false); return; }
+
+    var books = [];
+    try { books = await App.library.list(); } catch (e) { books = []; }
+    if (!books.length) { show(el.library, false); return; }
+
+    el.libraryList.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = 'library-row';
+
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'open';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = entry.title || '(untitled)';
+      var meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = formatSize(entry.size) +
+        (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
+      open.appendChild(name);
+      open.appendChild(meta);
+      open.addEventListener('click', function () { openFromLibrary(entry, row); });
+
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove';
+      remove.textContent = '×';
+      remove.title = 'Remove from this device';
+      remove.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      remove.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderLibrary();
+      });
+
+      row.appendChild(open);
+      row.appendChild(remove);
+      el.libraryList.appendChild(row);
+    });
+
+    var used = await App.library.usage();
+    el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
+      ' stored in this browser' +
+      (used.used ? ', using ' + formatSize(used.used) : '') +
+      '. They never leave this device.';
+    show(el.library, true);
   }
 
   function readFile(file) {
@@ -2994,6 +3313,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.preset = $('preset');
     el.presetTop = $('presetTop');
     el.punct = $('punct');
+    el.library = $('library');
+    el.libraryList = $('libraryList');
+    el.libraryNote = $('libraryNote');
     el.status = $('status');
     el.error = $('error');
     el.title = $('bookTitle');
@@ -3074,6 +3396,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var file = ev.dataTransfer && ev.dataTransfer.files[0];
       if (file) readFile(file);
     });
+
+    renderLibrary();
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -3249,7 +3573,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
-             drawerOpen: function () { return el.sidebar && api.drawerOpen(); } };
+             drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
+             renderLibrary: renderLibrary };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

@@ -147,49 +147,56 @@
       var report = await App.convert.book(book2, 'hk');
 
       var marks2 = report.marks.get('OEBPS/text/chapter2.xhtml') || [];
-      var houMark = marks2.filter(function (m) {
-        return m.source === '后' && m.before === '皇' && m.after === '走';
+
+      /* The confidence filter drops phrase-resolved readings, so 皇后 no longer
+       * carries a mark -- a phrase rule decides it. Use readings that survive:
+       * 松树 and 木板 both resolve by bare default. */
+      var songMark = marks2.filter(function (m) {
+        return m.source === '松' && m.after === '树';
       })[0];
-      t.check('found the 皇后走 mark to override', !!houMark,
+      t.check('found the 松树 mark to override', !!songMark,
               'no such mark among ' + marks2.length);
 
-      /* The same 皇后 appears at the end of both <title> and <h1>. That is one
-       * context occurring twice, so overriding it must change both -- which is
-       * exactly the propagation this feature promises. */
-      var titleMark = marks2.filter(function (m) {
-        return m.source === '后' && m.before === '皇' && m.after === '';
-      })[0];
-      t.check('title/h1 share one context key', !!titleMark, 'no end-of-string 皇后 mark');
-      if (titleMark && houMark) {
-        t.check('paragraph and title keys differ',
-                App.convert.contextKey(titleMark) !== App.convert.contextKey(houMark),
+      /* 木板。 occurs twice in the chapter, so it is one context appearing
+       * twice -- overriding it must change both. */
+      var boardMarks = marks2.filter(function (m) {
+        return m.source === '板' && m.before === '木' && m.after === '。';
+      });
+      t.eq('the recurring 木板 context appears twice', boardMarks.length, 2);
+      if (boardMarks.length === 2) {
+        t.eq('and both share one context key',
+             App.convert.contextKey(boardMarks[0]), App.convert.contextKey(boardMarks[1]));
+      }
+      if (songMark && boardMarks.length) {
+        t.check('different wordings have different keys',
+                App.convert.contextKey(songMark) !== App.convert.contextKey(boardMarks[0]),
                 'keys collided');
       }
 
       var overrides = {};
-      if (houMark) overrides[App.convert.contextKey(houMark)] = '後';
+      if (songMark) overrides[App.convert.contextKey(songMark)] = '鬆';
 
       var summary = await App.export.buildFile(book2, { overrides: overrides, punctuation: false });
-      t.check('override applied once, to the paragraph only', summary.overrides === 1,
+      t.check('override applied once, to the single occurrence', summary.overrides === 1,
               String(summary.overrides));
 
       var outBuf = await summary.blob.arrayBuffer();
       var reopened = await App.parse.load(outBuf);
       var ch2 = await App.zip.loadText(reopened.entries.get('OEBPS/text/chapter2.xhtml'));
-      t.has(ch2, '皇後走了', 'override reached the exported file');
-      t.has(ch2, '後來', 'the other 后 occurrence is unaffected');
-      t.has(ch2, '老闆與皇后', 'title context untouched by the paragraph override');
+      t.has(ch2, '鬆樹', 'override reached the exported file');
+      t.has(ch2, '放鬆', 'the phrase-resolved 放松 is untouched');
+      t.has(ch2, '木板', 'the other wording is unaffected');
 
-      // Overriding the shared title context must change BOTH occurrences.
+      // Overriding a context that occurs twice must change both.
       var book2b = await App.parse.load(await App.fixtures.build('epub2'));
       var report2b = await App.convert.book(book2b, 'hk');
-      var titleMark2 = (report2b.marks.get('OEBPS/text/chapter2.xhtml') || []).filter(function (m) {
-        return m.source === '后' && m.before === '皇' && m.after === '';
-      })[0];
+      var boards = (report2b.marks.get('OEBPS/text/chapter2.xhtml') || []).filter(function (m) {
+        return m.source === '板' && m.before === '木' && m.after === '。';
+      });
       var ov2 = {};
-      ov2[App.convert.contextKey(titleMark2)] = '後';
+      if (boards.length) ov2[App.convert.contextKey(boards[0])] = '闆';
       var sum2 = await App.export.buildFile(book2b, { overrides: ov2 });
-      t.check('shared context propagates to both title and heading',
+      t.check('a recurring context propagates to both occurrences',
               sum2.overrides === 2, String(sum2.overrides));
 
       // ---- export with punctuation enabled ----

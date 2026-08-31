@@ -95,6 +95,7 @@
   async function convertBook(book, presetId, onProgress) {
     var converter = App.convert.createConverter(presetId);
     var table = App.ambiguityTable;
+    var solo = App.convert.createSoloCache(converter);
 
     var docs = [];
     book.manifest.forEach(function (item) {
@@ -131,7 +132,7 @@
                              'HTML parser and converted');
       }
 
-      var result = App.convert.convertDocument(doc, converter, table);
+      var result = App.convert.convertDocument(doc, converter, table, solo);
 
       var html = P.tags(doc, 'html')[0];
       if (html) {

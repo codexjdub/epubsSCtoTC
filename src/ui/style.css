@@ -337,3 +337,34 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 @media (max-width: 700px) {
   .topbar-more input[type="range"] { min-height: 44px; }
 }
+
+/* ---- saved books ---- */
+.library { width: 100%; max-width: 560px; }
+.library.hidden { display: none !important; }
+.library h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin: 0 0 10px; text-align: center;
+}
+.library-list { display: flex; flex-direction: column; gap: 8px; }
+.library-row {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.library-row .open {
+  flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
+  padding: 11px 13px; display: flex; align-items: baseline; gap: 10px;
+}
+.library-row .name {
+  flex: 1 1 auto; min-width: 0; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.library-row .remove {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 11px 13px; font-size: 16px; line-height: 1;
+}
+.library-row .remove:hover { color: var(--warn); }
+
+@media (max-width: 700px) {
+  .library-row .open, .library-row .remove { min-height: 44px; }
+}

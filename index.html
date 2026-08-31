@@ -26,6 +26,12 @@
       <label>Theme <select id="themeLanding"></select></label>
     </div>
 
+    <div class="library hidden" id="library">
+      <h2>Your books</h2>
+      <div class="library-list" id="libraryList"></div>
+      <p class="hint" id="libraryNote"></p>
+    </div>
+
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
@@ -104,6 +110,7 @@
 <script src="src/export/write.js"></script>
 <script src="src/llm/disambiguate.js"></script>
 <script src="src/ui/theme.js"></script>
+<script src="src/ui/library.js"></script>
 <script src="src/ui/app.js"></script>
 </body>
 </html>

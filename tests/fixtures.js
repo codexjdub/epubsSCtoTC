@@ -27,7 +27,8 @@
     '<p id="p8">复习功课，重复练习，覆盖全部。</p>' +
     '<p id="p9"><img src="../images/pic.png" alt="一张头发的照片" title="干净的房间"/></p>' +
     '<pre id="code">const 发 = "干";  // must not be converted</pre>' +
-    '<p id="p10"><a href="chapter1.xhtml#p1">回到第一章</a></p>';
+    '<p id="p10"><a href="chapter1.xhtml#p1">回到第一章</a></p>' +
+    '<p id="p11">他又买了一块木板。</p>';
 
   function xhtml(title, body, lang) {
     /* lang === null builds a document declaring no language at all, which is

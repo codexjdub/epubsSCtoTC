@@ -33,6 +33,7 @@
 <script src="../src/reader/nav.js"></script>
 <script src="../src/reader/keys.js"></script>
 <script src="../src/ui/theme.js"></script>
+<script src="../src/ui/library.js"></script>
 <script src="harness.js"></script>
 <script src="fixtures.js"></script>
 <script>
@@ -114,20 +115,29 @@
       }
 
       // ---- context-scoped propagation, not blanket per-character ----
-      var p7 = reader.content.querySelector('#p7');   // 皇后走了，后来...
-      var houMarks = p7 ? p7.querySelectorAll('.amb-mark[data-source="后"]') : [];
-      t.check('both 后 occurrences are marked', houMarks.length === 2, String(houMarks.length));
-      if (houMarks.length === 2) {
-        var keyA = houMarks[0].getAttribute('data-key');
-        var keyB = houMarks[1].getAttribute('data-key');
-        t.check('皇后 and 后来 have different context keys', keyA !== keyB, keyA + ' vs ' + keyB);
-        var otherBefore = houMarks[1].textContent;
-        houMarks[0].click();
+      /* 干部 and 干了 both resolve to 幹 by bare default, so both keep a mark
+       * after the confidence filter. (皇后 no longer does: a phrase rule
+       * decides it, which is exactly what the filter is for.) */
+      await reader.show(0);
+      var p2 = reader.content.querySelector('#p2');   // 房间很干净，他是干部，衣服干了。
+      var ganMarks = p2 ? p2.querySelectorAll('.amb-mark[data-source="干"]') : [];
+      t.check('both bare-default 干 occurrences are marked', ganMarks.length === 2,
+              String(ganMarks.length));
+      t.check('the phrase-resolved 干净 is not marked',
+              p2 && p2.textContent.indexOf('乾淨') >= 0 && ganMarks.length === 2,
+              'filter did not drop 干净');
+      if (ganMarks.length === 2) {
+        var keyA = ganMarks[0].getAttribute('data-key');
+        var keyB = ganMarks[1].getAttribute('data-key');
+        t.check('干部 and 干了 have different context keys', keyA !== keyB, keyA + ' vs ' + keyB);
+        var otherBefore = ganMarks[1].textContent;
+        ganMarks[0].click();
         await wait(0);
-        t.check('flipping 皇后 leaves 后来 alone',
-                houMarks[1].textContent === otherBefore,
-                'other occurrence changed to ' + houMarks[1].textContent);
+        t.check('flipping one leaves the other alone',
+                ganMarks[1].textContent === otherBefore,
+                'other occurrence changed to ' + ganMarks[1].textContent);
       }
+      await reader.show(1);
 
       // ---- internal link interception ----
       await reader.show(1);
@@ -545,6 +555,55 @@
       var ev = press('z');
       t.check('unbound keys are not swallowed', !ev.defaultPrevented, 'z was consumed');
       vim.set(false);
+
+      // ---- persistent library ----
+      /* IndexedDB is unreliable from a local file, so the library gates itself
+       * on a real origin rather than writing to storage that may vanish. */
+      t.check('library is offered over http', App.library.available(), App.library.reason());
+      t.check('it explains itself when unavailable',
+              App.library.available() ? true : App.library.reason().length > 0, 'no reason given');
+
+      var libBook = await App.parse.load(await App.fixtures.build('epub2'));
+      var libBytes = await App.fixtures.build('epub2');
+
+      /* The library and the reader must agree on identity, or a reopened book
+       * would not find its saved position. */
+      t.eq('library id matches the reader storage key',
+           App.library.idFor(libBook), App.reader.hashKey(libBook));
+
+      await App.library.remove(App.library.idFor(libBook));   // clean slate
+      var before = await App.library.list();
+      var saved = await App.library.save(libBook, libBytes, 'test.epub');
+      t.check('a book saves', saved.saved, saved.reason || 'save failed');
+
+      var after = await App.library.list();
+      t.eq('it appears in the list', after.length, before.length + 1);
+      var row = after.filter(function (r) { return r.id === saved.id; })[0];
+      t.check('the entry carries its title', !!row && !!row.title, JSON.stringify(row));
+      t.eq('and its size', row ? row.size : 0, libBytes.byteLength);
+
+      var loaded = await App.library.load(saved.id);
+      t.check('the stored bytes come back intact',
+              loaded && loaded.byteLength === libBytes.byteLength,
+              (loaded ? loaded.byteLength : 0) + ' vs ' + libBytes.byteLength);
+      var roundTripped = await App.parse.load(loaded);
+      t.check('and still parse as an EPUB', !!roundTripped.opfPath, 'reopen failed');
+
+      /* Saving the same book twice must update rather than duplicate. */
+      await App.library.save(libBook, libBytes, 'test.epub');
+      var afterTwice = await App.library.list();
+      t.eq('saving again does not duplicate', afterTwice.length, after.length);
+
+      var huge = { byteLength: App.library.MAX_BYTES + 1 };
+      var refused = await App.library.save(libBook, huge, 'huge.epub');
+      t.check('an oversized book is refused with a reason',
+              !refused.saved && /Too large/.test(refused.reason), JSON.stringify(refused));
+
+      await App.library.remove(saved.id);
+      var afterRemove = await App.library.list();
+      t.check('removal works',
+              !afterRemove.some(function (r) { return r.id === saved.id; }), 'still listed');
+      t.eq('and a removed book loads as null', await App.library.load(saved.id), null);
 
       reader.destroy();
       t.check('destroy removes the mount', !document.querySelector('.reader-mount'), 'mount still present');

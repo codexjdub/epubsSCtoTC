@@ -215,6 +215,16 @@
     buildToc(book, reader, reader.state.source === 'original');
     renderReport(book, fontReport);
 
+    /* Store the ORIGINAL bytes, not the converted ones: reopening should
+     * start from the source so the preset can still be changed. */
+    if (App.library.available()) {
+      App.library.requestPersistence();
+      App.library.save(book, buffer, filename).then(function (r) {
+        if (!r.saved && r.reason) setStatus(r.reason);
+        return renderLibrary();
+      });
+    }
+
     show(el.landing, false);
     show(el.chrome, true);
     setStatus('');
@@ -224,6 +234,89 @@
     el.fontStyle.value = reader.state.fontStyle;
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
+  }
+
+  /* ---- saved books ---- */
+
+  function formatSize(bytes) {
+    return bytes >= 1048576
+      ? (bytes / 1048576).toFixed(1) + ' MB'
+      : Math.round(bytes / 1024) + ' KB';
+  }
+
+  function formatWhen(ts) {
+    if (!ts) return '';
+    var days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 30) return days + ' days ago';
+    return new Date(ts).toLocaleDateString();
+  }
+
+  async function openFromLibrary(entry, row) {
+    clearError();
+    row.classList.add('busy');
+    setStatus('Opening ' + entry.title + '…');
+    try {
+      var bytes = await App.library.load(entry.id);
+      if (!bytes) throw new Error('that book is no longer stored');
+      await loadBuffer(bytes, entry.title);
+    } catch (e) {
+      setStatus('');
+      showError('Could not open it: ' + e.message);
+    }
+    row.classList.remove('busy');
+  }
+
+  async function renderLibrary() {
+    if (!App.library.available()) { show(el.library, false); return; }
+
+    var books = [];
+    try { books = await App.library.list(); } catch (e) { books = []; }
+    if (!books.length) { show(el.library, false); return; }
+
+    el.libraryList.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = 'library-row';
+
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'open';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = entry.title || '(untitled)';
+      var meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = formatSize(entry.size) +
+        (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
+      open.appendChild(name);
+      open.appendChild(meta);
+      open.addEventListener('click', function () { openFromLibrary(entry, row); });
+
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove';
+      remove.textContent = '×';
+      remove.title = 'Remove from this device';
+      remove.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      remove.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderLibrary();
+      });
+
+      row.appendChild(open);
+      row.appendChild(remove);
+      el.libraryList.appendChild(row);
+    });
+
+    var used = await App.library.usage();
+    el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
+      ' stored in this browser' +
+      (used.used ? ', using ' + formatSize(used.used) : '') +
+      '. They never leave this device.';
+    show(el.library, true);
   }
 
   function readFile(file) {
@@ -265,6 +358,9 @@
     el.preset = $('preset');
     el.presetTop = $('presetTop');
     el.punct = $('punct');
+    el.library = $('library');
+    el.libraryList = $('libraryList');
+    el.libraryNote = $('libraryNote');
     el.status = $('status');
     el.error = $('error');
     el.title = $('bookTitle');
@@ -345,6 +441,8 @@
       var file = ev.dataTransfer && ev.dataTransfer.files[0];
       if (file) readFile(file);
     });
+
+    renderLibrary();
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -520,7 +618,8 @@
   }
 
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
-             drawerOpen: function () { return el.sidebar && api.drawerOpen(); } };
+             drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
+             renderLibrary: renderLibrary };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

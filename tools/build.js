@@ -23,6 +23,7 @@ const SCRIPTS = [
   'src/export/write.js',
   'src/llm/disambiguate.js',
   'src/ui/theme.js',
+  'src/ui/library.js',
   'src/ui/app.js'
 ];
 
