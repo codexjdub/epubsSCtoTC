@@ -24,29 +24,12 @@
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
   }
 
-  var PAGE_GAP = 48;   // gutter between facing pages, in px
-
-  /* Paged mode lays the text into CSS columns exactly one viewport wide, so
-   * advancing a page is a horizontal scroll of (column + gap). The column
-   * width has to be a pixel value computed from the container -- there is no
-   * declarative way to say "one column exactly this wide" -- so the mode is
-   * re-rendered whenever the container resizes. column-fill:auto is what makes
-   * each column fill top to bottom before the next one starts. */
-  function modeCss(mode, metrics) {
+  function modeCss(mode) {
     if (mode === 'vertical') {
       return ':host { writing-mode: vertical-rl; text-orientation: upright; ' +
              'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
              'column-width: 18em; column-gap: 3em; padding: 1em 0; }\n' +
              ':host img { max-height: 60vh; }\n';
-    }
-    if (mode === 'paged') {
-      var col = Math.max(160, (metrics.width || 600) - PAGE_GAP);
-      return ':host { box-sizing: border-box; writing-mode: horizontal-tb; ' +
-             'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
-             'padding: 1em ' + (PAGE_GAP / 2) + 'px; ' +
-             'column-width: ' + col + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
-             'column-fill: auto; }\n' +
-             ':host img { max-height: 78%; }\n';
     }
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
@@ -111,13 +94,9 @@
      * overflow-x, so the host itself scrolls horizontally. Using the wrong
      * one silently does nothing -- it is why saved positions were always 0. */
     function scroller() {
-      return (state.mode === 'vertical' || state.mode === 'paged')
+      return state.mode === 'vertical'
         ? { el: mount, axis: 'left' }
         : { el: mount.parentNode, axis: 'top' };
-    }
-
-    function pageAdvance() {
-      return (mount.parentNode.clientWidth || 600);
     }
 
     function scrollPosition() {
@@ -136,53 +115,24 @@
     function scrollBy(delta) {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollBy({ top: delta, behavior: 'auto' });
-      /* vertical-rl runs right to left, so "forward" is a negative scrollLeft;
-       * paged mode is ordinary left-to-right. */
-      else s.el.scrollBy({ left: state.mode === 'vertical' ? -delta : delta, behavior: 'auto' });
+      else s.el.scrollBy({ left: -delta, behavior: 'auto' });
     }
 
     function viewportExtent() {
-      if (state.mode === 'paged') return pageAdvance();
       var s = scroller();
       return s.axis === 'top' ? s.el.clientHeight : s.el.clientWidth;
-    }
-
-    /* Page turns run off the end of a chapter into the next one, so the whole
-     * book reads as a continuous sequence of pages. */
-    function atLastPage() {
-      var el = scroller().el;
-      return el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
-    }
-    function atFirstPage() { return scroller().el.scrollLeft <= 2; }
-
-    function nextPage() {
-      if (state.mode !== 'paged') return next();
-      if (atLastPage()) return next();
-      scrollBy(pageAdvance());
-      persist();
-      return Promise.resolve(null);
-    }
-
-    function prevPage() {
-      if (state.mode !== 'paged') return prev();
-      if (atFirstPage()) return prev().then(function (r) { scrollToEnd(); return r; });
-      scrollBy(-pageAdvance());
-      persist();
-      return Promise.resolve(null);
     }
 
     function scrollToStart() {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollTop = 0;
-      else if (state.mode === 'vertical') s.el.scrollLeft = s.el.scrollWidth;
-      else s.el.scrollLeft = 0;
+      else s.el.scrollLeft = s.el.scrollWidth;
     }
 
     function scrollToEnd() {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollTop = s.el.scrollHeight;
-      else if (state.mode === 'vertical') s.el.scrollLeft = -s.el.scrollWidth;
-      else s.el.scrollLeft = s.el.scrollWidth;
+      else s.el.scrollLeft = -s.el.scrollWidth;
     }
 
     /* Glyph region follows the conversion target, so the rendering does not
@@ -291,7 +241,7 @@
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        modeCss(state.mode, { width: mount.parentNode.clientWidth }) +
+        modeCss(state.mode) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -344,28 +294,17 @@
       return Promise.resolve(null);
     }
 
-    var MODES = ['scroll', 'paged', 'vertical'];
-    function setMode(mode) {
-      state.mode = MODES.indexOf(mode) >= 0 ? mode : 'scroll';
-      return show(state.index);
-    }
+    function setMode(mode) { state.mode = mode; return show(state.index); }
 
-    /* Column geometry is pixel-derived, so a resize invalidates the layout. */
-    var resizeTimer = null;
-    window.addEventListener('resize', function () {
-      if (state.mode !== 'paged') return;
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { show(state.index); }, 150);
-    });
+    function next() { return show(state.index + 1); }
+    function prev() { return show(state.index - 1); }
+
     function setFontStyle(id) {
       state.fontStyle = App.readingFonts.isValidStyle(id) ? id : App.readingFonts.DEFAULT;
       return show(state.index);
     }
     function setFontScale(scale) { state.fontScale = scale; return show(state.index); }
     function setLineHeight(v) { state.lineHeight = v; return show(state.index); }
-    function next() { return show(state.index + 1); }
-    function prev() { return show(state.index - 1); }
-
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
@@ -386,12 +325,6 @@
       next: next,
       prev: prev,
       setMode: setMode,
-      MODES: MODES,
-      nextPage: nextPage,
-      prevPage: prevPage,
-      pageAdvance: pageAdvance,
-      atLastPage: atLastPage,
-      atFirstPage: atFirstPage,
       setFontStyle: setFontStyle,
       fontStack: fontStack,
       setFontScale: setFontScale,

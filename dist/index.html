@@ -253,21 +253,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
  * reading column gets the full width.
  */
 
-/* Secondary controls live behind the ⋯ button at every width. They used to sit
-   inline on desktop via display:contents, but the bar wrapped to a second row
-   each time a control was added, so the menu is now universal. */
-.topbar-more {
-  display: none;
-  position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
-  flex-direction: column; align-items: stretch; gap: 8px;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; min-width: 210px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
-}
-.topbar-more.open { display: flex; }
-.topbar-more label { width: 100%; }
-.topbar-more select { width: 100%; }
-.more-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* On desktop the group is transparent to layout, so every control sits inline
+   on the bar where it can be seen. The bar may wrap to a second row on a
+   narrower window; that is fine, and better than hiding the controls behind a
+   menu. Below the breakpoint the same group becomes the ⋯ dropdown, where
+   there genuinely is not room for them. */
+.topbar-more { display: contents; }
+.more-btn { display: none; }
 .drawer-backdrop { display: none; }
 
 @media (max-width: 700px) {
@@ -279,6 +271,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
+
+  .more-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+  .topbar-more {
+    display: none;
+    position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+    flex-direction: column; align-items: stretch; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px; min-width: 210px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+  }
+  .topbar-more.open { display: flex; }
+  .topbar-more label { width: 100%; }
+  .topbar-more select { width: 100%; }
 
   /* Touch targets: iOS wants 44, Android 48. */
   .topbar button, .topbar select,
@@ -416,7 +422,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <span class="title" id="bookTitle"></span>
       <button id="toggleSidebar" type="button">目錄</button>
       <button id="toggleSource" type="button">原文</button>
-      <label><select id="readMode" title="Reading mode"></select></label>
+      <button id="toggleVertical" type="button">直書</button>
       <!-- On narrow screens the secondary controls collapse behind this.
            On desktop the group is display:contents, so they lay out inline. -->
       <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
@@ -994,27 +1000,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * is no honest correspondence, so annotation for that node is skipped
    * rather than guessed. This is checked per node, not assumed per preset.
    */
-  function markNode(source, output, table, nodeIndex, into, solo) {
+  function markNode(source, output, table, nodeIndex, into) {
     if (source.length !== output.length) return false;
     for (var i = 0; i < source.length; i++) {
       var ch = source.charAt(i);
       var candidates = table[ch];
       if (!candidates) continue;
       var chosen = output.charAt(i);
-
-      /* Confidence filter.
-       *
-       * Converting the character on its own gives the dictionary's default
-       * reading. If the full pass produced something ELSE at this position, a
-       * phrase rule matched the surrounding context and overrode that default
-       * -- 头发 -> 頭髮 rather than the default 發 -- which is a decision made
-       * on evidence, not a guess. Those need no mark.
-       *
-       * Where the output equals the solo default, nothing disambiguated it and
-       * the reader may want a say. Marking every occurrence regardless buried
-       * the real cases: a full-length book produced over eight thousand marks.
-       */
-      if (solo && chosen !== solo(ch)) continue;
       /* The neighbouring SOURCE characters are recorded so a reader override
        * can be scoped to the word it was made in. Keying an override on the
        * bare character would be wrong: choosing 髮 for 发 must not also
@@ -1038,18 +1030,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * (text-node index, character offset) -- a stable address the reader can
    * resolve by re-walking the same document in the same order, so the
    * exported markup stays free of marker elements. */
-  function createSoloCache(converter) {
-    var cache = {};
-    return function (ch) {
-      if (cache[ch] === undefined) cache[ch] = converter.convert(ch);
-      return cache[ch];
-    };
-  }
-
-  /* Pass solo explicitly as null to disable the confidence filter (used by the
-   * tests to measure what it removes); omit it and one is built. */
-  function convertDocument(doc, converter, table, solo) {
-    if (solo === undefined) solo = createSoloCache(converter);
+  function convertDocument(doc, converter, table) {
     var walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT, null, false);
     var marks = [];
     var nodeIndex = 0;
@@ -1067,7 +1048,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         node.nodeValue = output;
         changedNodes++;
       }
-      if (!markNode(source, output, table, nodeIndex, marks, solo)) unaligned++;
+      if (!markNode(source, output, table, nodeIndex, marks)) unaligned++;
       nodeIndex++;
     }
 
@@ -1112,7 +1093,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.convert.convertDocument = convertDocument;
   App.convert.retagLanguage = retagLanguage;
   App.convert.contextKey = contextKey;
-  App.convert.createSoloCache = createSoloCache;
   App.convert.SKIP_TAGS = SKIP_TAGS;
   App.convert.TEXT_ATTRS = TEXT_ATTRS;
 })(window.App = window.App || {});
@@ -1216,7 +1196,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   async function convertBook(book, presetId, onProgress) {
     var converter = App.convert.createConverter(presetId);
     var table = App.ambiguityTable;
-    var solo = App.convert.createSoloCache(converter);
 
     var docs = [];
     book.manifest.forEach(function (item) {
@@ -1253,7 +1232,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
                              'HTML parser and converted');
       }
 
-      var result = App.convert.convertDocument(doc, converter, table, solo);
+      var result = App.convert.convertDocument(doc, converter, table);
 
       var html = P.tags(doc, 'html')[0];
       if (html) {
@@ -1978,29 +1957,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
   }
 
-  var PAGE_GAP = 48;   // gutter between facing pages, in px
-
-  /* Paged mode lays the text into CSS columns exactly one viewport wide, so
-   * advancing a page is a horizontal scroll of (column + gap). The column
-   * width has to be a pixel value computed from the container -- there is no
-   * declarative way to say "one column exactly this wide" -- so the mode is
-   * re-rendered whenever the container resizes. column-fill:auto is what makes
-   * each column fill top to bottom before the next one starts. */
-  function modeCss(mode, metrics) {
+  function modeCss(mode) {
     if (mode === 'vertical') {
       return ':host { writing-mode: vertical-rl; text-orientation: upright; ' +
              'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
              'column-width: 18em; column-gap: 3em; padding: 1em 0; }\n' +
              ':host img { max-height: 60vh; }\n';
-    }
-    if (mode === 'paged') {
-      var col = Math.max(160, (metrics.width || 600) - PAGE_GAP);
-      return ':host { box-sizing: border-box; writing-mode: horizontal-tb; ' +
-             'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
-             'padding: 1em ' + (PAGE_GAP / 2) + 'px; ' +
-             'column-width: ' + col + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
-             'column-fill: auto; }\n' +
-             ':host img { max-height: 78%; }\n';
     }
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
@@ -2065,13 +2027,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * overflow-x, so the host itself scrolls horizontally. Using the wrong
      * one silently does nothing -- it is why saved positions were always 0. */
     function scroller() {
-      return (state.mode === 'vertical' || state.mode === 'paged')
+      return state.mode === 'vertical'
         ? { el: mount, axis: 'left' }
         : { el: mount.parentNode, axis: 'top' };
-    }
-
-    function pageAdvance() {
-      return (mount.parentNode.clientWidth || 600);
     }
 
     function scrollPosition() {
@@ -2090,53 +2048,24 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function scrollBy(delta) {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollBy({ top: delta, behavior: 'auto' });
-      /* vertical-rl runs right to left, so "forward" is a negative scrollLeft;
-       * paged mode is ordinary left-to-right. */
-      else s.el.scrollBy({ left: state.mode === 'vertical' ? -delta : delta, behavior: 'auto' });
+      else s.el.scrollBy({ left: -delta, behavior: 'auto' });
     }
 
     function viewportExtent() {
-      if (state.mode === 'paged') return pageAdvance();
       var s = scroller();
       return s.axis === 'top' ? s.el.clientHeight : s.el.clientWidth;
-    }
-
-    /* Page turns run off the end of a chapter into the next one, so the whole
-     * book reads as a continuous sequence of pages. */
-    function atLastPage() {
-      var el = scroller().el;
-      return el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
-    }
-    function atFirstPage() { return scroller().el.scrollLeft <= 2; }
-
-    function nextPage() {
-      if (state.mode !== 'paged') return next();
-      if (atLastPage()) return next();
-      scrollBy(pageAdvance());
-      persist();
-      return Promise.resolve(null);
-    }
-
-    function prevPage() {
-      if (state.mode !== 'paged') return prev();
-      if (atFirstPage()) return prev().then(function (r) { scrollToEnd(); return r; });
-      scrollBy(-pageAdvance());
-      persist();
-      return Promise.resolve(null);
     }
 
     function scrollToStart() {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollTop = 0;
-      else if (state.mode === 'vertical') s.el.scrollLeft = s.el.scrollWidth;
-      else s.el.scrollLeft = 0;
+      else s.el.scrollLeft = s.el.scrollWidth;
     }
 
     function scrollToEnd() {
       var s = scroller();
       if (s.axis === 'top') s.el.scrollTop = s.el.scrollHeight;
-      else if (state.mode === 'vertical') s.el.scrollLeft = -s.el.scrollWidth;
-      else s.el.scrollLeft = s.el.scrollWidth;
+      else s.el.scrollLeft = -s.el.scrollWidth;
     }
 
     /* Glyph region follows the conversion target, so the rendering does not
@@ -2245,7 +2174,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        modeCss(state.mode, { width: mount.parentNode.clientWidth }) +
+        modeCss(state.mode) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -2298,28 +2227,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return Promise.resolve(null);
     }
 
-    var MODES = ['scroll', 'paged', 'vertical'];
-    function setMode(mode) {
-      state.mode = MODES.indexOf(mode) >= 0 ? mode : 'scroll';
-      return show(state.index);
-    }
+    function setMode(mode) { state.mode = mode; return show(state.index); }
 
-    /* Column geometry is pixel-derived, so a resize invalidates the layout. */
-    var resizeTimer = null;
-    window.addEventListener('resize', function () {
-      if (state.mode !== 'paged') return;
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { show(state.index); }, 150);
-    });
+    function next() { return show(state.index + 1); }
+    function prev() { return show(state.index - 1); }
+
     function setFontStyle(id) {
       state.fontStyle = App.readingFonts.isValidStyle(id) ? id : App.readingFonts.DEFAULT;
       return show(state.index);
     }
     function setFontScale(scale) { state.fontScale = scale; return show(state.index); }
     function setLineHeight(v) { state.lineHeight = v; return show(state.index); }
-    function next() { return show(state.index + 1); }
-    function prev() { return show(state.index - 1); }
-
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
@@ -2340,12 +2258,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       next: next,
       prev: prev,
       setMode: setMode,
-      MODES: MODES,
-      nextPage: nextPage,
-      prevPage: prevPage,
-      pageAdvance: pageAdvance,
-      atLastPage: atLastPage,
-      atFirstPage: atFirstPage,
       setFontStyle: setFontStyle,
       fontStack: fontStack,
       setFontScale: setFontScale,
@@ -2394,10 +2306,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     ['b', 'Page back'],
     ['gg', 'Start of chapter'],
     ['G', 'End of chapter'],
-    ['n  /  ]  /  L', 'Next page or chapter'],
-    ['p  /  [  /  H', 'Previous page or chapter'],
+    ['n  /  ]  /  L', 'Next chapter'],
+    ['p  /  [  /  H', 'Previous chapter'],
     ['t', 'Toggle table of contents'],
-    ['v', 'Cycle 捲動 / 分頁 / 直書'],
+    ['v', 'Toggle vertical (直書)'],
     ['o', 'Toggle original / converted'],
     ['m', 'Toggle ambiguity marks'],
     ['+  /  -', 'Font size'],
@@ -2515,8 +2427,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
           else { pendingG = true; ev.preventDefault(); return; }
           break;
         case 'G': r.scrollToEnd(); break;
-        case 'n': case ']': case 'L': count = ''; r.nextPage(); break;
-        case 'p': case '[': case 'H': count = ''; r.prevPage(); break;
+        case 'n': case ']': case 'L': count = ''; r.next(); break;
+        case 'p': case '[': case 'H': count = ''; r.prev(); break;
         case 't': count = ''; actions.toggleToc(); break;
         case 'v': count = ''; actions.toggleVertical(); break;
         case 'o': count = ''; actions.toggleSource(); break;
@@ -3152,9 +3064,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     reader.on('chapter', function (e) {
       reader.state.path = e.path;
-      var paged = reader.state.mode === 'paged';
-      el.prev.textContent = paged ? '← 上一頁' : '← 上一章';
-      el.next.textContent = paged ? '下一頁 →' : '下一章 →';
       el.position.textContent = (e.index + 1) + ' / ' + e.total;
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
@@ -3185,7 +3094,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     setStatus('');
 
     await reader.resume();
-    el.readMode.value = reader.state.mode;
     el.fontStyle.value = reader.state.fontStyle;
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
@@ -3333,7 +3241,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
     el.fontStyle = $('fontStyle');
-    el.readMode = $('readMode');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
@@ -3411,8 +3318,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (current.buffer) loadBuffer(current.buffer, current.filename);
     });
 
-    el.prev.addEventListener('click', function () { current.reader.prevPage(); });
-    el.next.addEventListener('click', function () { current.reader.nextPage(); });
+    el.prev.addEventListener('click', function () { current.reader.prev(); });
+    el.next.addEventListener('click', function () { current.reader.next(); });
     el.exportBtn.addEventListener('click', doExport);
 
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
@@ -3492,26 +3399,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    var MODE_LABELS = { scroll: '捲動', paged: '分頁', vertical: '直書' };
-    ['scroll', 'paged', 'vertical'].forEach(function (id) {
-      var opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = MODE_LABELS[id];
-      el.readMode.appendChild(opt);
-    });
-    el.readMode.addEventListener('change', function () {
-      if (current.reader) current.reader.setMode(this.value);
+    $('toggleVertical').addEventListener('click', function () {
+      var next = current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical';
+      this.textContent = next === 'vertical' ? '橫書' : '直書';
+      current.reader.setMode(next);
     });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () {
-        if (!current.reader) return;
-        var modes = current.reader.MODES;
-        var next = modes[(modes.indexOf(current.reader.state.mode) + 1) % modes.length];
-        el.readMode.value = next;
-        current.reader.setMode(next);
-      },
+      toggleVertical: function () { $('toggleVertical').click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
@@ -3567,8 +3463,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     document.addEventListener('keydown', function (ev) {
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
-      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.nextPage();
-      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prevPage();
+      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.next();
+      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prev();
     });
   }
 

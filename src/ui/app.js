@@ -197,9 +197,6 @@
 
     reader.on('chapter', function (e) {
       reader.state.path = e.path;
-      var paged = reader.state.mode === 'paged';
-      el.prev.textContent = paged ? '← 上一頁' : '← 上一章';
-      el.next.textContent = paged ? '下一頁 →' : '下一章 →';
       el.position.textContent = (e.index + 1) + ' / ' + e.total;
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
@@ -230,7 +227,6 @@
     setStatus('');
 
     await reader.resume();
-    el.readMode.value = reader.state.mode;
     el.fontStyle.value = reader.state.fontStyle;
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
@@ -378,7 +374,6 @@
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
     el.fontStyle = $('fontStyle');
-    el.readMode = $('readMode');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
@@ -456,8 +451,8 @@
       if (current.buffer) loadBuffer(current.buffer, current.filename);
     });
 
-    el.prev.addEventListener('click', function () { current.reader.prevPage(); });
-    el.next.addEventListener('click', function () { current.reader.nextPage(); });
+    el.prev.addEventListener('click', function () { current.reader.prev(); });
+    el.next.addEventListener('click', function () { current.reader.next(); });
     el.exportBtn.addEventListener('click', doExport);
 
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
@@ -537,26 +532,15 @@
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    var MODE_LABELS = { scroll: '捲動', paged: '分頁', vertical: '直書' };
-    ['scroll', 'paged', 'vertical'].forEach(function (id) {
-      var opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = MODE_LABELS[id];
-      el.readMode.appendChild(opt);
-    });
-    el.readMode.addEventListener('change', function () {
-      if (current.reader) current.reader.setMode(this.value);
+    $('toggleVertical').addEventListener('click', function () {
+      var next = current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical';
+      this.textContent = next === 'vertical' ? '橫書' : '直書';
+      current.reader.setMode(next);
     });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () {
-        if (!current.reader) return;
-        var modes = current.reader.MODES;
-        var next = modes[(modes.indexOf(current.reader.state.mode) + 1) % modes.length];
-        el.readMode.value = next;
-        current.reader.setMode(next);
-      },
+      toggleVertical: function () { $('toggleVertical').click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
@@ -612,8 +596,8 @@
     document.addEventListener('keydown', function (ev) {
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
-      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.nextPage();
-      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prevPage();
+      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.next();
+      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prev();
     });
   }
 

@@ -171,9 +171,11 @@
 
       setMoreOpen(true);
       await wait(60);
-      var modeSelect = D.getElementById('readMode');
-      t.check('reading mode selector is in the menu', !!modeSelect, 'missing');
-      t.eq('it offers all three modes', modeSelect ? modeSelect.options.length : 0, 3);
+      t.check('the collapsed controls are reachable on a phone',
+              ['toggleVertical', 'fontStyle', 'theme', 'presetTop'].every(function (id) {
+                var e = D.getElementById(id);
+                return e && e.getClientRects().length > 0;
+              }), 'a control is unreachable in the menu');
       setMoreOpen(false);
 
       // touch targets
@@ -211,20 +213,27 @@
       t.check('sidebar visible by default on desktop', DW.App.ui.drawerOpen(), 'collapsed');
       t.check('desktop sidebar occupies real width', px(dSidebar).width > 200,
               Math.round(px(dSidebar).width) + 'px');
-      /* The overflow menu is universal now: the desktop bar wrapped to a
-         second row every time a control was added. */
-      t.eq('secondary controls stay collapsed on desktop too',
-           DW.getComputedStyle(dMore).display, 'none');
-      t.check('more button is available on desktop',
-              DW.getComputedStyle(DD.getElementById('moreBtn')).display !== 'none', 'hidden');
-      t.check('primary controls remain on the bar',
-              ['toggleSidebar', 'toggleSource', 'readMode', 'exportBtn']
+      /* On desktop every control is inline and visible; the ⋯ menu is for
+         narrow screens only. */
+      t.eq('secondary controls lay out inline on desktop',
+           DW.getComputedStyle(dMore).display, 'contents');
+      t.eq('more button hidden on desktop',
+           DW.getComputedStyle(DD.getElementById('moreBtn')).display, 'none');
+      t.check('the controls people reach for are actually on the bar',
+              ['toggleSidebar', 'toggleSource', 'toggleVertical', 'fontSmaller',
+               'fontBigger', 'fontStyle', 'theme', 'presetTop', 'exportBtn']
                 .every(function (id) {
                   var e = DD.getElementById(id);
                   return e && e.getClientRects().length > 0;
-                }), 'a primary control is missing from the bar');
-      t.check('toolbar is one row on desktop',
-              px(DD.querySelector('.topbar')).height <= 70,
+                }), 'a control is hidden on desktop');
+      /* Wrapping is acceptable; losing a control off the right edge is not --
+         that was the actual bug when the bar was set to nowrap. */
+      var dExport = px(DD.getElementById('exportBtn'));
+      t.check('export stays fully on screen on desktop',
+              dExport.right <= DW.innerWidth + 1 && dExport.left >= 0,
+              'right edge at ' + Math.round(dExport.right) + ' of ' + DW.innerWidth);
+      t.check('toolbar stays a sensible height',
+              px(DD.querySelector('.topbar')).height <= 110,
               Math.round(px(DD.querySelector('.topbar')).height) + 'px');
       t.check('desktop reading column is generous',
               px(DD.getElementById('viewer')).width > 700,

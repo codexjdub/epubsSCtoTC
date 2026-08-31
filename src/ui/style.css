@@ -246,21 +246,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
  * reading column gets the full width.
  */
 
-/* Secondary controls live behind the ⋯ button at every width. They used to sit
-   inline on desktop via display:contents, but the bar wrapped to a second row
-   each time a control was added, so the menu is now universal. */
-.topbar-more {
-  display: none;
-  position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
-  flex-direction: column; align-items: stretch; gap: 8px;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; min-width: 210px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
-}
-.topbar-more.open { display: flex; }
-.topbar-more label { width: 100%; }
-.topbar-more select { width: 100%; }
-.more-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* On desktop the group is transparent to layout, so every control sits inline
+   on the bar where it can be seen. The bar may wrap to a second row on a
+   narrower window; that is fine, and better than hiding the controls behind a
+   menu. Below the breakpoint the same group becomes the ⋯ dropdown, where
+   there genuinely is not room for them. */
+.topbar-more { display: contents; }
+.more-btn { display: none; }
 .drawer-backdrop { display: none; }
 
 @media (max-width: 700px) {
@@ -272,6 +264,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
+
+  .more-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+  .topbar-more {
+    display: none;
+    position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+    flex-direction: column; align-items: stretch; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px; min-width: 210px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+  }
+  .topbar-more.open { display: flex; }
+  .topbar-more label { width: 100%; }
+  .topbar-more select { width: 100%; }
 
   /* Touch targets: iOS wants 44, Android 48. */
   .topbar button, .topbar select,

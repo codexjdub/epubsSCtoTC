@@ -44,6 +44,11 @@
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   async function run() {
+    /* Start from clean storage. The override tests click marks, which persist a
+     * choice keyed by book; left behind, that choice is replayed on the next
+     * run and quietly changes the converted text the other assertions read. */
+    try { localStorage.clear(); } catch (e) { /* ignore */ }
+
     try {
       // ---- CSS scoping ----
       t.eq('selector body -> :host', App.reader.scopeSelector('body'), ':host');
@@ -115,21 +120,23 @@
       }
 
       // ---- context-scoped propagation, not blanket per-character ----
-      /* 干部 and 干了 both resolve to 幹 by bare default, so both keep a mark
-       * after the confidence filter. (皇后 no longer does: a phrase rule
-       * decides it, which is exactly what the filter is for.) */
+      /* 干净, 干部 and 干了 give three different readings of one character in
+       * one paragraph -- the sharpest test that overrides are scoped to the
+       * wording rather than applied per character. */
       await reader.show(0);
       var p2 = reader.content.querySelector('#p2');   // 房间很干净，他是干部，衣服干了。
       var ganMarks = p2 ? p2.querySelectorAll('.amb-mark[data-source="干"]') : [];
-      t.check('both bare-default 干 occurrences are marked', ganMarks.length === 2,
+      t.check('all three 干 occurrences are marked', ganMarks.length === 3,
               String(ganMarks.length));
-      t.check('the phrase-resolved 干净 is not marked',
-              p2 && p2.textContent.indexOf('乾淨') >= 0 && ganMarks.length === 2,
-              'filter did not drop 干净');
-      if (ganMarks.length === 2) {
+      t.check('and they converted to different readings',
+              p2 && p2.textContent.indexOf('乾淨') >= 0 && p2.textContent.indexOf('幹部') >= 0,
+              p2 ? p2.textContent : '(no p2)');
+      if (ganMarks.length === 3) {
         var keyA = ganMarks[0].getAttribute('data-key');
         var keyB = ganMarks[1].getAttribute('data-key');
-        t.check('干部 and 干了 have different context keys', keyA !== keyB, keyA + ' vs ' + keyB);
+        t.check('the three wordings have different context keys',
+                keyA !== keyB && keyB !== ganMarks[2].getAttribute('data-key'),
+                keyA + ' / ' + keyB + ' / ' + ganMarks[2].getAttribute('data-key'));
         var otherBefore = ganMarks[1].textContent;
         ganMarks[0].click();
         await wait(0);
@@ -157,74 +164,6 @@
       await reader.setMode('scroll');
       t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
             'scroll mode restored');
-
-      // ---- paged mode ----
-      /* Needs a chapter long enough to spill into further columns; the short
-       * fixture fits on a single page and would prove nothing. */
-      var pagedHost = document.createElement('div');
-      pagedHost.style.cssText = 'position:absolute;left:-9999px;width:600px;height:400px;overflow:auto';
-      document.body.appendChild(pagedHost);
-      var pagedBook = await App.parse.load(await App.fixtures.buildLong());
-      await App.convert.book(pagedBook, 'hk');
-      var paged = App.reader.create(pagedHost, pagedBook);
-      await paged.show(0);
-
-      t.eq('three reading modes', paged.MODES.join(','), 'scroll,paged,vertical');
-
-      await paged.setMode('paged');
-      var pagedCss = paged.shadow.querySelector('style').textContent;
-      t.check('paged mode lays out in columns', /column-width:\s*\d+px/.test(pagedCss),
-              'no pixel column width');
-      t.check('columns fill top to bottom before advancing',
-              /column-fill:\s*auto/.test(pagedCss), 'column-fill not set');
-      t.check('paged mode scrolls horizontally',
-              /overflow-x:\s*auto/.test(pagedCss) && /overflow-y:\s*hidden/.test(pagedCss),
-              'wrong overflow axes');
-
-      var advance = paged.pageAdvance();
-      t.check('a page advance matches the container width', advance > 0, String(advance));
-
-      paged.scrollToStart();
-      t.eq('paged starts at the left edge', paged.scrollPosition(), 0);
-      t.check('paged content overflows into further pages',
-              paged.mount.scrollWidth > paged.mount.clientWidth + 10,
-              paged.mount.scrollWidth + ' vs ' + paged.mount.clientWidth);
-
-      await paged.nextPage();
-      t.eq('nextPage advances exactly one page', paged.scrollPosition(), advance);
-      await paged.prevPage();
-      t.eq('prevPage returns exactly one page', paged.scrollPosition(), 0);
-
-      /* Paged runs left-to-right; vertical-rl runs the other way. The sign of
-       * the scroll has to follow the mode or the pages go backwards. */
-      paged.scrollToStart();
-      paged.scrollBy(advance);
-      t.check('forward is a positive scroll in paged mode', paged.scrollPosition() > 0,
-              String(paged.scrollPosition()));
-
-      // Page turns must roll into the next chapter at the end of one.
-      await paged.show(0);
-      await paged.setMode('paged');
-      paged.scrollToEnd();
-      t.check('recognises the last page', paged.atLastPage(), 'not at last page');
-      await paged.nextPage();
-      await wait(80);
-      t.eq('a page turn past the end moves to the next chapter', paged.state.index, 1);
-      t.check('and lands at the start of it', paged.atFirstPage(),
-              'position ' + paged.scrollPosition());
-
-      await paged.prevPage();
-      await wait(80);
-      t.eq('a page turn before the start moves to the previous chapter',
-           paged.state.index, 0);
-
-      await paged.setMode('scroll');
-      t.check('scroll mode restores vertical scrolling',
-              /max-width/.test(paged.shadow.querySelector('style').textContent),
-              'scroll layout not restored');
-
-      paged.destroy();
-      pagedHost.remove();
 
       // ---- font override ----
       /* The reader must impose its own face over the book's, because embedded
