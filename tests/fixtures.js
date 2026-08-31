@@ -306,7 +306,33 @@
     return zip.generateAsync({ type: 'arraybuffer' });
   }
 
-  App.fixtures = { build: build, buildLong: buildLong, buildHostile: buildHostile,
+
+  /* Deliberately not well-formed XML: unclosed <p>, a bare &, an unquoted
+   * attribute. The strict parser rejects all of this; plenty of real EPUBs
+   * ship it anyway. */
+  var BROKEN_PROSE =
+    '<p class=lead>她的头发很长 & 房间很干净\n' +
+    '<p>里面有人在吃面条，老板和皇后都在松树下面放松。\n' +
+    '<br>\n' +
+    '<p>干部说：这个城市发展得很快。';
+
+  async function buildBroken() {
+    var zip = new JSZip();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml', container('OEBPS/content.opf'));
+    var oebps = zip.folder('OEBPS');
+    oebps.file('content.opf', opf2());
+    oebps.file('toc.ncx', ncx());
+    oebps.folder('text').file('chapter1.xhtml',
+      '<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">\n' +
+      '<head><title>第一章</title></head><body>\n' + BROKEN_PROSE + '\n</body></html>\n');
+    oebps.folder('text').file('chapter2.xhtml', xhtml('第二章 老板与皇后', PROSE_2, 'zh-CN'));
+    oebps.folder('styles').file('main.css', CSS);
+    oebps.folder('images').file('pic.png', bytes(PNG_B64));
+    return zip.generateAsync({ type: 'arraybuffer' });
+  }
+
+  App.fixtures = { build: build, buildBroken: buildBroken, buildLong: buildLong, buildHostile: buildHostile,
                    buildWithFont: buildWithFont,
                    subsetFont: subsetFont, SIMPLIFIED_COVERAGE: SIMPLIFIED_COVERAGE,
                    PNG_B64: PNG_B64 };

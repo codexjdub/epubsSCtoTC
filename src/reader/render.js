@@ -212,7 +212,7 @@
 
     var original = opts.source === 'original' && typeof entry.original === 'string';
     var text = original ? entry.original : await Z.loadText(entry);
-    var doc = P.parseXml(text, item.path);
+    var doc = P.parseContentDocument(text, item.path).doc;
 
     /* Mark addresses are offsets into the CONVERTED text, so they are
      * meaningless against the original and are skipped there. */

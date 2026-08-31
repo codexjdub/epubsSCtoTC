@@ -18,10 +18,10 @@
     ['b', 'Page back'],
     ['gg', 'Start of chapter'],
     ['G', 'End of chapter'],
-    ['n  /  ]  /  L', 'Next chapter'],
-    ['p  /  [  /  H', 'Previous chapter'],
+    ['n  /  ]  /  L', 'Next page or chapter'],
+    ['p  /  [  /  H', 'Previous page or chapter'],
     ['t', 'Toggle table of contents'],
-    ['v', 'Toggle vertical (直書)'],
+    ['v', 'Cycle 捲動 / 分頁 / 直書'],
     ['o', 'Toggle original / converted'],
     ['m', 'Toggle ambiguity marks'],
     ['+  /  -', 'Font size'],
@@ -139,8 +139,8 @@
           else { pendingG = true; ev.preventDefault(); return; }
           break;
         case 'G': r.scrollToEnd(); break;
-        case 'n': case ']': case 'L': count = ''; r.next(); break;
-        case 'p': case '[': case 'H': count = ''; r.prev(); break;
+        case 'n': case ']': case 'L': count = ''; r.nextPage(); break;
+        case 'p': case '[': case 'H': count = ''; r.prevPage(); break;
         case 't': count = ''; actions.toggleToc(); break;
         case 'v': count = ''; actions.toggleVertical(); break;
         case 'o': count = ''; actions.toggleSource(); break;

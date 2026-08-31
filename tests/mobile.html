@@ -161,11 +161,20 @@
               W.getComputedStyle(more).display !== 'none', 'did not open');
       t.check('menu stays on screen', px(more).right <= W.innerWidth + 1,
               'overflows by ' + Math.round(px(more).right - W.innerWidth));
-      D.getElementById('toggleVertical').click();
+      /* Only buttons dismiss the menu, so use one whose effect is trivially
+         reversible rather than a control that re-renders the chapter. */
+      D.getElementById('fontBigger').click();
       await wait(60);
       t.check('acting on a control closes the menu',
               W.getComputedStyle(more).display === 'none', 'stayed open');
-      D.getElementById('toggleVertical').click();   // back to scroll mode
+      D.getElementById('fontSmaller').click();      // restore the font scale
+
+      setMoreOpen(true);
+      await wait(60);
+      var modeSelect = D.getElementById('readMode');
+      t.check('reading mode selector is in the menu', !!modeSelect, 'missing');
+      t.eq('it offers all three modes', modeSelect ? modeSelect.options.length : 0, 3);
+      setMoreOpen(false);
 
       // touch targets
       function rendered(el) { return el.getClientRects().length > 0; }
@@ -202,10 +211,18 @@
       t.check('sidebar visible by default on desktop', DW.App.ui.drawerOpen(), 'collapsed');
       t.check('desktop sidebar occupies real width', px(dSidebar).width > 200,
               Math.round(px(dSidebar).width) + 'px');
-      t.eq('secondary controls lay out inline',
-           DW.getComputedStyle(dMore).display, 'contents');
-      t.eq('more button hidden on desktop',
-           DW.getComputedStyle(DD.getElementById('moreBtn')).display, 'none');
+      /* The overflow menu is universal now: the desktop bar wrapped to a
+         second row every time a control was added. */
+      t.eq('secondary controls stay collapsed on desktop too',
+           DW.getComputedStyle(dMore).display, 'none');
+      t.check('more button is available on desktop',
+              DW.getComputedStyle(DD.getElementById('moreBtn')).display !== 'none', 'hidden');
+      t.check('primary controls remain on the bar',
+              ['toggleSidebar', 'toggleSource', 'readMode', 'exportBtn']
+                .every(function (id) {
+                  var e = DD.getElementById(id);
+                  return e && e.getClientRects().length > 0;
+                }), 'a primary control is missing from the bar');
       t.check('toolbar is one row on desktop',
               px(DD.querySelector('.topbar')).height <= 70,
               Math.round(px(DD.querySelector('.topbar')).height) + 'px');

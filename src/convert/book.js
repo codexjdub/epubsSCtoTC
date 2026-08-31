@@ -104,6 +104,7 @@
     var report = {
       preset: converter.preset,
       documents: 0,
+      recovered: 0,
       changedNodes: 0,
       unalignedNodes: 0,
       marks: new Map(),
@@ -116,12 +117,18 @@
       var item = docs[i];
       var entry = book.entries.get(item.path);
       var text = await Z.loadText(entry);
-      var doc;
+      var parsed;
       try {
-        doc = P.parseXml(text, item.path);
+        parsed = P.parseContentDocument(text, item.path);
       } catch (e) {
         report.warnings.push(item.path + ': ' + e.message + ' (left unconverted)');
         continue;
+      }
+      var doc = parsed.doc;
+      if (parsed.recovered) {
+        report.recovered++;
+        report.warnings.push(item.path + ': not well-formed XML, repaired via the ' +
+                             'HTML parser and converted');
       }
 
       var result = App.convert.convertDocument(doc, converter, table);

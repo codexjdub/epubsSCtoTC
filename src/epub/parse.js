@@ -21,6 +21,28 @@
     return doc;
   }
 
+  /* Content documents are supposed to be well-formed XHTML, but plenty of real
+   * EPUBs are not: unclosed tags, raw & in text, stray attributes. Parsing
+   * those strictly and skipping them means a chapter ships SIMPLIFIED inside an
+   * otherwise-converted book, which is worse than repairing it. So fall back to
+   * the HTML parser, which is designed to recover from exactly this.
+   *
+   * The HTML parser puts elements in the XHTML namespace, so every
+   * namespace-agnostic lookup here keeps working, and serialising the result
+   * as XML emits well-formed markup -- the round trip repairs the document.
+   *
+   * Only content documents get this. The OPF and NCX are genuine XML formats
+   * where silently accepting broken markup would hide a real problem. */
+  function parseContentDocument(text, label) {
+    try {
+      return { doc: parseXml(text, label), recovered: false, error: '' };
+    } catch (e) {
+      var doc = new DOMParser().parseFromString(text, 'text/html');
+      if (!doc || !doc.documentElement) throw e;
+      return { doc: doc, recovered: true, error: e.message };
+    }
+  }
+
   async function findOpfPath(zip) {
     var text = await Z.lookup(zip, 'META-INF/container.xml').async('string');
     var doc = parseXml(text, 'META-INF/container.xml');
@@ -238,5 +260,5 @@
     return book;
   }
 
-  App.parse = { load: load, parseXml: parseXml, tags: tags, findOpfPath: findOpfPath };
+  App.parse = { load: load, parseXml: parseXml, parseContentDocument: parseContentDocument, tags: tags, findOpfPath: findOpfPath };
 })(window.App = window.App || {});

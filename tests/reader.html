@@ -148,6 +148,74 @@
       t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
             'scroll mode restored');
 
+      // ---- paged mode ----
+      /* Needs a chapter long enough to spill into further columns; the short
+       * fixture fits on a single page and would prove nothing. */
+      var pagedHost = document.createElement('div');
+      pagedHost.style.cssText = 'position:absolute;left:-9999px;width:600px;height:400px;overflow:auto';
+      document.body.appendChild(pagedHost);
+      var pagedBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(pagedBook, 'hk');
+      var paged = App.reader.create(pagedHost, pagedBook);
+      await paged.show(0);
+
+      t.eq('three reading modes', paged.MODES.join(','), 'scroll,paged,vertical');
+
+      await paged.setMode('paged');
+      var pagedCss = paged.shadow.querySelector('style').textContent;
+      t.check('paged mode lays out in columns', /column-width:\s*\d+px/.test(pagedCss),
+              'no pixel column width');
+      t.check('columns fill top to bottom before advancing',
+              /column-fill:\s*auto/.test(pagedCss), 'column-fill not set');
+      t.check('paged mode scrolls horizontally',
+              /overflow-x:\s*auto/.test(pagedCss) && /overflow-y:\s*hidden/.test(pagedCss),
+              'wrong overflow axes');
+
+      var advance = paged.pageAdvance();
+      t.check('a page advance matches the container width', advance > 0, String(advance));
+
+      paged.scrollToStart();
+      t.eq('paged starts at the left edge', paged.scrollPosition(), 0);
+      t.check('paged content overflows into further pages',
+              paged.mount.scrollWidth > paged.mount.clientWidth + 10,
+              paged.mount.scrollWidth + ' vs ' + paged.mount.clientWidth);
+
+      await paged.nextPage();
+      t.eq('nextPage advances exactly one page', paged.scrollPosition(), advance);
+      await paged.prevPage();
+      t.eq('prevPage returns exactly one page', paged.scrollPosition(), 0);
+
+      /* Paged runs left-to-right; vertical-rl runs the other way. The sign of
+       * the scroll has to follow the mode or the pages go backwards. */
+      paged.scrollToStart();
+      paged.scrollBy(advance);
+      t.check('forward is a positive scroll in paged mode', paged.scrollPosition() > 0,
+              String(paged.scrollPosition()));
+
+      // Page turns must roll into the next chapter at the end of one.
+      await paged.show(0);
+      await paged.setMode('paged');
+      paged.scrollToEnd();
+      t.check('recognises the last page', paged.atLastPage(), 'not at last page');
+      await paged.nextPage();
+      await wait(80);
+      t.eq('a page turn past the end moves to the next chapter', paged.state.index, 1);
+      t.check('and lands at the start of it', paged.atFirstPage(),
+              'position ' + paged.scrollPosition());
+
+      await paged.prevPage();
+      await wait(80);
+      t.eq('a page turn before the start moves to the previous chapter',
+           paged.state.index, 0);
+
+      await paged.setMode('scroll');
+      t.check('scroll mode restores vertical scrolling',
+              /max-width/.test(paged.shadow.querySelector('style').textContent),
+              'scroll layout not restored');
+
+      paged.destroy();
+      pagedHost.remove();
+
       // ---- font override ----
       /* The reader must impose its own face over the book's, because embedded
        * subset fonts cannot render the converted text. Which family that is

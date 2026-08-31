@@ -157,6 +157,37 @@
       has(nlText, 'lang="zh-HK"', 'language added to a chapter that declared none');
       has(nlText, 'xml:lang="zh-HK"', 'xml:lang added to a chapter that declared none');
 
+      // ---- malformed markup must be repaired, not skipped ----
+      /* A chapter that fails strict XML parsing used to be skipped entirely,
+       * shipping simplified text inside an otherwise-converted book. */
+      var broken = await App.parse.load(await App.fixtures.buildBroken());
+      var brokenReport = await App.convert.book(broken, 'hk');
+      var brokenCh1 = broken.entries.get('OEBPS/text/chapter1.xhtml').text;
+
+      check('malformed chapter was still converted', brokenReport.recovered === 1,
+            'recovered=' + brokenReport.recovered);
+      has(brokenCh1, '頭髮', 'converted despite malformed markup');
+      has(brokenCh1, '乾淨', 'second conversion in the malformed chapter');
+      has(brokenCh1, '老闆', 'converted the later paragraph too');
+      has(brokenCh1, '發展', 'converted the final paragraph');
+      check('the repair is reported', brokenReport.warnings.some(function (w) {
+              return w.indexOf('HTML parser') >= 0;
+            }), brokenReport.warnings.join(' | '));
+      check('both documents were processed', brokenReport.documents === 2,
+            String(brokenReport.documents));
+
+      /* The repaired output has to be well-formed, or the exported EPUB is
+       * broken for every other reader. */
+      var reparsed = new DOMParser().parseFromString(brokenCh1, 'application/xml');
+      check('repaired chapter is now well-formed XML',
+            !reparsed.getElementsByTagName('parsererror')[0],
+            'still malformed after repair');
+      check('the bare ampersand was escaped', brokenCh1.indexOf('&amp;') >= 0,
+            'ampersand not escaped');
+
+      var brokenOut = await App.parse.load(await (await App.zip.write(broken.entries)).arrayBuffer());
+      check('a repaired book still round-trips', !!brokenOut.opfPath, 'reopen failed');
+
       // ---- TOC ----
       var ncx = textOf(book2, 'OEBPS/toc.ncx');
       has(ncx, '第一章 乾淨的頭髮', 'NCX label converted');
