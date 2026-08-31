@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Reader tests</title>
+<!-- The theme tokens live here; without it the theme assertions have nothing
+     to match against. Page-specific rules below intentionally follow it. -->
+<link rel="stylesheet" href="../src/ui/style.css"/>
+<style>
+  body { font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px; max-width: 900px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7f37; }
+  .fail { color: #cf222e; font-weight: 700; }
+  #summary { font-size: 16px; font-weight: 700; padding: 12px; margin: 16px 0; border: 2px solid; }
+  #stage { position: absolute; left: -9999px; width: 600px; height: 400px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>EPUB converter — phase 2 (reader) tests</h1>
+<div id="summary">running…</div>
+<ul id="results"></ul>
+<div id="stage"></div>
+
+<script src="../vendor/jszip.min.js"></script>
+<script src="../vendor/opencc-cn2t.js"></script>
+<script src="../src/epub/zip.js"></script>
+<script src="../src/epub/parse.js"></script>
+<script src="../src/convert/ambiguity-table.js"></script>
+<script src="../src/convert/text.js"></script>
+<script src="../src/convert/book.js"></script>
+<script src="../src/reader/render.js"></script>
+<script src="../src/reader/nav.js"></script>
+<script src="../src/reader/keys.js"></script>
+<script src="../src/ui/theme.js"></script>
+<script src="harness.js"></script>
+<script src="fixtures.js"></script>
+<script>
+(function () {
+  'use strict';
+  var t = Harness.create('results', 'summary');
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  async function run() {
+    try {
+      // ---- CSS scoping ----
+      t.eq('selector body -> :host', App.reader.scopeSelector('body'), ':host');
+      t.eq('selector html -> :host', App.reader.scopeSelector('html'), ':host');
+      t.eq('descendant body p -> p', App.reader.scopeSelector('body p'), 'p');
+      t.eq('body.night -> :host.night', App.reader.scopeSelector('body.night'), ':host.night');
+      t.eq('selector list handled', App.reader.scopeSelector('body, .x'), ':host, .x');
+      t.eq('unrelated selector untouched', App.reader.scopeSelector('.body-text'), '.body-text');
+
+      var css = App.reader.scopeCss(
+        '@page { margin: 2em } body { margin: 5% } @media screen { body { color: red } }' +
+        '@font-face { font-family: "Subset CN"; src: url(a.ttf) }',
+        { stripFontFace: true });
+      t.check('@page dropped', css.indexOf('@page') < 0, css);
+      t.check('body scoped to :host', css.indexOf(':host{') >= 0 || css.indexOf(':host {') >= 0, css);
+      t.check('@media preserved and recursed', /@media\s+screen\s*\{\s*:host\s*\{/.test(css), css);
+      t.check('@font-face stripped when asked', css.indexOf('@font-face') < 0, css);
+      var kept = App.reader.scopeCss('@font-face { font-family: X; src: url(a.ttf) }', {});
+      t.check('@font-face kept when not asked', kept.indexOf('@font-face') >= 0, kept);
+
+      // ---- render a real converted book ----
+      var buf = await App.fixtures.build('epub2');
+      var book = await App.parse.load(buf);
+      await App.convert.book(book, 'hk');
+
+      var stage = document.getElementById('stage');
+      var reader = App.reader.create(stage, book);
+      var chapterEvents = [];
+      reader.on('chapter', function (e) { chapterEvents.push(e); });
+
+      await reader.show(0);
+      var text = reader.content.textContent;
+      t.has(text, '頭髮', 'chapter renders converted text');
+      t.has(text, '乾淨', 'chapter renders second conversion');
+      t.check('content mounted inside a shadow root',
+              reader.shadow.host === reader.mount && reader.content.getRootNode() === reader.shadow,
+              'not in shadow root');
+      t.check('chapter event fired', chapterEvents.length === 1 && chapterEvents[0].total === 2,
+              JSON.stringify(chapterEvents));
+
+      // ---- resources became blob URLs ----
+      await reader.show(1);
+      var img = reader.content.querySelector('img');
+      t.check('img src rewritten to blob URL', !!img && /^blob:/.test(img.getAttribute('src')),
+              img ? img.getAttribute('src') : 'no img');
+      t.has(reader.content.querySelector('img').getAttribute('alt'), '頭髮',
+            'converted alt text survives into the reader');
+
+      // ---- ambiguity marks ----
+      var marks = reader.content.querySelectorAll('.amb-mark');
+      t.check('ambiguity marks rendered', marks.length > 0, String(marks.length));
+      var hou = null;
+      for (var i = 0; i < marks.length; i++) {
+        if (marks[i].getAttribute('data-source') === '后') { hou = marks[i]; break; }
+      }
+      t.check('后 is marked in the reader', !!hou, 'no 后 mark');
+
+      if (hou) {
+        var before = hou.textContent;
+        var key = hou.getAttribute('data-key');
+        hou.click();
+        await wait(0);
+        t.check('tapping a mark changes the character', hou.textContent !== before,
+                before + ' -> ' + hou.textContent);
+        t.check('override recorded', reader.overrides()[key] === hou.textContent,
+                JSON.stringify(reader.overrides()));
+        t.check('override marks the span as overridden',
+                hou.getAttribute('data-overridden') === '1', 'flag not set');
+      }
+
+      // ---- context-scoped propagation, not blanket per-character ----
+      var p7 = reader.content.querySelector('#p7');   // 皇后走了，后来...
+      var houMarks = p7 ? p7.querySelectorAll('.amb-mark[data-source="后"]') : [];
+      t.check('both 后 occurrences are marked', houMarks.length === 2, String(houMarks.length));
+      if (houMarks.length === 2) {
+        var keyA = houMarks[0].getAttribute('data-key');
+        var keyB = houMarks[1].getAttribute('data-key');
+        t.check('皇后 and 后来 have different context keys', keyA !== keyB, keyA + ' vs ' + keyB);
+        var otherBefore = houMarks[1].textContent;
+        houMarks[0].click();
+        await wait(0);
+        t.check('flipping 皇后 leaves 后来 alone',
+                houMarks[1].textContent === otherBefore,
+                'other occurrence changed to ' + houMarks[1].textContent);
+      }
+
+      // ---- internal link interception ----
+      await reader.show(1);
+      var link = reader.content.querySelector('a[href^="chapter1"]');
+      t.check('internal link present', !!link, 'no link');
+      if (link) {
+        link.click();
+        await wait(50);
+        t.check('internal link navigated to chapter 1', reader.state.index === 0,
+                'index=' + reader.state.index);
+      }
+
+      // ---- modes ----
+      await reader.setMode('vertical');
+      t.has(reader.shadow.querySelector('style').textContent, 'writing-mode: vertical-rl',
+            'vertical mode applied');
+      await reader.setMode('scroll');
+      t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
+            'scroll mode restored');
+
+      // ---- font override ----
+      t.has(reader.shadow.querySelector('style').textContent, 'PingFang HK',
+            'reader font override applied');
+      t.check('book @font-face not carried into reader',
+              reader.shadow.querySelector('style').textContent.indexOf('@font-face') < 0,
+              'font-face leaked into reader');
+
+      // ---- TOC navigation ----
+      await reader.goToPath('OEBPS/text/chapter2.xhtml', 'p7');
+      t.check('goToPath moved to chapter 2', reader.state.index === 1,
+              'index=' + reader.state.index);
+
+      // ---- themes ----
+      var themeIds = App.theme.THEMES.map(function (x) { return x.id; });
+      t.check('six themes plus system offered',
+              themeIds.join(',') === 'system,light,sepia,green,slate,grey,dark', themeIds.join(','));
+
+      App.theme.apply('sepia');
+      t.eq('explicit theme stamps data-theme',
+           document.documentElement.getAttribute('data-theme'), 'sepia');
+      t.eq('current() reports it', App.theme.current(), 'sepia');
+      var sepiaBg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      t.eq('sepia palette applied', sepiaBg, '#f3e9d2');
+
+      App.theme.apply('grey');
+      t.eq('grey palette applied',
+           getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(), '#3c3c3a');
+
+      /* Custom properties must cross the shadow boundary, or the reader would
+       * not follow the theme at all. */
+      var shadowFg = getComputedStyle(reader.content).color;
+      t.check('theme colour reaches inside the shadow root',
+              shadowFg && shadowFg !== 'rgb(0, 0, 0)', shadowFg);
+
+      App.theme.apply('system');
+      t.check('system removes the attribute',
+              !document.documentElement.hasAttribute('data-theme'), 'attribute still set');
+      t.check('resolved() names a concrete theme',
+              ['light', 'dark'].indexOf(App.theme.resolved()) >= 0, App.theme.resolved());
+      t.eq('invalid theme falls back to system', App.theme.apply('nonsense'), 'system');
+
+      // ---- reading the original, unconverted ----
+      await reader.show(0);
+      var convertedText = reader.content.textContent;
+      t.has(convertedText, '頭髮', 'converted view shows traditional');
+
+      await reader.setSource('original');
+      var originalText = reader.content.textContent;
+      t.has(originalText, '头发', 'original view shows the simplified source');
+      t.check('original view has no traditional form', originalText.indexOf('頭髮') < 0,
+              'traditional text leaked into the original view');
+      t.check('marks are suppressed on the original',
+              reader.content.querySelectorAll('.amb-mark').length === 0,
+              String(reader.content.querySelectorAll('.amb-mark').length));
+
+      await reader.setSource('converted');
+      t.eq('switching back restores the converted text',
+           reader.content.textContent, convertedText);
+      t.check('marks return with the converted view',
+              reader.content.querySelectorAll('.amb-mark').length > 0, 'no marks');
+
+      // ---- TOC keeps both labellings ----
+      t.check('TOC nodes retain their original labels',
+              book.toc[0].originalLabel && book.toc[0].originalLabel.indexOf('干净') >= 0,
+              String(book.toc[0].originalLabel));
+      t.check('TOC converted label differs from the original',
+              book.toc[0].label !== book.toc[0].originalLabel,
+              book.toc[0].label);
+      t.check('metadata keeps the original title',
+              book.metadata.original && book.metadata.original.title === '头发与发展',
+              JSON.stringify(book.metadata.original));
+
+      // ---- the original must survive an override made on the converted text ----
+      var m = reader.content.querySelector('.amb-mark');
+      if (m) m.click();
+      await reader.setSource('original');
+      t.check('overrides are not replayed onto the original',
+              reader.content.querySelectorAll('[data-overridden]').length === 0,
+              'override leaked');
+      await reader.setSource('converted');
+
+      // ---- new themes ----
+      var ids = App.theme.THEMES.map(function (x) { return x.id; });
+      t.check('slate and green are registered',
+              ids.indexOf('slate') >= 0 && ids.indexOf('green') >= 0, ids.join(','));
+      App.theme.apply('slate');
+      t.eq('slate palette applied',
+           getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(), '#b0b8c4');
+      App.theme.apply('green');
+      t.eq('green palette applied',
+           getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(), '#d8e6d0');
+
+      /* Both new grounds are light, so their foreground must be dark enough
+       * to stay readable. */
+      function luminance(hex) {
+        var n = parseInt(hex.slice(1), 16);
+        var c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (v) {
+          v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      }
+      function contrast(a, b) {
+        var l1 = luminance(a), l2 = luminance(b);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      }
+      t.check('slate contrast is comfortably readable',
+              contrast('#b0b8c4', '#16181c') >= 7, contrast('#b0b8c4', '#16181c').toFixed(1) + ':1');
+      t.check('green contrast is comfortably readable',
+              contrast('#d8e6d0', '#1f2b1b') >= 7, contrast('#d8e6d0', '#1f2b1b').toFixed(1) + ':1');
+      App.theme.apply('system');
+
+      // ---- scroll container ----
+      /* The short fixture fits inside the stage, so nothing scrolls and the
+       * motions would be measuring clamped zeroes. Use a long chapter. */
+      var longBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(longBook, 'hk');
+      reader.destroy();
+      var stage = document.getElementById('stage');
+      reader = App.reader.create(stage, longBook);
+      await reader.show(0);
+      t.check('long fixture overflows the stage',
+              stage.scrollHeight > stage.clientHeight + 400,
+              stage.scrollHeight + ' vs ' + stage.clientHeight);
+      t.check('the container is what scrolls, not the shadow host',
+              stage.scrollHeight > stage.clientHeight && reader.mount.scrollHeight === reader.mount.clientHeight,
+              'stage ' + stage.scrollHeight + '/' + stage.clientHeight +
+              ', mount ' + reader.mount.scrollHeight + '/' + reader.mount.clientHeight);
+
+      reader.scrollToStart();
+      t.eq('scrollToStart lands at 0', reader.scrollPosition(), 0);
+      reader.scrollBy(120);
+      t.eq('scrollBy moves the real scroller', reader.scrollPosition(), 120);
+      reader.scrollToEnd();
+      t.check('scrollToEnd reaches the bottom', reader.scrollPosition() > 0,
+              String(reader.scrollPosition()));
+
+      // ---- vim keys ----
+      var calls = [];
+      var vim = App.keys.create({
+        reader: function () { return reader; },
+        toggleToc: function () { calls.push('toc'); },
+        toggleVertical: function () { calls.push('vertical'); },
+        toggleSource: function () { calls.push('source'); },
+        toggleMarks: function () { calls.push('marks'); },
+        fontBigger: function () { calls.push('bigger'); },
+        fontSmaller: function () { calls.push('smaller'); }
+      });
+      function press(key, target) {
+        var ev = new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true });
+        (target || document).dispatchEvent(ev);
+        return ev;
+      }
+
+      vim.set(false);
+      reader.scrollToStart();
+      press('j');
+      t.eq('keys do nothing while disabled', reader.scrollPosition(), 0);
+
+      vim.set(true);
+      t.check('enabling is reported', vim.isEnabled(), 'not enabled');
+
+      reader.scrollToStart();
+      press('j');
+      t.eq('j scrolls forward one line', reader.scrollPosition(), App.keys.LINE);
+      press('k');
+      t.eq('k scrolls back', reader.scrollPosition(), 0);
+
+      /* Counts are the point of vim-style keys; 3j must move three lines. */
+      reader.scrollToStart();
+      press('3'); press('j');
+      t.eq('a count prefix repeats the motion', reader.scrollPosition(), App.keys.LINE * 3);
+
+      reader.scrollToStart();
+      press('d');
+      t.eq('d scrolls half a viewport', reader.scrollPosition(),
+           Math.round(reader.viewportExtent() / 2));
+
+      /* d then u must land exactly back, with no accumulated rounding drift. */
+      reader.scrollToStart();
+      press('j'); press('j'); press('j');
+      var beforeHalfPage = reader.scrollPosition();
+      press('d'); press('u');
+      t.eq('d then u returns to exactly where it started',
+           reader.scrollPosition(), beforeHalfPage);
+      press('f'); press('b');
+      t.eq('f then b returns to exactly where it started',
+           reader.scrollPosition(), beforeHalfPage);
+
+      reader.scrollBy(500);
+      press('g'); press('g');
+      t.eq('gg returns to the start of the chapter', reader.scrollPosition(), 0);
+      press('G');
+      t.check('G goes to the end', reader.scrollPosition() > 0, String(reader.scrollPosition()));
+
+      // chapter navigation
+      await reader.show(0);
+      press('n');
+      await wait(60);
+      t.eq('n advances a chapter', reader.state.index, 1);
+      press('p');
+      await wait(60);
+      t.eq('p goes back a chapter', reader.state.index, 0);
+
+      // delegated actions
+      calls.length = 0;
+      ['t', 'v', 'o', 'm', '+', '-'].forEach(function (k) { press(k); });
+      t.eq('action keys are delegated in order', calls.join(','),
+           'toc,vertical,source,marks,bigger,smaller');
+
+      // help overlay
+      t.check('help starts hidden', !vim.helpVisible(), 'visible too early');
+      press('?');
+      t.check('? opens the help', vim.helpVisible(), 'not opened');
+      press('Escape');
+      t.check('Escape closes the help', !vim.helpVisible(), 'still open');
+
+      /* Typing in a form control must never be swallowed as a command. */
+      var input = document.createElement('input');
+      document.body.appendChild(input);
+      reader.scrollToStart();
+      press('j', input);
+      t.eq('keys are ignored inside a form field', reader.scrollPosition(), 0);
+      input.remove();
+
+      // unbound keys must pass through
+      var ev = press('z');
+      t.check('unbound keys are not swallowed', !ev.defaultPrevented, 'z was consumed');
+      vim.set(false);
+
+      reader.destroy();
+      t.check('destroy removes the mount', !document.querySelector('.reader-mount'), 'mount still present');
+
+    } catch (e) {
+      t.check('unexpected exception', false, e && (e.stack || e.message));
+    }
+    t.finish();
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Responsive layout tests</title>
+<style>
+  body { font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px; max-width: 900px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7f37; }
+  .fail { color: #cf222e; font-weight: 700; }
+  #summary { font-size: 16px; font-weight: 700; padding: 12px; margin: 16px 0; border: 2px solid; }
+  iframe { position: absolute; left: -9999px; border: 0; }
+</style>
+</head>
+<body>
+<h1>EPUB converter — responsive layout</h1>
+<div id="summary">running…</div>
+<ul id="results"></ul>
+
+<script src="../vendor/jszip.min.js"></script>
+<script src="harness.js"></script>
+<script>
+(function () {
+  'use strict';
+  var t = Harness.create('results', 'summary');
+  var PHONE = 375, DESKTOP = 1200;
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* The app is loaded in a real iframe of the target width, so the media
+   * queries resolve exactly as they would on a device. */
+  function mount(width, height) {
+    return new Promise(function (resolve) {
+      var f = document.createElement('iframe');
+      f.width = width; f.height = height; f.src = '/index.html';
+      f.onload = function () {
+        /* Kill transitions inside the frame. The drawer slides via a CSS
+         * transform transition, and a test frame parked off-screen has its
+         * rendering throttled, so the animation may never tick -- measuring
+         * an in-flight property would be testing the animation, not the
+         * layout. With transitions off, geometry is final immediately. */
+        var s = f.contentDocument.createElement('style');
+        s.textContent = '*, *::before, *::after { transition: none !important; ' +
+                        'animation: none !important; }';
+        f.contentDocument.head.appendChild(s);
+        resolve(f);
+      };
+      document.body.appendChild(f);
+    });
+  }
+
+  async function loadBook(frame) {
+    var W = frame.contentWindow;
+    var zip = new W.JSZip();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml',
+      '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">' +
+      '<rootfiles><rootfile full-path="c.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+    zip.file('c.opf',
+      '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="i">' +
+      '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>头发与干净的房间里面</dc:title>' +
+      '<dc:language>zh-CN</dc:language><dc:identifier id="i">u:m1</dc:identifier></metadata>' +
+      '<manifest><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>' +
+      '<item id="c1" href="a.xhtml" media-type="application/xhtml+xml"/>' +
+      '<item id="c2" href="b.xhtml" media-type="application/xhtml+xml"/></manifest>' +
+      '<spine toc="ncx"><itemref idref="c1"/><itemref idref="c2"/></spine></package>');
+    zip.file('toc.ncx',
+      '<?xml version="1.0"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">' +
+      '<head><meta name="dtb:uid" content="u:m1"/></head><docTitle><text>目录</text></docTitle><navMap>' +
+      '<navPoint id="n1" playOrder="1"><navLabel><text>第一章 干净</text></navLabel>' +
+      '<content src="a.xhtml"/></navPoint>' +
+      '<navPoint id="n2" playOrder="2"><navLabel><text>第二章 头发</text></navLabel>' +
+      '<content src="b.xhtml"/></navPoint></navMap></ncx>');
+    var paras = '';
+    for (var i = 1; i <= 40; i++) paras += '<p>第' + i + '段：她的头发很长，房间很干净，里面有人在吃面条。</p>';
+    ['a', 'b'].forEach(function (n) {
+      zip.file(n + '.xhtml',
+        '<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">' +
+        '<head><title>x</title></head><body><h1>第一章</h1>' + paras + '</body></html>');
+    });
+    var buf = await zip.generateAsync({ type: 'arraybuffer' });
+    await W.App.ui.loadBuffer(buf, 'm.epub');
+    await wait(120);
+    return W;
+  }
+
+  function px(el) { return el.getBoundingClientRect(); }
+
+  var setMoreOpen;   // bound once the phone frame exists
+
+  async function run() {
+    try {
+      // ================= phone =================
+      var phone = await mount(PHONE, 812);
+      var W = await loadBook(phone);
+      var D = phone.contentDocument;
+      var doc = D.documentElement;
+      var bar = D.querySelector('.topbar');
+      var sidebar = D.getElementById('sidebar');
+      var viewer = D.getElementById('viewer');
+      var backdrop = D.getElementById('drawerBackdrop');
+      var moreBtn = D.getElementById('moreBtn');
+      var more = D.getElementById('topbarMore');
+      setMoreOpen = function (open) {
+        if (more.classList.contains('open') !== open) moreBtn.click();
+      };
+
+      t.eq('phone viewport', W.innerWidth, PHONE);
+      t.check('no horizontal page overflow', doc.scrollWidth <= doc.clientWidth,
+              (doc.scrollWidth - doc.clientWidth) + 'px over');
+
+      /* The headline defect: the reading column was 95px of a 375px screen. */
+      t.check('reading column gets the full width', px(viewer).width >= PHONE - 40,
+              Math.round(px(viewer).width) + 'px of ' + PHONE);
+
+      t.check('toolbar is a single compact row', px(bar).height <= 70,
+              Math.round(px(bar).height) + 'px tall');
+
+      var chrome = px(bar).height + px(D.querySelector('.pager')).height;
+      t.check('chrome takes under a fifth of the screen', chrome / W.innerHeight < 0.2,
+              Math.round(chrome / W.innerHeight * 100) + '%');
+
+      // drawer
+      t.eq('sidebar is taken out of the flow',
+           W.getComputedStyle(sidebar).position, 'fixed');
+      t.check('drawer starts closed', !W.App.ui.drawerOpen(), 'open at load');
+      t.check('closed drawer is off-screen', px(sidebar).right <= 1,
+              'right edge at ' + Math.round(px(sidebar).right));
+      t.check('backdrop hidden while closed', backdrop.classList.contains('hidden'), 'visible');
+
+      D.getElementById('toggleSidebar').click();
+      await wait(60);
+      t.check('drawer opens over the text', px(sidebar).left >= -1 && px(sidebar).width > 200,
+              'left ' + Math.round(px(sidebar).left) + ', width ' + Math.round(px(sidebar).width));
+      t.check('backdrop appears with the drawer', !backdrop.classList.contains('hidden'), 'no backdrop');
+      t.check('drawer does not shrink the reading column',
+              px(viewer).width >= PHONE - 40, Math.round(px(viewer).width) + 'px');
+
+      backdrop.click();
+      await wait(60);
+      t.check('tapping the backdrop closes the drawer',
+              !W.App.ui.drawerOpen(), 'still open');
+
+      // choosing a chapter dismisses the drawer
+      D.getElementById('toggleSidebar').click();
+      await wait(60);
+      var link = D.querySelector('#toc a');
+      t.check('TOC rendered links to tap', !!link, 'no links in the drawer');
+      if (link) { link.click(); await wait(120); }
+      t.check('choosing a chapter dismisses the drawer',
+              !W.App.ui.drawerOpen(), 'drawer stayed open');
+
+      // overflow menu
+      t.check('more button is shown on a phone',
+              W.getComputedStyle(moreBtn).display !== 'none', 'hidden');
+      t.check('secondary controls start collapsed',
+              W.getComputedStyle(more).display === 'none', 'menu open at load');
+      moreBtn.click();
+      await wait(60);
+      t.check('more button opens the menu',
+              W.getComputedStyle(more).display !== 'none', 'did not open');
+      t.check('menu stays on screen', px(more).right <= W.innerWidth + 1,
+              'overflows by ' + Math.round(px(more).right - W.innerWidth));
+      D.getElementById('toggleVertical').click();
+      await wait(60);
+      t.check('acting on a control closes the menu',
+              W.getComputedStyle(more).display === 'none', 'stayed open');
+      D.getElementById('toggleVertical').click();   // back to scroll mode
+
+      // touch targets
+      function rendered(el) { return el.getClientRects().length > 0; }
+      function undersized(nodes) {
+        return Array.prototype.slice.call(nodes).filter(rendered)
+          .filter(function (b) { return px(b).height < 44; })
+          .map(function (b) { return (b.id || b.textContent.trim()) + '=' + Math.round(px(b).height); });
+      }
+
+      setMoreOpen(false);
+      var barSmall = undersized(D.querySelectorAll('.topbar > button, .pager button'));
+      t.check('visible toolbar and pager controls meet the 44px target',
+              barSmall.length === 0, barSmall.join(', '));
+
+      /* The collapsed controls need checking too -- once opened they are what
+       * the thumb actually lands on. */
+      setMoreOpen(true);
+      await wait(60);
+      var menuSmall = undersized(D.querySelectorAll('#topbarMore button, #topbarMore select'));
+      t.check('controls inside the menu meet the 44px target',
+              menuSmall.length === 0, menuSmall.join(', '));
+      setMoreOpen(false);
+
+      // ================= desktop, unchanged =================
+      var desk = await mount(DESKTOP, 800);
+      var DW = await loadBook(desk);
+      var DD = desk.contentDocument;
+      var dSidebar = DD.getElementById('sidebar');
+      var dMore = DD.getElementById('topbarMore');
+
+      t.eq('desktop viewport', DW.innerWidth, DESKTOP);
+      t.eq('sidebar returns to the flow',
+           DW.getComputedStyle(dSidebar).position, 'static');
+      t.check('sidebar visible by default on desktop', DW.App.ui.drawerOpen(), 'collapsed');
+      t.check('desktop sidebar occupies real width', px(dSidebar).width > 200,
+              Math.round(px(dSidebar).width) + 'px');
+      t.eq('secondary controls lay out inline',
+           DW.getComputedStyle(dMore).display, 'contents');
+      t.eq('more button hidden on desktop',
+           DW.getComputedStyle(DD.getElementById('moreBtn')).display, 'none');
+      t.check('toolbar is one row on desktop',
+              px(DD.querySelector('.topbar')).height <= 70,
+              Math.round(px(DD.querySelector('.topbar')).height) + 'px');
+      t.check('desktop reading column is generous',
+              px(DD.getElementById('viewer')).width > 700,
+              Math.round(px(DD.getElementById('viewer')).width) + 'px');
+
+      /* Regression guard for the real bug: a frame that starts narrow and is
+       * widened afterwards must still show the sidebar, because the default
+       * comes from CSS rather than a width sampled once at startup. */
+      var late = await mount(320, 700);
+      await loadBook(late);
+      late.width = 1200;
+      await wait(200);
+      t.check('widening a frame that started narrow shows the sidebar',
+              late.contentWindow.App.ui.drawerOpen(),
+              'sidebar stayed collapsed after widening');
+      t.check('and it has real width',
+              late.contentDocument.getElementById('sidebar').getBoundingClientRect().width > 200,
+              Math.round(late.contentDocument.getElementById('sidebar').getBoundingClientRect().width) + 'px');
+      late.remove();
+
+      phone.remove();
+      desk.remove();
+    } catch (e) {
+      t.check('unexpected exception', false, e && (e.stack || e.message));
+    }
+    t.finish();
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

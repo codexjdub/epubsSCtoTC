@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>EPUB converter tests</title>
+<style>
+  body { font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px; max-width: 900px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7f37; }
+  .fail { color: #cf222e; font-weight: 700; }
+  #summary { font-size: 16px; font-weight: 700; padding: 12px; margin: 16px 0; border: 2px solid; }
+  li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<h1>EPUB converter — phase 1 tests</h1>
+<div id="summary">running…</div>
+<ul id="results"></ul>
+
+<script src="../vendor/jszip.min.js"></script>
+<script src="../vendor/opencc-cn2t.js"></script>
+<script src="../src/epub/zip.js"></script>
+<script src="../src/epub/parse.js"></script>
+<script src="../src/convert/ambiguity-table.js"></script>
+<script src="../src/convert/text.js"></script>
+<script src="../src/convert/book.js"></script>
+<script src="fixtures.js"></script>
+<script>
+(function () {
+  'use strict';
+  var results = document.getElementById('results');
+  var passed = 0, failed = 0;
+
+  function check(name, condition, detail) {
+    var li = document.createElement('li');
+    if (condition) {
+      passed++;
+      li.className = 'pass';
+      li.textContent = 'PASS  ' + name;
+    } else {
+      failed++;
+      li.className = 'fail';
+      li.textContent = 'FAIL  ' + name + (detail ? '  →  ' + detail : '');
+    }
+    results.appendChild(li);
+  }
+
+  function has(haystack, needle, name) {
+    check(name || ('contains ' + needle), haystack.indexOf(needle) >= 0,
+          'not found in output');
+  }
+
+  function textOf(book, path) {
+    return book.entries.get(path).text || '';
+  }
+
+  /* Verify the mimetype record directly in the raw zip bytes: it must be the
+   * first local file header and stored uncompressed. */
+  function checkMimetype(buffer) {
+    var v = new DataView(buffer);
+    var sig = v.getUint32(0, true);
+    check('zip starts with a local file header', sig === 0x04034b50,
+          '0x' + sig.toString(16));
+    var method = v.getUint16(8, true);
+    check('first entry is STORED (method 0)', method === 0, 'method=' + method);
+    var nameLen = v.getUint16(26, true);
+    var name = '';
+    for (var i = 0; i < nameLen; i++) name += String.fromCharCode(v.getUint8(30 + i));
+    check('first entry is named "mimetype"', name === 'mimetype', 'got "' + name + '"');
+    var bytes = new Uint8Array(buffer, 30 + nameLen + v.getUint16(28, true), 20);
+    var content = String.fromCharCode.apply(null, bytes).slice(0, 20);
+    check('mimetype content correct', content.indexOf('application/epub+zip') === 0, content);
+  }
+
+  function flatten(nodes, out) {
+    out = out || [];
+    nodes.forEach(function (n) { out.push(n); if (n.children) flatten(n.children, out); });
+    return out;
+  }
+
+  async function run() {
+    try {
+      // ---- EPUB 2 / NCX ----
+      var buf2 = await App.fixtures.build('epub2');
+      var book2 = await App.parse.load(buf2);
+
+      check('epub2: OPF located', book2.opfPath === 'OEBPS/content.opf', book2.opfPath);
+      check('epub2: version 2.0', book2.version === '2.0', book2.version);
+      check('epub2: spine has 2 items', book2.spine.items.length === 2, String(book2.spine.items.length));
+      check('epub2: TOC came from NCX', book2.tocSource === 'ncx', book2.tocSource);
+      check('epub2: TOC is nested', book2.toc.length === 2 && book2.toc[0].children.length === 1,
+            JSON.stringify(book2.toc.map(function (n) { return n.children.length; })));
+      check('epub2: unique-identifier resolved', book2.metadata.identifier === 'urn:uuid:test-book-0001',
+            book2.metadata.identifier);
+
+      var report = await App.convert.book(book2, 'hk');
+      var ch1 = textOf(book2, 'OEBPS/text/chapter1.xhtml');
+      var ch2 = textOf(book2, 'OEBPS/text/chapter2.xhtml');
+
+      // ---- the ambiguous pairs, both readings ----
+      has(ch1, '頭髮', '发→髮 in 头发');
+      has(ch1, '發展', '发→發 in 发展');
+      has(ch1, '乾淨', '干→乾 in 干净');
+      has(ch1, '幹部', '干→幹 in 干部');
+      has(ch1, '公里', '里 stays 里 in 公里');
+      has(ch1, '麪條', '面→麪 in 面条 (HK form)');
+      has(ch1, '表面', '面 stays 面 in 表面');
+      has(ch1, '裏面', '里→裏 in 里面 (HK form)');
+      has(ch2, '老闆', '板→闆 in 老板');
+      has(ch2, '木板', '板 stays 板 in 木板');
+      has(ch2, '松樹', '松 stays 松 in 松树');
+      has(ch2, '放鬆', '松→鬆 in 放松');
+      has(ch2, '皇后', '后 stays 后 in 皇后');
+      has(ch2, '後來', '后→後 in 后来');
+
+      // ---- regional variants must actually diverge ----
+      var hk = OpenCC.Converter({ from: 'cn', to: 'hk' });
+      var tw = OpenCC.Converter({ from: 'cn', to: 'tw' });
+      check('HK and TW differ on 面条', hk('面条') === '麪條' && tw('面条') === '麵條',
+            'hk=' + hk('面条') + ' tw=' + tw('面条'));
+      check('HK and TW differ on 里面', hk('里面') === '裏面' && tw('里面') === '裡面',
+            'hk=' + hk('里面') + ' tw=' + tw('里面'));
+      check('twp localises vocabulary, tw does not',
+            OpenCC.Converter({ from: 'cn', to: 'twp' })('软件') === '軟體' && tw('软件') === '軟件',
+            'twp=' + OpenCC.Converter({ from: 'cn', to: 'twp' })('软件') + ' tw=' + tw('软件'));
+
+      // ---- markup must survive byte-identical ----
+      has(ch1, 'class="body-text"', 'class attribute untouched');
+      has(ch1, 'id="p1"', 'id attribute untouched');
+      has(ch2, 'href="chapter1.xhtml#p1"', 'href untouched');
+      has(ch2, 'src="../images/pic.png"', 'img src untouched');
+      check('<pre> content left unconverted',
+            ch2.indexOf('const 发 = "干"') >= 0, 'pre block was converted');
+
+      // ---- prose-bearing attributes must convert ----
+      has(ch2, '一張頭髮的照片', 'alt attribute converted');
+      has(ch2, '乾淨的房間', 'title attribute converted');
+
+      // ---- prolog preservation ----
+      check('XML declaration preserved', ch1.indexOf('<?xml version="1.0"') === 0, ch1.slice(0, 40));
+      has(ch1, '<!DOCTYPE html>', 'doctype preserved');
+
+      // ---- language retagging ----
+      has(ch1, 'lang="zh-HK"', 'html lang retagged');
+      var opf = textOf(book2, 'OEBPS/content.opf');
+      has(opf, '<dc:language>zh-HK</dc:language>', 'dc:language retagged');
+      check('metadata snapshot language is not stale', book2.metadata.language === 'zh-HK',
+            book2.metadata.language);
+      has(opf, '頭髮與發展', 'dc:title converted');
+      has(opf, '張乾淨', 'dc:creator converted');
+
+      // A chapter declaring no language at all must still be tagged, or a
+      // reading system has no signal that the text became traditional.
+      var noLang = await App.parse.load(await App.fixtures.build('nolang'));
+      await App.convert.book(noLang, 'hk');
+      var nlText = noLang.entries.get('OEBPS/text/chapter1.xhtml').text;
+      has(nlText, 'lang="zh-HK"', 'language added to a chapter that declared none');
+      has(nlText, 'xml:lang="zh-HK"', 'xml:lang added to a chapter that declared none');
+
+      // ---- TOC ----
+      var ncx = textOf(book2, 'OEBPS/toc.ncx');
+      has(ncx, '第一章 乾淨的頭髮', 'NCX label converted');
+      var flat2 = flatten(book2.toc);
+      check('TOC tree labels converted', flat2[0].label.indexOf('乾淨') >= 0, flat2[0].label);
+      check('TOC nesting preserved after conversion', book2.toc[0].children.length === 1,
+            String(book2.toc[0].children.length));
+
+      // ---- annotation records ----
+      check('ambiguity marks recorded', report.markCount > 0, String(report.markCount));
+      var marks1 = report.marks.get('OEBPS/text/chapter1.xhtml') || [];
+      var faMark = marks1.filter(function (m) { return m.source === '发'; })[0];
+      check('发 recorded as ambiguous', !!faMark, 'no mark for 发');
+      if (faMark) {
+        check('发 candidates are 發/髮 without the simplified glyph',
+              faMark.candidates.indexOf('發') >= 0 && faMark.candidates.indexOf('髮') >= 0 &&
+              faMark.candidates.indexOf('发') < 0, faMark.candidates.join(''));
+      }
+      var houMark = (report.marks.get('OEBPS/text/chapter2.xhtml') || [])
+        .filter(function (m) { return m.source === '后'; })[0];
+      if (houMark) {
+        check('后 candidates include identity 后',
+              houMark.candidates.indexOf('后') >= 0 && houMark.candidates.indexOf('後') >= 0,
+              houMark.candidates.join(''));
+      } else {
+        check('后 recorded as ambiguous', false, 'no mark for 后');
+      }
+      check('no unaligned text nodes in fixture', report.unalignedNodes === 0,
+            String(report.unalignedNodes));
+
+      // ---- round trip ----
+      var blob = await App.zip.write(book2.entries);
+      var outBuf = await blob.arrayBuffer();
+      checkMimetype(outBuf);
+      var reopened = await App.parse.load(outBuf);
+      check('converted EPUB re-opens', !!reopened.opfPath, 'reopen failed');
+      check('re-opened title is traditional', reopened.metadata.title === '頭髮與發展',
+            reopened.metadata.title);
+      check('re-opened spine intact', reopened.spine.items.length === 2,
+            String(reopened.spine.items.length));
+      check('re-opened TOC intact', flatten(reopened.toc).length === 3,
+            String(flatten(reopened.toc).length));
+      var img = reopened.entries.get('OEBPS/images/pic.png');
+      var imgBytes = await App.zip.loadBytes(img);
+      check('binary image survived round trip', imgBytes.length > 0 && imgBytes[1] === 0x50,
+            'len=' + imgBytes.length);
+
+      // ---- EPUB 3 / nav ----
+      var buf3 = await App.fixtures.build('epub3');
+      var book3 = await App.parse.load(buf3);
+      check('epub3: version 3.0', book3.version === '3.0', book3.version);
+      check('epub3: TOC came from nav document', book3.tocSource === 'nav', book3.tocSource);
+      check('epub3: nav TOC is nested', book3.toc.length === 2 && book3.toc[0].children.length === 1,
+            JSON.stringify(book3.toc.map(function (n) { return n.children.length; })));
+      check('epub3: page-progression-direction read', book3.spine.direction === 'ltr',
+            book3.spine.direction);
+      await App.convert.book(book3, 'hk');
+      var nav = textOf(book3, 'OEBPS/text/nav.xhtml');
+      has(nav, '第一章 乾淨的頭髮', 'nav label converted');
+      has(nav, 'href="chapter1.xhtml#p3"', 'nav href untouched');
+
+    } catch (e) {
+      check('unexpected exception', false, e && (e.stack || e.message));
+    }
+
+    var summary = document.getElementById('summary');
+    summary.textContent = 'RESULT: ' + passed + ' passed, ' + failed + ' failed';
+    summary.style.color = failed ? '#cf222e' : '#1a7f37';
+    document.title = failed ? 'FAIL (' + failed + ')' : 'PASS (' + passed + ')';
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

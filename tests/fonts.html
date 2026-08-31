@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Font, punctuation and export tests</title>
+<style>
+  body { font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px; max-width: 900px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7f37; }
+  .fail { color: #cf222e; font-weight: 700; }
+  #summary { font-size: 16px; font-weight: 700; padding: 12px; margin: 16px 0; border: 2px solid; }
+</style>
+</head>
+<body>
+<h1>EPUB converter — phases 3 &amp; 5 (fonts, punctuation, export)</h1>
+<div id="summary">running…</div>
+<ul id="results"></ul>
+
+<script src="../vendor/jszip.min.js"></script>
+<script src="../vendor/opencc-cn2t.js"></script>
+<script src="../vendor/opentype.min.js"></script>
+<script src="../src/epub/zip.js"></script>
+<script src="../src/epub/parse.js"></script>
+<script src="../src/convert/ambiguity-table.js"></script>
+<script src="../src/convert/text.js"></script>
+<script src="../src/convert/book.js"></script>
+<script src="../src/convert/fonts.js"></script>
+<script src="../src/convert/punct.js"></script>
+<script src="../src/export/write.js"></script>
+<script src="harness.js"></script>
+<script src="fixtures.js"></script>
+<script>
+(function () {
+  'use strict';
+  var t = Harness.create('results', 'summary');
+
+  function hex(bytes) {
+    return Array.prototype.map.call(bytes, function (b) {
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+  }
+
+  async function run() {
+    try {
+      // ---- SHA-1 (needed because crypto.subtle is unavailable at file://) ----
+      function sha1Hex(str) {
+        var b = [];
+        for (var i = 0; i < str.length; i++) b.push(str.charCodeAt(i));
+        return hex(App.fonts.sha1(new Uint8Array(b)));
+      }
+      t.eq('sha1("")', sha1Hex(''), 'da39a3ee5e6b4b0d3255bfef95601890afd80709');
+      t.eq('sha1("abc")', sha1Hex('abc'), 'a9993e364706816aba3e25717850c26c9cd0d89d');
+      t.eq('sha1(56 chars, two-block)',
+           sha1Hex('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'),
+           '84983e441c3bd26ebaae4aa1f95129e5e54670f1');
+
+      // ---- IDPF / Adobe de-obfuscation round trip ----
+      var id = 'urn:uuid:test-book-0001';
+      var original = new Uint8Array(2048);
+      for (var i = 0; i < original.length; i++) original[i] = (i * 31) & 0xff;
+
+      function diffCount(a, b, from, to) {
+        var n = 0;
+        for (var i = from; i < to; i++) if (a[i] !== b[i]) n++;
+        return n;
+      }
+
+      var idpfObf = App.fonts.deobfuscate(original, App.fonts.IDPF_ALGO, id);
+      t.check('IDPF obfuscation alters the first 1040 bytes',
+              diffCount(idpfObf, original, 0, 1040) > 900,
+              diffCount(idpfObf, original, 0, 1040) + ' of 1040 bytes changed');
+      t.check('IDPF leaves the tail untouched',
+              diffCount(idpfObf, original, 1040, original.length) === 0, 'tail changed');
+      var idpfBack = App.fonts.deobfuscate(idpfObf, App.fonts.IDPF_ALGO, id);
+      t.eq('IDPF de-obfuscation is its own inverse', hex(idpfBack), hex(original));
+
+      var adobeAlgo = 'http://ns.adobe.com/pdf/enc#RC';
+      var uuid = 'urn:uuid:550e8400-e29b-41d4-a716-446655440000';
+      t.check('Adobe key is 16 bytes from a UUID identifier',
+              App.fonts.adobeKey(uuid) && App.fonts.adobeKey(uuid).length === 16,
+              String(App.fonts.adobeKey(uuid) && App.fonts.adobeKey(uuid).length));
+      t.check('Adobe key rejects a non-UUID identifier', App.fonts.adobeKey(id) === null,
+              'expected null for ' + id);
+      var adobeObf = App.fonts.deobfuscate(original, adobeAlgo, uuid);
+      /* This UUID ends in 0000, so two key bytes are zero and XOR is an
+       * identity at those positions -- hence a count, not a spot check. */
+      t.check('Adobe obfuscation alters the first 1024 bytes',
+              diffCount(adobeObf, original, 0, 1024) > 800,
+              diffCount(adobeObf, original, 0, 1024) + ' of 1024 bytes changed');
+      t.check('Adobe leaves the tail untouched',
+              diffCount(adobeObf, original, 1024, original.length) === 0, 'tail changed');
+      t.eq('Adobe de-obfuscation round trips',
+           hex(App.fonts.deobfuscate(adobeObf, adobeAlgo, uuid)), hex(original));
+
+      // ---- coverage: the subset font must FAIL after conversion ----
+      var buf = await App.fixtures.buildWithFont();
+      var book = await App.parse.load(buf);
+      t.check('font fixture parsed', book.manifest.has('font'), 'no font in manifest');
+
+      var before = await App.fonts.analyze(book);
+      t.check('embedded face found before conversion', before.length === 1, String(before.length));
+      t.check('subset font parses', before[0].parsed, before[0].error);
+      var coverageBefore = before[0].coverage;
+
+      await App.convert.book(book, 'hk');
+      var after = await App.fonts.analyze(book);
+      t.check('coverage drops after conversion', after[0].coverage < coverageBefore,
+              coverageBefore.toFixed(3) + ' -> ' + after[0].coverage.toFixed(3));
+      t.check('subset font flagged as insufficient', after[0].ok === false,
+              'coverage=' + after[0].coverage.toFixed(3));
+      t.check('missing glyphs sampled for the report', after[0].missingSample.length > 0,
+              'no sample');
+
+      // ---- a font that DOES cover the converted text must pass ----
+      var needed = Array.from(App.fonts.requiredCharacters(book)).join('');
+      var goodFont = App.fixtures.subsetFont(needed);
+      var parsedGood = opentype.parse(goodFont.buffer.slice(
+        goodFont.byteOffset, goodFont.byteOffset + goodFont.byteLength));
+      var missing = 0;
+      for (var c = 0; c < needed.length; c++) {
+        if (parsedGood.charToGlyphIndex(needed.charAt(c)) === 0) missing++;
+      }
+      t.check('a font covering the converted text has full coverage', missing === 0,
+              missing + ' glyphs missing');
+
+      // ---- stripping ----
+      var strippedPaths = await App.fonts.stripInsufficient(book, after);
+      t.check('insufficient face was stripped', strippedPaths.length === 1, String(strippedPaths.length));
+      var cssText = book.entries.get('OEBPS/styles/main.css').text;
+      t.check('@font-face removed from CSS', cssText.indexOf('@font-face') < 0, cssText.slice(0, 120));
+      t.check('fallback font stack survives', cssText.indexOf('serif') >= 0, cssText.slice(0, 120));
+
+      // ---- punctuation nesting ----
+      var st = App.punct.createState();
+      t.eq('nested quotes convert by depth',
+           App.punct.convertText('他说“你好‘朋友’吗”。', st),
+           '他说「你好『朋友』吗」。');
+      t.eq('depth returns to zero', st.depth, 0);
+      var st2 = App.punct.createState();
+      var partA = App.punct.convertText('他说“开始', st2);
+      var partB = App.punct.convertText('结束”。', st2);
+      t.eq('quote spanning two nodes closes correctly', partA + partB, '他说「开始结束」。');
+
+      // ---- export with overrides ----
+      var buf2 = await App.fixtures.build('epub2');
+      var book2 = await App.parse.load(buf2);
+      var report = await App.convert.book(book2, 'hk');
+
+      var marks2 = report.marks.get('OEBPS/text/chapter2.xhtml') || [];
+      var houMark = marks2.filter(function (m) {
+        return m.source === '后' && m.before === '皇' && m.after === '走';
+      })[0];
+      t.check('found the 皇后走 mark to override', !!houMark,
+              'no such mark among ' + marks2.length);
+
+      /* The same 皇后 appears at the end of both <title> and <h1>. That is one
+       * context occurring twice, so overriding it must change both -- which is
+       * exactly the propagation this feature promises. */
+      var titleMark = marks2.filter(function (m) {
+        return m.source === '后' && m.before === '皇' && m.after === '';
+      })[0];
+      t.check('title/h1 share one context key', !!titleMark, 'no end-of-string 皇后 mark');
+      if (titleMark && houMark) {
+        t.check('paragraph and title keys differ',
+                App.convert.contextKey(titleMark) !== App.convert.contextKey(houMark),
+                'keys collided');
+      }
+
+      var overrides = {};
+      if (houMark) overrides[App.convert.contextKey(houMark)] = '後';
+
+      var summary = await App.export.buildFile(book2, { overrides: overrides, punctuation: false });
+      t.check('override applied once, to the paragraph only', summary.overrides === 1,
+              String(summary.overrides));
+
+      var outBuf = await summary.blob.arrayBuffer();
+      var reopened = await App.parse.load(outBuf);
+      var ch2 = await App.zip.loadText(reopened.entries.get('OEBPS/text/chapter2.xhtml'));
+      t.has(ch2, '皇後走了', 'override reached the exported file');
+      t.has(ch2, '後來', 'the other 后 occurrence is unaffected');
+      t.has(ch2, '老闆與皇后', 'title context untouched by the paragraph override');
+
+      // Overriding the shared title context must change BOTH occurrences.
+      var book2b = await App.parse.load(await App.fixtures.build('epub2'));
+      var report2b = await App.convert.book(book2b, 'hk');
+      var titleMark2 = (report2b.marks.get('OEBPS/text/chapter2.xhtml') || []).filter(function (m) {
+        return m.source === '后' && m.before === '皇' && m.after === '';
+      })[0];
+      var ov2 = {};
+      ov2[App.convert.contextKey(titleMark2)] = '後';
+      var sum2 = await App.export.buildFile(book2b, { overrides: ov2 });
+      t.check('shared context propagates to both title and heading',
+              sum2.overrides === 2, String(sum2.overrides));
+
+      // ---- export with punctuation enabled ----
+      var buf3 = await App.fixtures.build('epub2');
+      var book3 = await App.parse.load(buf3);
+      await App.convert.book(book3, 'hk');
+      var punctSummary = await App.export.buildFile(book3, { punctuation: true });
+      t.check('punctuation pass reports no error', typeof punctSummary.punctuation === 'number',
+              String(punctSummary.punctuation));
+      t.check('export produced a blob', punctSummary.blob && punctSummary.blob.size > 0,
+              'empty blob');
+
+      var filename = App.export.filenameFor(book3);
+      t.check('filename derives from converted title', filename.indexOf('頭髮') >= 0, filename);
+
+    } catch (e) {
+      t.check('unexpected exception', false, e && (e.stack || e.message));
+    }
+    t.finish();
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

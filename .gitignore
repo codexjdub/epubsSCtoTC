@@ -1,0 +1,19 @@
+# Local test books. These are not distributable — keep them out of the repo.
+sampleEpubs/
+*.epub
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+*.tgz
+
+# Editor / local
+.vscode/
+.idea/
+*.swp
+
+# Agent instructions — local only
+CLAUDE.md
+AGENTS.md

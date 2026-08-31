@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>簡繁轉換 — Simplified to Traditional EPUB</title>
+<link rel="stylesheet" href="src/ui/style.css"/>
+</head>
+<body>
+<div class="app">
+
+  <div id="landing" class="landing">
+    <h1>簡繁轉換</h1>
+    <p>Convert a simplified Chinese EPUB to traditional and read it right here.
+       Your book never leaves this browser — nothing is uploaded.</p>
+
+    <div id="dropzone" class="dropzone">
+      <strong>Drop an EPUB here</strong>
+      <span>or click to choose a file</span>
+    </div>
+    <input type="file" id="fileInput" accept=".epub,application/epub+zip" hidden/>
+
+    <div class="options">
+      <label>Convert to <select id="preset"></select></label>
+      <label><input type="checkbox" id="punct"/> Convert quotation marks to 「 」</label>
+      <label>Theme <select id="themeLanding"></select></label>
+    </div>
+
+    <p class="hint">DRM-protected files cannot be converted. Text drawn inside
+       images cannot be converted either — the report will tell you if the book
+       contains any.</p>
+    <div id="error" class="error hidden"></div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div id="chrome" class="hidden" style="display:contents">
+    <div class="topbar">
+      <span class="title" id="bookTitle"></span>
+      <button id="toggleSidebar" type="button">目錄</button>
+      <button id="toggleSource" type="button">原文</button>
+      <!-- On narrow screens the secondary controls collapse behind this.
+           On desktop the group is display:contents, so they lay out inline. -->
+      <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
+              aria-controls="topbarMore" title="More controls">⋯</button>
+      <div class="topbar-more" id="topbarMore">
+        <button id="toggleVertical" type="button">直書</button>
+        <button id="fontSmaller" type="button">A−</button>
+        <button id="fontBigger" type="button">A+</button>
+        <button id="toggleMarks" type="button">Hide marks</button>
+        <button id="toggleVim" type="button" title="Vim navigation (press ? for keys)">Vim</button>
+        <label><select id="theme"></select></label>
+        <label><select id="presetTop"></select></label>
+        <button id="toggleReport" type="button">Report</button>
+      </div>
+      <button id="exportBtn" class="primary" type="button">Export EPUB</button>
+    </div>
+
+    <div id="originalBanner" class="originalBanner hidden">
+      Showing the original text, unconverted. Marks and corrections are hidden.
+    </div>
+
+    <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+
+    <div class="main">
+      <aside id="sidebar" class="sidebar">
+        <h2>目錄</h2>
+        <nav id="toc" class="toc"></nav>
+      </aside>
+      <div id="viewer" class="viewer"></div>
+    </div>
+
+    <div class="pager">
+      <button id="prev" type="button">← 上一章</button>
+      <span class="pos" id="position"></span>
+      <button id="next" type="button">下一章 →</button>
+    </div>
+
+    <div id="reportPanel" class="report hidden">
+      <h2>Conversion report</h2>
+      <div id="reportBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/opencc-cn2t.js"></script>
+<script src="vendor/opentype.min.js"></script>
+<script src="src/epub/zip.js"></script>
+<script src="src/epub/parse.js"></script>
+<script src="src/convert/ambiguity-table.js"></script>
+<script src="src/convert/text.js"></script>
+<script src="src/convert/book.js"></script>
+<script src="src/convert/fonts.js"></script>
+<script src="src/convert/punct.js"></script>
+<script src="src/reader/render.js"></script>
+<script src="src/reader/nav.js"></script>
+<script src="src/reader/keys.js"></script>
+<script src="src/export/write.js"></script>
+<script src="src/llm/disambiguate.js"></script>
+<script src="src/ui/theme.js"></script>
+<script src="src/ui/app.js"></script>
+</body>
+</html>
