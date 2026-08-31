@@ -277,19 +277,40 @@
               RF.stackFor('kai', 'tw').split(', ').slice(0, -1).every(function (f) {
                 return f.charAt(0) === '"' && f.charAt(f.length - 1) === '"';
               }), RF.stackFor('kai', 'tw'));
-      t.eq('an unknown style falls back to serif', RF.stackFor('nonsense', 'tw'), twSerif);
+      t.eq('the default typeface is 黑體', RF.DEFAULT, 'sans');
+      t.eq('an unknown style falls back to the default',
+           RF.stackFor('nonsense', 'tw'), RF.stackFor('sans', 'tw'));
 
       // ---- the reader applies it ----
       await reader.show(0);
       var css = function () { return reader.shadow.querySelector('style').textContent; };
-      t.check('reader renders with the HK serif stack by default',
-              css().indexOf('Noto Serif CJK HK') >= 0, 'stack not applied');
+      /* The default only shows on a reader with NO stored preference. The
+       * shared `reader` has been round-tripped through localStorage by earlier
+       * assertions, so use a dedicated one rather than clearing storage the
+       * override tests depend on. */
+      var savedTheme = localStorage.getItem('epub-tc:theme');
+      localStorage.clear();
+      var freshHost = document.createElement('div');
+      document.body.appendChild(freshHost);
+      var freshBook = await App.parse.load(await App.fixtures.build('epub2'));
+      await App.convert.book(freshBook, 'hk');
+      var fresh = App.reader.create(freshHost, freshBook);
+      await fresh.show(0);
+      t.eq('a reader with no stored preference starts on the default',
+           fresh.state.fontStyle, 'sans');
+      t.check('and renders with the HK sans stack',
+              fresh.shadow.querySelector('style').textContent.indexOf('PingFang HK') >= 0,
+              'default stack not applied');
+      fresh.destroy(); freshHost.remove();
+      if (savedTheme) localStorage.setItem('epub-tc:theme', savedTheme);
 
+      await reader.setFontStyle('sans');
       await reader.setFontStyle('kai');
       t.check('switching to 楷書 changes the stack', css().indexOf('Kaiti TC') >= 0, 'kai not applied');
-      t.check('and drops the previous one', css().indexOf('Noto Serif CJK HK') < 0, 'serif stack lingered');
-      await reader.setFontStyle('sans');
-      t.check('switching to 黑體 applies a sans stack', css().indexOf('PingFang HK') >= 0, 'sans not applied');
+      t.check('and drops the previous one', css().indexOf('PingFang HK') < 0, 'sans stack lingered');
+      await reader.setFontStyle('serif');
+      t.check('switching to 明體 applies a serif stack',
+              css().indexOf('Noto Serif CJK HK') >= 0, 'serif not applied');
       await reader.setFontStyle('serif');
 
       /* A book converted to Taiwan forms must render with Taiwan faces. */

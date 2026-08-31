@@ -67,7 +67,8 @@
     var state = {
       index: 0,
       mode: saved.mode || opts.mode || 'scroll',
-      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle) ? saved.fontStyle : 'serif',
+      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle)
+        ? saved.fontStyle : App.readingFonts.DEFAULT,
       fontScale: saved.fontScale || 1,
       lineHeight: saved.lineHeight || 1.9,
       showMarks: saved.showMarks !== false,
@@ -295,7 +296,7 @@
 
     function setMode(mode) { state.mode = mode; return show(state.index); }
     function setFontStyle(id) {
-      state.fontStyle = App.readingFonts.isValidStyle(id) ? id : 'serif';
+      state.fontStyle = App.readingFonts.isValidStyle(id) ? id : App.readingFonts.DEFAULT;
       return show(state.index);
     }
     function setFontScale(scale) { state.fontScale = scale; return show(state.index); }

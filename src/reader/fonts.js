@@ -22,6 +22,7 @@
   'use strict';
 
   var GENERIC = { serif: 'serif', sans: 'sans-serif', kai: 'serif' };
+  var DEFAULT = 'sans';
 
   /* Per style, per region, most-preferred first. Windows, macOS and Noto
    * names are interleaved rather than grouped: what matters is glyph region,
@@ -70,7 +71,7 @@
   }
 
   function stackFor(styleId, presetId) {
-    var style = isValidStyle(styleId) ? styleId : 'serif';
+    var style = isValidStyle(styleId) ? styleId : DEFAULT;
     var families = STACKS[style][regionFor(presetId)] || STACKS[style].tw;
     return families.map(function (f) { return '"' + f + '"'; })
       .concat([GENERIC[style]]).join(', ');
@@ -80,6 +81,7 @@
   App.readingFonts = {
     STYLES: STYLES,
     STACKS: STACKS,
+    DEFAULT: DEFAULT,
     stackFor: stackFor,
     regionFor: regionFor,
     isValidStyle: isValidStyle
