@@ -52,6 +52,29 @@
     return null;
   }
 
+  /* Identity derived from the file's BYTES, not its metadata.
+   *
+   * Keying on dc:identifier was unsafe: EPUBs in the wild routinely carry
+   * templated, duplicated or empty identifiers, and two unrelated books
+   * sharing one would collide -- silently overwriting each other in the
+   * library and sharing a reading position. Content hashing cannot do that,
+   * and still recognises the same file uploaded twice, which is the case that
+   * should dedupe.
+   *
+   * FNV-1a over every byte with two accumulators. A 400KB book is immediate; a
+   * 20MB one costs tens of milliseconds, once, at open.
+   */
+  function contentKey(data) {
+    var bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    var h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+    for (var i = 0; i < bytes.length; i++) {
+      h1 ^= bytes[i];
+      h1 = (h1 + ((h1 << 1) + (h1 << 4) + (h1 << 7) + (h1 << 8) + (h1 << 24))) >>> 0;
+      h2 = ((h2 ^ bytes[i]) * 16777619) >>> 0;
+    }
+    return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + bytes.length.toString(36);
+  }
+
   function isText(mediaType, path) {
     if (mediaType && TEXT_RE.test(mediaType)) return true;
     return /\.(x?html|htm|xml|ncx|opf|css|js|json|txt)$/i.test(path || '');
@@ -153,6 +176,7 @@
     resolve: resolve,
     fragmentOf: fragmentOf,
     lookup: lookup,
-    isText: isText
+    isText: isText,
+    contentKey: contentKey
   };
 })(window.App = window.App || {});

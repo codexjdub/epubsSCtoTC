@@ -212,6 +212,7 @@
   }
 
   async function load(data) {
+    var contentId = Z.contentKey(data);
     var zip = await Z.open(data);
     var encryption = await Z.inspectEncryption(zip);
     if (encryption.drm) {
@@ -232,6 +233,7 @@
 
     var book = {
       zip: zip,
+      contentId: contentId,
       entries: entries,
       encryption: encryption,
       opfPath: opfPath,

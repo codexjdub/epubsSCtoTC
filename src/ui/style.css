@@ -374,3 +374,42 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 @media (max-width: 700px) {
   .library-row .open, .library-row .remove { min-height: 44px; }
 }
+
+/* ---- sidebar tabs: 目錄 / 書架 ---- */
+.sidebar-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.sidebar-tabs .tab {
+  flex: 1 1 0; padding: 7px 6px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--muted);
+}
+.sidebar-tabs .tab.active {
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+  font-weight: 600;
+}
+.shelf.hidden, .toc.hidden { display: none; }
+
+.shelf-row {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; margin-bottom: 4px;
+}
+.shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
+.shelf-row .pick {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  border: 0; background: none; padding: 8px 8px; font-size: 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.shelf-row .pick .t {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
+}
+.shelf-row .pick .s { font-size: 11px; color: var(--muted); }
+.shelf-row .drop {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 8px 10px; font-size: 15px; line-height: 1;
+}
+.shelf-row .drop:hover { color: var(--warn); }
+.shelf-row.current .pick .t::after { content: ' ·'; color: var(--accent); }
+
+@media (max-width: 700px) {
+  .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
+  .sidebar-tabs .tab { min-height: 44px; }
+}

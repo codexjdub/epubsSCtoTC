@@ -35,6 +35,10 @@
   }
 
   function hashKey(book) {
+    /* Content identity when we have it. The metadata seed is only a fallback
+     * for books assembled without going through parse.load, and carries the
+     * collision risk that motivated contentId in the first place. */
+    if (book.contentId) return 'epub-tc:' + book.contentId;
     var seed = (book.metadata.identifier || book.metadata.title || 'book') + ':' + book.entries.size;
     var h = 5381;
     for (var i = 0; i < seed.length; i++) h = ((h << 5) + h + seed.charCodeAt(i)) | 0;

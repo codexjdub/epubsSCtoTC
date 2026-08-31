@@ -73,8 +73,17 @@
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <h2>目錄</h2>
-        <nav id="toc" class="toc"></nav>
+        <div class="sidebar-tabs" role="tablist">
+          <button id="tabToc" class="tab active" type="button" role="tab"
+                  aria-selected="true" aria-controls="toc">目錄</button>
+          <button id="tabShelf" class="tab" type="button" role="tab"
+                  aria-selected="false" aria-controls="shelf">書架</button>
+        </div>
+        <nav id="toc" class="toc" role="tabpanel"></nav>
+        <div id="shelf" class="shelf hidden" role="tabpanel">
+          <div id="shelfList"></div>
+          <p class="hint" id="shelfNote"></p>
+        </div>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>

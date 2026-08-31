@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Library and shelf tests</title>
+<link rel="stylesheet" href="../src/ui/style.css"/>
+<style>
+  body { font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 24px; max-width: 900px; }
+  h1 { font-size: 16px; }
+  .pass { color: #1a7f37; }
+  .fail { color: #cf222e; font-weight: 700; }
+  #summary { font-size: 16px; font-weight: 700; padding: 12px; margin: 16px 0; border: 2px solid; }
+  iframe { position: absolute; left: -9999px; border: 0; }
+</style>
+</head>
+<body>
+<h1>EPUB converter — library storage and the shelf</h1>
+<div id="summary">running…</div>
+<ul id="results"></ul>
+
+<script src="../vendor/jszip.min.js"></script>
+<script src="../vendor/opencc-cn2t.js"></script>
+<script src="../src/epub/zip.js"></script>
+<script src="../src/epub/parse.js"></script>
+<script src="../src/convert/ambiguity-table.js"></script>
+<script src="../src/convert/text.js"></script>
+<script src="../src/convert/book.js"></script>
+<script src="../src/reader/fonts.js"></script>
+<script src="../src/reader/render.js"></script>
+<script src="../src/reader/nav.js"></script>
+<script src="../src/ui/library.js"></script>
+<script src="harness.js"></script>
+<script>
+(function () {
+  'use strict';
+  var t = Harness.create('results', 'summary');
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* Books that deliberately share a dc:identifier -- the case that used to
+     destroy data when identity came from metadata. */
+  /* `Zip` lets a caller build the file in another realm. Handing an
+     ArrayBuffer made here into the iframe fails: JSZip detects types with
+     instanceof, which does not hold across realms, so loadAsync rejects and
+     the book silently never opens. */
+  function make(title, paras, identifier, Zip) {
+    var zip = new (Zip || JSZip)();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml',
+      '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">' +
+      '<rootfiles><rootfile full-path="c.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+    zip.file('c.opf',
+      '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="i">' +
+      '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>' + title + '</dc:title>' +
+      '<dc:language>zh-CN</dc:language><dc:identifier id="i">' +
+      (identifier || 'urn:uuid:SHARED') + '</dc:identifier></metadata>' +
+      '<manifest><item id="c1" href="a.xhtml" media-type="application/xhtml+xml"/></manifest>' +
+      '<spine><itemref idref="c1"/></spine></package>');
+    var body = '';
+    for (var i = 0; i < paras; i++) body += '<p>第' + i + '段：她的头发很长，房间很干净。</p>';
+    zip.file('a.xhtml',
+      '<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">' +
+      '<head><title>x</title></head><body>' + body + '</body></html>');
+    return zip.generateAsync({ type: 'arraybuffer' });
+  }
+
+  function wipe() {
+    return new Promise(function (r) {
+      var q = indexedDB.deleteDatabase('epub-tc');
+      q.onsuccess = q.onerror = q.onblocked = function () { r(); };
+    });
+  }
+
+  async function run() {
+    try {
+      await wipe();
+
+      // ---- content identity ----
+      var a = await make('書甲', 3);
+      var b = await make('書乙', 40);          // same identifier, different content
+      var aCopy = await make('書甲', 3);       // byte-identical to `a`
+
+      t.check('a book carries a content id', !!(await App.parse.load(a)).contentId, 'missing');
+      t.eq('identical bytes hash identically',
+           App.zip.contentKey(a), App.zip.contentKey(aCopy));
+      t.check('different content hashes differently',
+              App.zip.contentKey(a) !== App.zip.contentKey(b), 'collision');
+      t.check('the hash includes length',
+              App.zip.contentKey(a).indexOf(a.byteLength.toString(36)) >= 0,
+              App.zip.contentKey(a));
+
+      var bookA = await App.parse.load(a), bookB = await App.parse.load(b);
+      t.eq('metadata identifiers really are shared',
+           bookA.metadata.identifier, bookB.metadata.identifier);
+      t.check('but library keys differ', App.library.idFor(bookA) !== App.library.idFor(bookB),
+              'keys collided despite different content');
+      t.check('and reading-position keys differ too',
+              App.reader.hashKey(bookA) !== App.reader.hashKey(bookB), 'position keys collided');
+      t.eq('hashKey is derived from the content id',
+           App.reader.hashKey(bookA), 'epub-tc:' + bookA.contentId);
+
+      // ---- storage ----
+      t.check('library is available over http', App.library.available(), App.library.reason());
+
+      await App.library.save(bookA, a, 'a.epub');
+      await App.library.save(bookB, b, 'b.epub');
+      var both = await App.library.list();
+      t.eq('two books with one identifier both persist', both.length, 2);
+      t.check('and both are recoverable byte for byte',
+              (await App.library.load(App.library.idFor(bookA))).byteLength === a.byteLength &&
+              (await App.library.load(App.library.idFor(bookB))).byteLength === b.byteLength,
+              'a stored book came back wrong');
+
+      await App.library.save(await App.parse.load(aCopy), aCopy, 'a-again.epub');
+      t.eq('re-adding the same file does not duplicate', (await App.library.list()).length, 2);
+
+      var refused = await App.library.save(bookA, { byteLength: App.library.MAX_BYTES + 1 }, 'huge');
+      t.check('an oversized book is refused with a reason',
+              !refused.saved && /Too large/.test(refused.reason), JSON.stringify(refused));
+
+      await App.library.remove(App.library.idFor(bookB));
+      t.eq('removal works', (await App.library.list()).length, 1);
+      t.eq('a removed book loads as null', await App.library.load(App.library.idFor(bookB)), null);
+
+      // ---- the shelf, in the running app ----
+      await wipe();
+      var frame = await new Promise(function (resolve) {
+        var f = document.createElement('iframe');
+        f.width = 1000; f.height = 700; f.src = '/index.html';
+        f.onload = function () { resolve(f); };
+        document.body.appendChild(f);
+      });
+      var W = frame.contentWindow, D = frame.contentDocument;
+      try { W.localStorage.clear(); } catch (e) { /* ignore */ }
+
+      await W.App.ui.loadBuffer(await make('第一本書', 6, null, W.JSZip), 'one.epub');
+      await wait(400);
+      await W.App.ui.loadBuffer(await make('第二本書', 30, null, W.JSZip), 'two.epub');
+      await wait(400);
+
+      t.check('both books opened in the frame', !!W.App.ui.current.book,
+              'loadBuffer failed: ' + (D.getElementById('error').textContent || 'no error shown'));
+
+      D.getElementById('tabShelf').click();
+      await wait(200);
+
+      var rows = function () { return Array.prototype.slice.call(D.querySelectorAll('.shelf-row')); };
+      var titles = function () { return rows().map(function (r) { return r.querySelector('.t').textContent; }); };
+
+      t.check('the sidebar offers a shelf tab', !!D.getElementById('tabShelf'), 'missing');
+      t.check('opening the shelf hides the table of contents',
+              D.getElementById('toc').classList.contains('hidden'), 'toc still shown');
+      t.eq('both books are on the shelf', rows().length, 2);
+      t.check('the book being read is marked',
+              rows().some(function (r) { return r.classList.contains('current'); }), 'none marked');
+
+      // switch
+      var target = rows()[titles().indexOf('第一本書')];
+      target.querySelector('.pick').click();
+      await wait(900);
+      t.eq('picking another book switches to it',
+           W.App.ui.current.book.metadata.title, '第一本書');
+      t.check('and returns to the table of contents',
+              !D.getElementById('toc').classList.contains('hidden'), 'left on the shelf');
+
+      // remove one that is not open
+      D.getElementById('tabShelf').click();
+      await wait(200);
+      var other = rows()[titles().indexOf('第二本書')];
+      other.querySelector('.drop').click();
+      await wait(400);
+      t.eq('removing a book drops it from the shelf', rows().length, 1);
+      t.eq('and the current book keeps reading',
+           W.App.ui.current.book.metadata.title, '第一本書');
+
+      // remove the one being read
+      rows()[0].querySelector('.drop').click();
+      await wait(400);
+      t.eq('the open book can be removed too', rows().length, 0);
+      t.check('and the reader carries on',
+              !!W.App.ui.current.reader.content.querySelector('p'), 'reader broke');
+      t.check('the empty shelf explains itself',
+              /No books cached/.test(D.getElementById('shelfNote').textContent),
+              D.getElementById('shelfNote').textContent);
+
+      frame.remove();
+      await wipe();
+    } catch (e) {
+      t.check('unexpected exception', false, e && (e.stack || e.message));
+    }
+    t.finish();
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>

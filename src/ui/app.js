@@ -210,6 +210,7 @@
     });
 
     buildToc(book, reader, reader.state.source === 'original');
+    setSidebarTab('toc');
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -218,7 +219,7 @@
       App.library.requestPersistence();
       App.library.save(book, buffer, filename).then(function (r) {
         if (!r.saved && r.reason) setStatus(r.reason);
-        return renderLibrary();
+        return renderLibrary().then(renderShelf);
       });
     }
 
@@ -315,6 +316,95 @@
     show(el.library, true);
   }
 
+  /* ---- the shelf, inside the reader ----
+   *
+   * The sidebar carries two panels: the book's table of contents, and the
+   * cached books. Switching between books is just loading stored bytes back
+   * through the ordinary open path, so the target book converts with the
+   * currently selected preset and lands at its own saved position.
+   */
+  function setSidebarTab(which) {
+    var shelf = which === 'shelf';
+    el.toc.classList.toggle('hidden', shelf);
+    el.shelf.classList.toggle('hidden', !shelf);
+    el.tabToc.classList.toggle('active', !shelf);
+    el.tabShelf.classList.toggle('active', shelf);
+    el.tabToc.setAttribute('aria-selected', String(!shelf));
+    el.tabShelf.setAttribute('aria-selected', String(shelf));
+    if (shelf) renderShelf();
+  }
+
+  async function switchToBook(entry) {
+    if (current.book && App.library.idFor(current.book) === entry.id) {
+      setSidebarTab('toc');
+      return;
+    }
+    setStatus('Opening ' + entry.title + '…');
+    try {
+      var bytes = await App.library.load(entry.id);
+      if (!bytes) throw new Error('that book is no longer stored');
+      await loadBuffer(bytes, entry.title);
+      setSidebarTab('toc');
+    } catch (e) {
+      setStatus('');
+      showError('Could not open it: ' + e.message);
+    }
+  }
+
+  async function renderShelf() {
+    if (!el.shelf) return;
+    if (!App.library.available()) {
+      el.shelfList.textContent = '';
+      el.shelfNote.textContent = App.library.reason();
+      return;
+    }
+
+    var books = [];
+    try { books = await App.library.list(); } catch (e) { books = []; }
+    var currentId = current.book ? App.library.idFor(current.book) : null;
+
+    el.shelfList.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = 'shelf-row' + (entry.id === currentId ? ' current' : '');
+
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'pick';
+      var t = document.createElement('span');
+      t.className = 't';
+      t.textContent = entry.title || '(untitled)';
+      var sub = document.createElement('span');
+      sub.className = 's';
+      sub.textContent = formatSize(entry.size) +
+        (entry.id === currentId ? ' · reading now' : '');
+      pick.appendChild(t);
+      pick.appendChild(sub);
+      pick.addEventListener('click', function () { switchToBook(entry); });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'drop';
+      drop.textContent = '×';
+      drop.title = 'Remove from this device';
+      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderShelf();
+        await renderLibrary();
+      });
+
+      row.appendChild(pick);
+      row.appendChild(drop);
+      el.shelfList.appendChild(row);
+    });
+
+    el.shelfNote.textContent = books.length
+      ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
+      : 'No books cached yet. Books you open are kept here.';
+  }
+
   function readFile(file) {
     var reader = new FileReader();
     reader.onload = function () { loadBuffer(reader.result, file.name); };
@@ -362,6 +452,11 @@
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
+    el.shelf = $('shelf');
+    el.shelfList = $('shelfList');
+    el.shelfNote = $('shelfNote');
+    el.tabToc = $('tabToc');
+    el.tabShelf = $('tabShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.next = $('next');
@@ -438,6 +533,8 @@
     });
 
     renderLibrary();
+    el.tabToc.addEventListener('click', function () { setSidebarTab('toc'); });
+    el.tabShelf.addEventListener('click', function () { setSidebarTab('shelf'); });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -603,7 +700,8 @@
 
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
-             renderLibrary: renderLibrary };
+             renderLibrary: renderLibrary, renderShelf: renderShelf,
+             setSidebarTab: setSidebarTab, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

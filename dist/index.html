@@ -382,6 +382,45 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .library-row .open, .library-row .remove { min-height: 44px; }
 }
 
+/* ---- sidebar tabs: 目錄 / 書架 ---- */
+.sidebar-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.sidebar-tabs .tab {
+  flex: 1 1 0; padding: 7px 6px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--muted);
+}
+.sidebar-tabs .tab.active {
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+  font-weight: 600;
+}
+.shelf.hidden, .toc.hidden { display: none; }
+
+.shelf-row {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; margin-bottom: 4px;
+}
+.shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
+.shelf-row .pick {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  border: 0; background: none; padding: 8px 8px; font-size: 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.shelf-row .pick .t {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
+}
+.shelf-row .pick .s { font-size: 11px; color: var(--muted); }
+.shelf-row .drop {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 8px 10px; font-size: 15px; line-height: 1;
+}
+.shelf-row .drop:hover { color: var(--warn); }
+.shelf-row.current .pick .t::after { content: ' ·'; color: var(--accent); }
+
+@media (max-width: 700px) {
+  .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
+  .sidebar-tabs .tab { min-height: 44px; }
+}
+
 </style>
 </head>
 <body>
@@ -451,8 +490,17 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <h2>目錄</h2>
-        <nav id="toc" class="toc"></nav>
+        <div class="sidebar-tabs" role="tablist">
+          <button id="tabToc" class="tab active" type="button" role="tab"
+                  aria-selected="true" aria-controls="toc">目錄</button>
+          <button id="tabShelf" class="tab" type="button" role="tab"
+                  aria-selected="false" aria-controls="shelf">書架</button>
+        </div>
+        <nav id="toc" class="toc" role="tabpanel"></nav>
+        <div id="shelf" class="shelf hidden" role="tabpanel">
+          <div id="shelfList"></div>
+          <p class="hint" id="shelfNote"></p>
+        </div>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>
@@ -549,6 +597,29 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (enc !== path && (f = zip.file(enc))) return f;
     } catch (e) { /* ignore */ }
     return null;
+  }
+
+  /* Identity derived from the file's BYTES, not its metadata.
+   *
+   * Keying on dc:identifier was unsafe: EPUBs in the wild routinely carry
+   * templated, duplicated or empty identifiers, and two unrelated books
+   * sharing one would collide -- silently overwriting each other in the
+   * library and sharing a reading position. Content hashing cannot do that,
+   * and still recognises the same file uploaded twice, which is the case that
+   * should dedupe.
+   *
+   * FNV-1a over every byte with two accumulators. A 400KB book is immediate; a
+   * 20MB one costs tens of milliseconds, once, at open.
+   */
+  function contentKey(data) {
+    var bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    var h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+    for (var i = 0; i < bytes.length; i++) {
+      h1 ^= bytes[i];
+      h1 = (h1 + ((h1 << 1) + (h1 << 4) + (h1 << 7) + (h1 << 8) + (h1 << 24))) >>> 0;
+      h2 = ((h2 ^ bytes[i]) * 16777619) >>> 0;
+    }
+    return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + bytes.length.toString(36);
   }
 
   function isText(mediaType, path) {
@@ -652,7 +723,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     resolve: resolve,
     fragmentOf: fragmentOf,
     lookup: lookup,
-    isText: isText
+    isText: isText,
+    contentKey: contentKey
   };
 })(window.App = window.App || {});
 
@@ -872,6 +944,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   async function load(data) {
+    var contentId = Z.contentKey(data);
     var zip = await Z.open(data);
     var encryption = await Z.inspectEncryption(zip);
     if (encryption.drm) {
@@ -892,6 +965,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     var book = {
       zip: zip,
+      contentId: contentId,
       entries: entries,
       encryption: encryption,
       opfPath: opfPath,
@@ -1968,6 +2042,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   function hashKey(book) {
+    /* Content identity when we have it. The metadata seed is only a fallback
+     * for books assembled without going through parse.load, and carries the
+     * collision risk that motivated contentId in the first place. */
+    if (book.contentId) return 'epub-tc:' + book.contentId;
     var seed = (book.metadata.identifier || book.metadata.title || 'book') + ':' + book.entries.size;
     var h = 5381;
     for (var i = 0; i < seed.length; i++) h = ((h << 5) + h + seed.charCodeAt(i)) | 0;
@@ -3077,6 +3155,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     buildToc(book, reader, reader.state.source === 'original');
+    setSidebarTab('toc');
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -3085,7 +3164,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       App.library.requestPersistence();
       App.library.save(book, buffer, filename).then(function (r) {
         if (!r.saved && r.reason) setStatus(r.reason);
-        return renderLibrary();
+        return renderLibrary().then(renderShelf);
       });
     }
 
@@ -3182,6 +3261,95 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     show(el.library, true);
   }
 
+  /* ---- the shelf, inside the reader ----
+   *
+   * The sidebar carries two panels: the book's table of contents, and the
+   * cached books. Switching between books is just loading stored bytes back
+   * through the ordinary open path, so the target book converts with the
+   * currently selected preset and lands at its own saved position.
+   */
+  function setSidebarTab(which) {
+    var shelf = which === 'shelf';
+    el.toc.classList.toggle('hidden', shelf);
+    el.shelf.classList.toggle('hidden', !shelf);
+    el.tabToc.classList.toggle('active', !shelf);
+    el.tabShelf.classList.toggle('active', shelf);
+    el.tabToc.setAttribute('aria-selected', String(!shelf));
+    el.tabShelf.setAttribute('aria-selected', String(shelf));
+    if (shelf) renderShelf();
+  }
+
+  async function switchToBook(entry) {
+    if (current.book && App.library.idFor(current.book) === entry.id) {
+      setSidebarTab('toc');
+      return;
+    }
+    setStatus('Opening ' + entry.title + '…');
+    try {
+      var bytes = await App.library.load(entry.id);
+      if (!bytes) throw new Error('that book is no longer stored');
+      await loadBuffer(bytes, entry.title);
+      setSidebarTab('toc');
+    } catch (e) {
+      setStatus('');
+      showError('Could not open it: ' + e.message);
+    }
+  }
+
+  async function renderShelf() {
+    if (!el.shelf) return;
+    if (!App.library.available()) {
+      el.shelfList.textContent = '';
+      el.shelfNote.textContent = App.library.reason();
+      return;
+    }
+
+    var books = [];
+    try { books = await App.library.list(); } catch (e) { books = []; }
+    var currentId = current.book ? App.library.idFor(current.book) : null;
+
+    el.shelfList.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = 'shelf-row' + (entry.id === currentId ? ' current' : '');
+
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'pick';
+      var t = document.createElement('span');
+      t.className = 't';
+      t.textContent = entry.title || '(untitled)';
+      var sub = document.createElement('span');
+      sub.className = 's';
+      sub.textContent = formatSize(entry.size) +
+        (entry.id === currentId ? ' · reading now' : '');
+      pick.appendChild(t);
+      pick.appendChild(sub);
+      pick.addEventListener('click', function () { switchToBook(entry); });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'drop';
+      drop.textContent = '×';
+      drop.title = 'Remove from this device';
+      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderShelf();
+        await renderLibrary();
+      });
+
+      row.appendChild(pick);
+      row.appendChild(drop);
+      el.shelfList.appendChild(row);
+    });
+
+    el.shelfNote.textContent = books.length
+      ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
+      : 'No books cached yet. Books you open are kept here.';
+  }
+
   function readFile(file) {
     var reader = new FileReader();
     reader.onload = function () { loadBuffer(reader.result, file.name); };
@@ -3229,6 +3397,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
+    el.shelf = $('shelf');
+    el.shelfList = $('shelfList');
+    el.shelfNote = $('shelfNote');
+    el.tabToc = $('tabToc');
+    el.tabShelf = $('tabShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.next = $('next');
@@ -3305,6 +3478,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     renderLibrary();
+    el.tabToc.addEventListener('click', function () { setSidebarTab('toc'); });
+    el.tabShelf.addEventListener('click', function () { setSidebarTab('shelf'); });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -3470,7 +3645,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
-             renderLibrary: renderLibrary };
+             renderLibrary: renderLibrary, renderShelf: renderShelf,
+             setSidebarTab: setSidebarTab, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
