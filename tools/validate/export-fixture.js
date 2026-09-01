@@ -15,7 +15,10 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..', '..');
 const outDir = path.join(root, 'tmp-validate');
 
-const BUILD_FIXTURE = `async () => {
+/* Passed to page.evaluate as real functions, not strings: a string is
+ * evaluated as an expression, so an arrow function there is merely created,
+ * never called, and the result comes back undefined. */
+async function buildFixture() {
   const zip = new JSZip();
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
   zip.folder('META-INF').file('container.xml',
@@ -54,14 +57,14 @@ const BUILD_FIXTURE = `async () => {
 
   oebps.file('style.css', 'body { line-height: 1.8; } p { text-indent: 2em; }');
 
-  const chapter = (title, body) =>
-    /* No doctype: EPUB 2 content is XHTML 1.1, and an HTML5 doctype would
-       fail validation for reasons that have nothing to do with conversion. */
+  /* No doctype: EPUB 2 content is XHTML 1.1, and an HTML5 doctype would fail
+     validation for reasons that have nothing to do with conversion. */
+  const chapter = (title, inner) =>
     '<?xml version="1.0" encoding="utf-8"?>' +
     '<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN"><head>' +
     '<title>' + title + '</title>' +
     '<link rel="stylesheet" type="text/css" href="style.css"/></head><body>' +
-    '<h1>' + title + '</h1>' + body + '</body></html>';
+    '<h1>' + title + '</h1>' + inner + '</body></html>';
 
   oebps.file('chapter1.xhtml', chapter('第一章 干净的头发',
     '<p>她的头发很长，这个城市发展得很快。</p>' +
@@ -73,9 +76,32 @@ const BUILD_FIXTURE = `async () => {
     '<p><a href="chapter1.xhtml">回到第一章</a></p>'));
 
   return Array.from(new Uint8Array(await zip.generateAsync({ type: 'arraybuffer' })));
-}`;
+}
 
-const CONVERT_AND_EXPORT = `async (inputBytes) => {
+/* What the double-click promise actually entails, checked in the one place
+ * that can reach file://. */
+async function probeFileProtocol() {
+  var storage = 'unavailable';
+  try {
+    window.localStorage.setItem('probe', '1');
+    storage = window.localStorage.getItem('probe') === '1' ? 'works' : 'unavailable';
+    window.localStorage.removeItem('probe');
+  } catch (e) { storage = 'blocked: ' + e.name; }
+
+  return {
+    protocol: window.location.protocol,
+    modulesNeeded: false,
+    appReady: !!(window.App && window.App.ui && window.App.export),
+    convertersReady: !!(window.OpenCC && window.JSZip && window.opentype),
+    localStorage: storage,
+    librarySuppressed: window.App.library.available() === false,
+    libraryReason: window.App.library.reason(),
+    themeApplied: document.documentElement.getAttribute('data-theme'),
+    themeBackground: getComputedStyle(document.body).backgroundColor
+  };
+}
+
+async function convertAndExport(inputBytes) {
   const buf = new Uint8Array(inputBytes).buffer;
   await window.App.ui.loadBuffer(buf, 'fixture.epub');
   const book = window.App.ui.current.book;
@@ -89,7 +115,7 @@ const CONVERT_AND_EXPORT = `async (inputBytes) => {
     changed: book.report.changedNodes,
     warnings: book.report.warnings
   };
-}`;
+}
 
 (async () => {
   fs.mkdirSync(outDir, { recursive: true });
@@ -104,10 +130,26 @@ const CONVERT_AND_EXPORT = `async (inputBytes) => {
   await page.goto(url);
   await page.waitForFunction('window.App && window.App.ui && window.App.export');
 
-  const inputBytes = await page.evaluate(BUILD_FIXTURE);
+  const probe = await page.evaluate(probeFileProtocol);
+  console.log('--- running from ' + probe.protocol + ' ---');
+  Object.keys(probe).forEach(k => console.log('  ' + k.padEnd(20) + ' ' + probe[k]));
+  console.log('');
+
+  if (!probe.appReady || !probe.convertersReady) {
+    console.error('the app did not initialise from a local file');
+    process.exit(1);
+  }
+  /* IndexedDB is unreliable from an opaque origin, so the library is meant to
+   * withhold itself here rather than write to storage that may vanish. */
+  if (!probe.librarySuppressed) {
+    console.error('the library offered itself at file://, where it cannot be relied on');
+    process.exit(1);
+  }
+
+  const inputBytes = await page.evaluate(buildFixture);
   fs.writeFileSync(path.join(outDir, 'input.epub'), Buffer.from(inputBytes));
 
-  const result = await page.evaluate(CONVERT_AND_EXPORT, inputBytes);
+  const result = await page.evaluate(convertAndExport, inputBytes);
   fs.writeFileSync(path.join(outDir, 'converted.epub'), Buffer.from(result.bytes));
 
   await browser.close();
