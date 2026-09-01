@@ -382,18 +382,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .library-row .open, .library-row .remove { min-height: 44px; }
 }
 
-/* ---- sidebar tabs: 目錄 / 書架 ---- */
-.sidebar-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
-.sidebar-tabs .tab {
-  flex: 1 1 0; padding: 7px 6px; font-size: 13px;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: transparent; color: var(--muted);
+/* ---- shelf, opened from the bar ---- */
+.topbar { position: relative; }
+
+.shelf-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
+  max-height: 60vh; overflow-y: auto;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
 }
-.sidebar-tabs .tab.active {
-  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
-  font-weight: 600;
-}
-.shelf.hidden, .toc.hidden { display: none; }
+.shelf-panel:not(.hidden) { display: block; }
+.shelf-panel .hint { margin: 8px 2px 2px; text-align: left; font-size: 12px; }
 
 .shelf-row {
   display: flex; align-items: center; gap: 4px;
@@ -402,7 +403,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
 .shelf-row .pick {
   flex: 1 1 auto; min-width: 0; text-align: left;
-  border: 0; background: none; padding: 8px 8px; font-size: 14px;
+  border: 0; background: none; padding: 8px; font-size: 14px;
   display: flex; flex-direction: column; gap: 2px;
 }
 .shelf-row .pick .t {
@@ -414,11 +415,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   padding: 8px 10px; font-size: 15px; line-height: 1;
 }
 .shelf-row .drop:hover { color: var(--warn); }
-.shelf-row.current .pick .t::after { content: ' ·'; color: var(--accent); }
 
 @media (max-width: 700px) {
+  .shelf-panel { left: 4px; right: 4px; max-width: none; }
   .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
-  .sidebar-tabs .tab { min-height: 44px; }
+}
+
 }
 
 </style>
@@ -458,6 +460,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
   <div id="chrome" class="hidden" style="display:contents">
     <div class="topbar">
+      <button id="toggleShelf" type="button" aria-expanded="false"
+              aria-controls="shelfPanel" title="Cached books">書架</button>
       <span class="title" id="bookTitle"></span>
       <button id="toggleSidebar" type="button">目錄</button>
       <button id="toggleSource" type="button">原文</button>
@@ -480,6 +484,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
         <button id="toggleReport" type="button">Report</button>
       </div>
       <button id="exportBtn" class="primary" type="button">Export EPUB</button>
+
+      <div class="shelf-panel hidden" id="shelfPanel">
+        <div id="shelfList"></div>
+        <p class="hint" id="shelfNote"></p>
+      </div>
     </div>
 
     <div id="originalBanner" class="originalBanner hidden">
@@ -490,17 +499,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <div class="sidebar-tabs" role="tablist">
-          <button id="tabToc" class="tab active" type="button" role="tab"
-                  aria-selected="true" aria-controls="toc">目錄</button>
-          <button id="tabShelf" class="tab" type="button" role="tab"
-                  aria-selected="false" aria-controls="shelf">書架</button>
-        </div>
-        <nav id="toc" class="toc" role="tabpanel"></nav>
-        <div id="shelf" class="shelf hidden" role="tabpanel">
-          <div id="shelfList"></div>
-          <p class="hint" id="shelfNote"></p>
-        </div>
+        <h2>目錄</h2>
+        <nav id="toc" class="toc"></nav>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>
@@ -3242,7 +3242,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     buildToc(book, reader, reader.state.source === 'original');
-    setSidebarTab('toc');
+    setShelfOpen(false);
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -3356,20 +3356,22 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * through the ordinary open path, so the target book converts with the
    * currently selected preset and lands at its own saved position.
    */
-  function setSidebarTab(which) {
-    var shelf = which === 'shelf';
-    el.toc.classList.toggle('hidden', shelf);
-    el.shelf.classList.toggle('hidden', !shelf);
-    el.tabToc.classList.toggle('active', !shelf);
-    el.tabShelf.classList.toggle('active', shelf);
-    el.tabToc.setAttribute('aria-selected', String(!shelf));
-    el.tabShelf.setAttribute('aria-selected', String(shelf));
-    if (shelf) renderShelf();
+  /* The shelf opens from its own button on the bar rather than sharing the
+   * sidebar with the table of contents: they answer different questions --
+   * "where am I in this book" versus "which book" -- and nesting one inside
+   * the other made the second hard to find. */
+  function setShelfOpen(open) {
+    el.shelfPanel.classList.toggle('hidden', !open);
+    el.toggleShelf.classList.toggle('active', open);
+    el.toggleShelf.setAttribute('aria-expanded', String(open));
+    if (open) renderShelf();
   }
+
+  function shelfOpen() { return !el.shelfPanel.classList.contains('hidden'); }
 
   async function switchToBook(entry) {
     if (current.book && App.library.idFor(current.book) === entry.id) {
-      setSidebarTab('toc');
+      setShelfOpen(false);
       return;
     }
     setStatus('Opening ' + entry.title + '…');
@@ -3377,7 +3379,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var bytes = await App.library.load(entry.id);
       if (!bytes) throw new Error('that book is no longer stored');
       await loadBuffer(bytes, entry.title);
-      setSidebarTab('toc');
+      setShelfOpen(false);
     } catch (e) {
       setStatus('');
       showError('Could not open it: ' + e.message);
@@ -3385,7 +3387,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   async function renderShelf() {
-    if (!el.shelf) return;
+    if (!el.shelfPanel) return;
     if (!App.library.available()) {
       el.shelfList.textContent = '';
       el.shelfNote.textContent = App.library.reason();
@@ -3485,11 +3487,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
-    el.shelf = $('shelf');
+    el.shelfPanel = $('shelfPanel');
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
-    el.tabToc = $('tabToc');
-    el.tabShelf = $('tabShelf');
+    el.toggleShelf = $('toggleShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.next = $('next');
@@ -3566,8 +3567,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     renderLibrary();
-    el.tabToc.addEventListener('click', function () { setSidebarTab('toc'); });
-    el.tabShelf.addEventListener('click', function () { setSidebarTab('shelf'); });
+    el.toggleShelf.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      setMore(false);
+      setShelfOpen(!shelfOpen());
+    });
+    el.shelfPanel.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    document.addEventListener('click', function (ev) {
+      if (ev.target !== el.toggleShelf && !el.shelfPanel.contains(ev.target)) setShelfOpen(false);
+    });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -3621,11 +3629,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     $('toggleSidebar').addEventListener('click', function () {
       setDrawer(!drawerOpen());
       setMore(false);
+      setShelfOpen(false);
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
 
     el.moreBtn.addEventListener('click', function (ev) {
       ev.stopPropagation();
+      setShelfOpen(false);
       setMore(!el.topbarMore.classList.contains('open'));
     });
     /* Any action inside the menu closes it, as does a tap anywhere outside. */
@@ -3734,7 +3744,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
-             setSidebarTab: setSidebarTab, switchToBook: switchToBook };
+             setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

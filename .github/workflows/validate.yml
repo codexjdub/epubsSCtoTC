@@ -1,0 +1,70 @@
+name: Validate exported EPUBs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  epubcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Build the app
+        run: ./build.sh
+
+      - name: Audit the build
+        run: node tools/audit-dist.js
+
+      # Drives dist/index.html over file://, so this also exercises the
+      # double-click path the app is designed around.
+      - name: Convert a fixture in a real browser
+        run: node tools/validate/export-fixture.js
+
+      - name: Fetch epubcheck
+        run: |
+          url=$(curl -sSL https://api.github.com/repos/w3c/epubcheck/releases/latest \
+                | grep -o 'https://[^"]*epubcheck-[0-9.]*\.zip' | head -1)
+          echo "using $url"
+          curl -sSL -o epubcheck.zip "$url"
+          unzip -q epubcheck.zip -d epubcheck
+          find epubcheck -name epubcheck.jar
+
+      # The input is checked too. If the fixture itself were invalid, a failure
+      # on the output would say nothing about the conversion; input passing and
+      # output failing is the signal that matters.
+      - name: Validate the input fixture
+        run: |
+          jar=$(find epubcheck -name epubcheck.jar | head -1)
+          java -jar "$jar" tmp-validate/input.epub
+
+      - name: Validate the converted output
+        run: |
+          jar=$(find epubcheck -name epubcheck.jar | head -1)
+          java -jar "$jar" tmp-validate/converted.epub
+
+      - name: Keep the artefacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epubs
+          path: tmp-validate/

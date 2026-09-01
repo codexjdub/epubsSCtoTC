@@ -216,7 +216,7 @@
     });
 
     buildToc(book, reader, reader.state.source === 'original');
-    setSidebarTab('toc');
+    setShelfOpen(false);
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -330,20 +330,22 @@
    * through the ordinary open path, so the target book converts with the
    * currently selected preset and lands at its own saved position.
    */
-  function setSidebarTab(which) {
-    var shelf = which === 'shelf';
-    el.toc.classList.toggle('hidden', shelf);
-    el.shelf.classList.toggle('hidden', !shelf);
-    el.tabToc.classList.toggle('active', !shelf);
-    el.tabShelf.classList.toggle('active', shelf);
-    el.tabToc.setAttribute('aria-selected', String(!shelf));
-    el.tabShelf.setAttribute('aria-selected', String(shelf));
-    if (shelf) renderShelf();
+  /* The shelf opens from its own button on the bar rather than sharing the
+   * sidebar with the table of contents: they answer different questions --
+   * "where am I in this book" versus "which book" -- and nesting one inside
+   * the other made the second hard to find. */
+  function setShelfOpen(open) {
+    el.shelfPanel.classList.toggle('hidden', !open);
+    el.toggleShelf.classList.toggle('active', open);
+    el.toggleShelf.setAttribute('aria-expanded', String(open));
+    if (open) renderShelf();
   }
+
+  function shelfOpen() { return !el.shelfPanel.classList.contains('hidden'); }
 
   async function switchToBook(entry) {
     if (current.book && App.library.idFor(current.book) === entry.id) {
-      setSidebarTab('toc');
+      setShelfOpen(false);
       return;
     }
     setStatus('Opening ' + entry.title + '…');
@@ -351,7 +353,7 @@
       var bytes = await App.library.load(entry.id);
       if (!bytes) throw new Error('that book is no longer stored');
       await loadBuffer(bytes, entry.title);
-      setSidebarTab('toc');
+      setShelfOpen(false);
     } catch (e) {
       setStatus('');
       showError('Could not open it: ' + e.message);
@@ -359,7 +361,7 @@
   }
 
   async function renderShelf() {
-    if (!el.shelf) return;
+    if (!el.shelfPanel) return;
     if (!App.library.available()) {
       el.shelfList.textContent = '';
       el.shelfNote.textContent = App.library.reason();
@@ -459,11 +461,10 @@
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
-    el.shelf = $('shelf');
+    el.shelfPanel = $('shelfPanel');
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
-    el.tabToc = $('tabToc');
-    el.tabShelf = $('tabShelf');
+    el.toggleShelf = $('toggleShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.next = $('next');
@@ -540,8 +541,15 @@
     });
 
     renderLibrary();
-    el.tabToc.addEventListener('click', function () { setSidebarTab('toc'); });
-    el.tabShelf.addEventListener('click', function () { setSidebarTab('shelf'); });
+    el.toggleShelf.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      setMore(false);
+      setShelfOpen(!shelfOpen());
+    });
+    el.shelfPanel.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    document.addEventListener('click', function (ev) {
+      if (ev.target !== el.toggleShelf && !el.shelfPanel.contains(ev.target)) setShelfOpen(false);
+    });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
@@ -595,11 +603,13 @@
     $('toggleSidebar').addEventListener('click', function () {
       setDrawer(!drawerOpen());
       setMore(false);
+      setShelfOpen(false);
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
 
     el.moreBtn.addEventListener('click', function (ev) {
       ev.stopPropagation();
+      setShelfOpen(false);
       setMore(!el.topbarMore.classList.contains('open'));
     });
     /* Any action inside the menu closes it, as does a tap anywhere outside. */
@@ -708,7 +718,7 @@
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
-             setSidebarTab: setSidebarTab, switchToBook: switchToBook };
+             setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

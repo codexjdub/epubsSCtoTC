@@ -140,15 +140,23 @@
       t.check('both books opened in the frame', !!W.App.ui.current.book,
               'loadBuffer failed: ' + (D.getElementById('error').textContent || 'no error shown'));
 
-      D.getElementById('tabShelf').click();
-      await wait(200);
-
       var rows = function () { return Array.prototype.slice.call(D.querySelectorAll('.shelf-row')); };
       var titles = function () { return rows().map(function (r) { return r.querySelector('.t').textContent; }); };
+      var panel = function () { return D.getElementById('shelfPanel'); };
 
-      t.check('the sidebar offers a shelf tab', !!D.getElementById('tabShelf'), 'missing');
-      t.check('opening the shelf hides the table of contents',
-              D.getElementById('toc').classList.contains('hidden'), 'toc still shown');
+      /* The shelf is its own control on the bar, not a tab inside the table of
+         contents: "which book" and "where in this book" are different
+         questions, and nesting one inside the other hid the first. */
+      t.check('the bar carries a shelf button', !!D.getElementById('toggleShelf'), 'missing');
+      t.eq('it is the first control on the bar',
+           D.querySelector('.topbar button').id, 'toggleShelf');
+      t.check('the shelf starts closed', panel().classList.contains('hidden'), 'open at load');
+
+      D.getElementById('toggleShelf').click();
+      await wait(200);
+      t.check('the button opens it', !panel().classList.contains('hidden'), 'did not open');
+      t.check('and the table of contents is untouched',
+              !D.getElementById('toc').classList.contains('hidden'), 'toc was hidden');
       t.eq('both books are on the shelf', rows().length, 2);
       t.check('the book being read is marked',
               rows().some(function (r) { return r.classList.contains('current'); }), 'none marked');
@@ -159,11 +167,19 @@
       await wait(900);
       t.eq('picking another book switches to it',
            W.App.ui.current.book.metadata.title, '第一本書');
-      t.check('and returns to the table of contents',
-              !D.getElementById('toc').classList.contains('hidden'), 'left on the shelf');
+      t.check('and closes the shelf behind it',
+              panel().classList.contains('hidden'), 'shelf stayed open');
+
+      // clicking away dismisses it
+      D.getElementById('toggleShelf').click();
+      await wait(120);
+      D.body.click();
+      await wait(120);
+      t.check('clicking outside closes the shelf',
+              panel().classList.contains('hidden'), 'still open');
 
       // remove one that is not open
-      D.getElementById('tabShelf').click();
+      D.getElementById('toggleShelf').click();
       await wait(200);
       var other = rows()[titles().indexOf('第二本書')];
       other.querySelector('.drop').click();

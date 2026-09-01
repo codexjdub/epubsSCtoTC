@@ -17,3 +17,6 @@ node_modules/
 # Agent instructions — local only
 CLAUDE.md
 AGENTS.md
+
+# epubcheck harness output
+tmp-validate/

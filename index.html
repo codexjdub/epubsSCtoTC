@@ -41,6 +41,8 @@
 
   <div id="chrome" class="hidden" style="display:contents">
     <div class="topbar">
+      <button id="toggleShelf" type="button" aria-expanded="false"
+              aria-controls="shelfPanel" title="Cached books">書架</button>
       <span class="title" id="bookTitle"></span>
       <button id="toggleSidebar" type="button">目錄</button>
       <button id="toggleSource" type="button">原文</button>
@@ -63,6 +65,11 @@
         <button id="toggleReport" type="button">Report</button>
       </div>
       <button id="exportBtn" class="primary" type="button">Export EPUB</button>
+
+      <div class="shelf-panel hidden" id="shelfPanel">
+        <div id="shelfList"></div>
+        <p class="hint" id="shelfNote"></p>
+      </div>
     </div>
 
     <div id="originalBanner" class="originalBanner hidden">
@@ -73,17 +80,8 @@
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <div class="sidebar-tabs" role="tablist">
-          <button id="tabToc" class="tab active" type="button" role="tab"
-                  aria-selected="true" aria-controls="toc">目錄</button>
-          <button id="tabShelf" class="tab" type="button" role="tab"
-                  aria-selected="false" aria-controls="shelf">書架</button>
-        </div>
-        <nav id="toc" class="toc" role="tabpanel"></nav>
-        <div id="shelf" class="shelf hidden" role="tabpanel">
-          <div id="shelfList"></div>
-          <p class="hint" id="shelfNote"></p>
-        </div>
+        <h2>目錄</h2>
+        <nav id="toc" class="toc"></nav>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>

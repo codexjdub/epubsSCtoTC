@@ -375,18 +375,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .library-row .open, .library-row .remove { min-height: 44px; }
 }
 
-/* ---- sidebar tabs: 目錄 / 書架 ---- */
-.sidebar-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
-.sidebar-tabs .tab {
-  flex: 1 1 0; padding: 7px 6px; font-size: 13px;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: transparent; color: var(--muted);
+/* ---- shelf, opened from the bar ---- */
+.topbar { position: relative; }
+
+.shelf-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
+  max-height: 60vh; overflow-y: auto;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
 }
-.sidebar-tabs .tab.active {
-  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
-  font-weight: 600;
-}
-.shelf.hidden, .toc.hidden { display: none; }
+.shelf-panel:not(.hidden) { display: block; }
+.shelf-panel .hint { margin: 8px 2px 2px; text-align: left; font-size: 12px; }
 
 .shelf-row {
   display: flex; align-items: center; gap: 4px;
@@ -395,7 +396,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
 .shelf-row .pick {
   flex: 1 1 auto; min-width: 0; text-align: left;
-  border: 0; background: none; padding: 8px 8px; font-size: 14px;
+  border: 0; background: none; padding: 8px; font-size: 14px;
   display: flex; flex-direction: column; gap: 2px;
 }
 .shelf-row .pick .t {
@@ -407,9 +408,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   padding: 8px 10px; font-size: 15px; line-height: 1;
 }
 .shelf-row .drop:hover { color: var(--warn); }
-.shelf-row.current .pick .t::after { content: ' ·'; color: var(--accent); }
 
 @media (max-width: 700px) {
+  .shelf-panel { left: 4px; right: 4px; max-width: none; }
   .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
-  .sidebar-tabs .tab { min-height: 44px; }
+}
+
 }
