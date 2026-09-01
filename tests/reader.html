@@ -79,13 +79,25 @@
       reader.on('chapter', function (e) { chapterEvents.push(e); });
 
       await reader.show(0);
+
+      /* Marks are off by default: a real book produces thousands of them and
+       * underlining every one obscures the text. The tests below examine the
+       * marks, so they opt in. */
+      t.check('marks are off for a fresh reader', reader.state.showMarks === false,
+              'showMarks=' + reader.state.showMarks);
+      t.eq('and none are rendered', reader.content.querySelectorAll('.amb-mark').length, 0);
+      await reader.setShowMarks(true);
+      t.check('turning them on renders them',
+              reader.content.querySelectorAll('.amb-mark').length > 0, 'still none');
+
       var text = reader.content.textContent;
       t.has(text, '頭髮', 'chapter renders converted text');
       t.has(text, '乾淨', 'chapter renders second conversion');
       t.check('content mounted inside a shadow root',
               reader.shadow.host === reader.mount && reader.content.getRootNode() === reader.shadow,
               'not in shadow root');
-      t.check('chapter event fired', chapterEvents.length === 1 && chapterEvents[0].total === 2,
+      t.check('chapter event fired with the spine length',
+              chapterEvents.length >= 1 && chapterEvents[0].total === 2,
               JSON.stringify(chapterEvents));
 
       // ---- resources became blob URLs ----
@@ -163,6 +175,55 @@
       await reader.setMode('scroll');
       t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
             'scroll mode restored');
+
+      // ---- reading position survives reflow ----
+      /* Position used to be a raw pixel offset, so changing the font size --
+       * which this reader invites -- landed the reader somewhere else. */
+      var anchorHost = document.createElement('div');
+      anchorHost.style.cssText = 'position:absolute;left:-9999px;width:600px;height:300px;overflow:auto';
+      document.body.appendChild(anchorHost);
+      var anchorBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(anchorBook, 'hk');
+      var ar = App.reader.create(anchorHost, anchorBook);
+      await ar.show(0);
+
+      ar.scrollToStart();
+      ar.scrollBy(900);
+      var anchor = ar.captureAnchor();
+      t.check('an anchor names a block and a fraction into it',
+              anchor && typeof anchor.index === 'number' && typeof anchor.fraction === 'number',
+              JSON.stringify(anchor));
+      t.check('the anchor is not the first block', anchor.index > 0, JSON.stringify(anchor));
+
+      var blockBefore = ar.content.children[anchor.index].textContent.slice(0, 12);
+
+      /* Enlarging the text reflows everything; the same block must still be at
+       * the top afterwards. */
+      await ar.setFontScale(1.6);
+      var afterScale = ar.captureAnchor();
+      t.eq('the same block is still at the top after a font size change',
+           ar.content.children[afterScale.index].textContent.slice(0, 12), blockBefore);
+
+      await ar.setLineHeight(2.3);
+      var afterLeading = ar.captureAnchor();
+      t.eq('and after a line-height change',
+           ar.content.children[afterLeading.index].textContent.slice(0, 12), blockBefore);
+
+      await ar.setFontStyle('serif');
+      var afterFont = ar.captureAnchor();
+      t.eq('and after a typeface change',
+           ar.content.children[afterFont.index].textContent.slice(0, 12), blockBefore);
+
+      // Restoring an anchor directly.
+      ar.scrollToStart();
+      t.eq('scrolled back to the top', ar.scrollPosition(), 0);
+      t.check('restoreAnchor reports success', ar.restoreAnchor(anchor), 'returned false');
+      t.eq('and lands on the same block',
+           ar.content.children[ar.captureAnchor().index].textContent.slice(0, 12), blockBefore);
+
+      t.check('a missing anchor is handled', ar.restoreAnchor(null) === false, 'did not return false');
+      ar.destroy();
+      anchorHost.remove();
 
       // ---- font override ----
       /* The reader must impose its own face over the book's, because embedded

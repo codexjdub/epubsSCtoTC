@@ -63,6 +63,12 @@
   }
 
   /* Re-label the chrome for whichever text is on screen. */
+  function syncMarksLabel() {
+    if (!el.toggleMarks || !current.reader) return;
+    el.toggleMarks.textContent = current.reader.state.showMarks ? 'Hide marks' : 'Show marks';
+    el.toggleMarks.classList.toggle('active', current.reader.state.showMarks);
+  }
+
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
     el.toggleSource.textContent = original ? '轉換後' : '原文';
@@ -229,6 +235,7 @@
 
     await reader.resume();
     el.fontStyle.value = reader.state.fontStyle;
+    syncMarksLabel();
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
@@ -680,8 +687,8 @@
     });
     $('toggleMarks').addEventListener('click', function () {
       var next = !current.reader.state.showMarks;
-      this.textContent = next ? 'Hide marks' : 'Show marks';
       current.reader.setShowMarks(next);
+      syncMarksLabel();
     });
     $('fontBigger').addEventListener('click', function () {
       current.reader.setFontScale(Math.min(2.2, current.reader.state.fontScale + 0.1));

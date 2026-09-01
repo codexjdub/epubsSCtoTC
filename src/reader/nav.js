@@ -75,7 +75,11 @@
         ? saved.fontStyle : App.readingFonts.DEFAULT,
       fontScale: saved.fontScale || 1,
       lineHeight: saved.lineHeight || 1.9,
-      showMarks: saved.showMarks !== false,
+      /* Off by default. A full-length book produces thousands of marked
+       * characters, and most are readings the converter is not actually in
+       * doubt about, so underlining them all obscures the text rather than
+       * helping. The toggle turns them on when someone wants to review. */
+      showMarks: saved.showMarks === true,
       source: saved.source === 'original' ? 'original' : 'converted',
       overrides: saved.overrides || {},
       listeners: {}
@@ -146,6 +150,69 @@
       return App.readingFonts.stackFor(state.fontStyle, preset);
     }
 
+    /* Reading position as a content anchor rather than a pixel offset.
+     *
+     * A raw scrollTop is only meaningful for the exact layout that produced
+     * it. Changing the font size, line height, typeface, theme or window
+     * width -- all of which this reader invites -- reflows the text and leaves
+     * that number pointing somewhere else entirely.
+     *
+     * Instead: remember which block was at the leading edge and how far into
+     * it we had read. Both survive reflow.
+     */
+    function blockSize(rect) {
+      return scroller().axis === 'left' ? rect.width : rect.height;
+    }
+
+    /* How far the leading edge has moved past this block's start, along
+     * whichever axis is doing the scrolling. */
+    function scrolledPast(rect, containerRect) {
+      var s = scroller();
+      if (s.axis === 'top') return containerRect.top - rect.top;
+      if (state.mode === 'vertical') return rect.right - containerRect.right;
+      return containerRect.left - rect.left;
+    }
+
+    function captureAnchor() {
+      var blocks = content.children;
+      if (!blocks.length) return null;
+      var containerRect = scroller().el.getBoundingClientRect();
+      for (var i = 0; i < blocks.length; i++) {
+        var rect = blocks[i].getBoundingClientRect();
+        var size = blockSize(rect);
+        if (size <= 0) continue;
+        var past = scrolledPast(rect, containerRect);
+        if (past < size) {
+          return {
+            index: i,
+            id: blocks[i].id || '',
+            fraction: Math.max(0, Math.min(1, past / size))
+          };
+        }
+      }
+      return { index: blocks.length - 1, id: '', fraction: 1 };
+    }
+
+    function restoreAnchor(anchor) {
+      if (!anchor || !content.children.length) return false;
+      var el = null;
+      if (anchor.id) {
+        try {
+          el = content.querySelector('#' + (window.CSS && CSS.escape
+            ? CSS.escape(anchor.id) : anchor.id));
+        } catch (e) { el = null; }
+      }
+      if (!el) el = content.children[anchor.index] || null;
+      if (!el) return false;
+
+      /* scrollIntoView understands the writing mode; scrollBy already means
+       * "forward in reading order" whichever way the text runs. */
+      el.scrollIntoView({ block: 'start', inline: 'start' });
+      var offset = (anchor.fraction || 0) * blockSize(el.getBoundingClientRect());
+      if (offset) scrollBy(offset);
+      return true;
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -162,7 +229,7 @@
         lineHeight: state.lineHeight,
         showMarks: state.showMarks,
         source: state.source,
-        scrollTop: scrollPosition(),
+        anchor: captureAnchor(),
         overrides: state.overrides
       });
     }
@@ -270,9 +337,10 @@
       if (fragment) {
         var anchor = content.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(fragment) : fragment));
         if (anchor && anchor.scrollIntoView) anchor.scrollIntoView();
-      } else if (typeof restoreScroll === 'number') {
-        setScrollPosition(restoreScroll);
+      } else if (restoreScroll) {
+        var pending = restoreScroll;
         restoreScroll = null;
+        if (!restoreAnchor(pending)) scrollToStart();
       } else {
         scrollToStart();
       }
@@ -303,12 +371,23 @@
     function next() { return show(state.index + 1); }
     function prev() { return show(state.index - 1); }
 
-    function setFontStyle(id) {
-      state.fontStyle = App.readingFonts.isValidStyle(id) ? id : App.readingFonts.DEFAULT;
+    /* Anything that reflows the text re-renders the chapter, so capture the
+     * anchor first and put it back afterwards -- otherwise changing the font
+     * size would throw the reader back to the top of the chapter. */
+    function reflow(mutate) {
+      var anchor = captureAnchor();
+      mutate();
+      restoreScroll = anchor;
       return show(state.index);
     }
-    function setFontScale(scale) { state.fontScale = scale; return show(state.index); }
-    function setLineHeight(v) { state.lineHeight = v; return show(state.index); }
+
+    function setFontStyle(id) {
+      return reflow(function () {
+        state.fontStyle = App.readingFonts.isValidStyle(id) ? id : App.readingFonts.DEFAULT;
+      });
+    }
+    function setFontScale(scale) { return reflow(function () { state.fontScale = scale; }); }
+    function setLineHeight(v) { return reflow(function () { state.lineHeight = v; }); }
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
@@ -337,9 +416,11 @@
       setSource: setSource,
       overrides: function () { return state.overrides; },
       resume: function () {
-        restoreScroll = typeof saved.scrollTop === 'number' ? saved.scrollTop : null;
+        restoreScroll = saved.anchor || null;
         return show(saved.index || 0);
       },
+      captureAnchor: captureAnchor,
+      restoreAnchor: restoreAnchor,
       scrollBy: scrollBy,
       scrollToStart: scrollToStart,
       scrollToEnd: scrollToEnd,
