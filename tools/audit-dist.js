@@ -23,7 +23,11 @@ console.log('auditing ' + path.relative(path.resolve(__dirname, '..'), file));
 const charsetAt = buf.indexOf(Buffer.from('<meta charset="utf-8"/>', 'utf8'));
 check('charset meta within first 1024 bytes', charsetAt >= 0 && charsetAt < 1024, 'byte ' + charsetAt);
 check('file decodes as valid UTF-8', Buffer.from(html, 'utf8').equals(buf), 'round trip differs');
-check('Chinese text survives the build', html.includes('簡繁轉換'), 'missing');
+/* Derived from the source rather than hardcoded: this checks that UTF-8
+ * survived the build, and a canary spelled out here just breaks on a rename. */
+const h1 = (read('index.html').match(/<h1>([^<]+)<\/h1>/) || [])[1] || '';
+check('Chinese text survives the build',
+      /[\u4e00-\u9fff]/.test(h1) && html.includes(h1), h1 ? 'missing: ' + h1 : 'no <h1> in index.html');
 
 // ES modules do not load from a null origin.
 check('no ES module scripts', !/<script[^>]+type=["']module["']/i.test(html));
