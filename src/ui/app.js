@@ -140,6 +140,17 @@
     for (var i = 0; i < links.length; i++) {
       links[i].classList.toggle('current', links[i].dataset.path === path);
     }
+    revealCurrentInToc();
+  }
+
+  /* The list outruns the sidebar on any real book -- 69 entries in the sample,
+     where chapter 31 sits 941px down and chapter 61 over 2000 -- so opening
+     目錄 mid-book showed the beginning and left you to hunt for where you are.
+     `nearest` is what keeps it from being annoying: an entry already on screen
+     does not move, so clicking through the list never makes it jump. */
+  function revealCurrentInToc() {
+    var current = el.toc.querySelector('a.current');
+    if (current && current.scrollIntoView) current.scrollIntoView({ block: 'nearest' });
   }
 
   /* ---- report ---- */
@@ -731,6 +742,9 @@
         el.backdrop.classList.add('hidden');
       }
       el.toggleSidebar.setAttribute('aria-expanded', String(open));
+      /* Opening it is the other moment it matters: the highlight may have moved
+         several times while the drawer was shut. */
+      if (open) revealCurrentInToc();
     }
 
     function drawerOpen() {
@@ -902,6 +916,7 @@
   }
 
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
+             highlightToc: highlightToc,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };

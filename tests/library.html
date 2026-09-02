@@ -165,6 +165,39 @@
                 return shown && shown !== key;
               }), 'a key was left showing');
 
+      /* The contents list outruns the sidebar on any real book, so it has to
+         follow the reader -- opening 目錄 at chapter 31 used to show the start
+         of the book. `nearest` is what keeps it civil: an entry already on
+         screen must not move when the highlight lands on it. */
+      var tocEl = D.getElementById('toc');
+      for (var ti = 0; ti < 60; ti++) {
+        var link = D.createElement('a');
+        link.href = '#';
+        link.style.display = 'block';
+        link.dataset.path = 'chapter-' + ti;
+        link.textContent = '第' + ti + '章';
+        tocEl.appendChild(link);
+      }
+      var sideEl = D.getElementById('sidebar');
+      t.check('the contents list is long enough to scroll',
+              sideEl.scrollHeight > sideEl.clientHeight, 'not scrollable');
+
+      W.App.ui.highlightToc('chapter-55');
+      await wait(80);
+      var far = tocEl.querySelector('a.current');
+      var farBox = far.getBoundingClientRect(), sideBox = sideEl.getBoundingClientRect();
+      t.check('a distant chapter is scrolled into view',
+              farBox.top >= sideBox.top - 1 && farBox.bottom <= sideBox.bottom + 1,
+              'still out of sight');
+      t.check('which meant scrolling the list', sideEl.scrollTop > 0,
+              String(sideEl.scrollTop));
+
+      var restingAt = sideEl.scrollTop;
+      W.App.ui.highlightToc('chapter-55');
+      await wait(80);
+      t.eq('re-marking an entry already on screen moves nothing',
+           sideEl.scrollTop, restingAt);
+
       t.check('the bar carries a shelf button', !!D.getElementById('toggleShelf'), 'missing');
       t.eq('it is the first control on the bar',
            D.querySelector('.topbar button').id, 'toggleShelf');
