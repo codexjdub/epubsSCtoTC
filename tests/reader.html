@@ -222,6 +222,12 @@
               RF2.stackFor('serif', 'tw', 'en').indexOf('Songti TC') < 0 &&
               RF2.stackFor('serif', 'tw', 'en').indexOf('Iowan') >= 0,
               RF2.stackFor('serif', 'tw', 'en'));
+      t.eq('an English book is offered two typefaces, named for its script',
+           RF2.stylesFor('en').map(function (f) { return f.label; }).join(','), 'Serif,Sans');
+      t.eq('a Chinese book keeps all three', RF2.stylesFor('zh-TW').length, 3);
+      t.eq('a stored 楷書 shows as Serif on an English book',
+           RF2.effectiveStyle('kai', 'en'), 'serif');
+      t.eq('and is untouched on a Chinese one', RF2.effectiveStyle('kai', 'zh-TW'), 'kai');
       t.check('a missing language is treated as Chinese',
               RF2.isHan('') && RF2.isHan(undefined) && !RF2.isHan('en'),
               'language default wrong');

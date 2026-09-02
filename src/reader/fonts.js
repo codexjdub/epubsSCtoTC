@@ -71,10 +71,31 @@
   }
 
   var STYLES = [
-    { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
-    { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' }
+    { id: 'serif', label: '明體', latin: 'Serif',
+      note: 'Serif. The conventional face for long-form reading.' },
+    { id: 'sans',  label: '黑體', latin: 'Sans',
+      note: 'Sans-serif. Cleaner on lower-resolution screens.' },
+    /* No latin label: 楷書 is a brush style with no Latin counterpart, and
+     * offering it for an English book meant two of three choices rendered
+     * identically. */
+    { id: 'kai',   label: '楷書', latin: '',
+      note: 'Brush style, as used in textbooks and poetry.' }
   ];
+
+  /* The choices worth offering for this book, named in terms that mean
+   * something for the script it is written in. */
+  function stylesFor(language) {
+    if (isHan(language)) return STYLES;
+    return STYLES.filter(function (st) { return st.latin; })
+      .map(function (st) { return { id: st.id, label: st.latin, note: st.note }; });
+  }
+
+  /* Which option should appear selected: a stored 楷書 has no entry in a Latin
+   * list, and it renders as the serif stack there anyway. */
+  function effectiveStyle(styleId, language) {
+    if (isHan(language)) return isValidStyle(styleId) ? styleId : DEFAULT;
+    return styleId === 'kai' ? 'serif' : (isValidStyle(styleId) ? styleId : DEFAULT);
+  }
 
   /* Which glyph region a conversion preset implies. */
   function regionFor(presetId) {
@@ -101,6 +122,8 @@
   App.readingFonts = {
     STYLES: STYLES,
     STACKS: STACKS,
+    stylesFor: stylesFor,
+    effectiveStyle: effectiveStyle,
     LATIN: LATIN,
     isHan: isHan,
     DEFAULT: DEFAULT,

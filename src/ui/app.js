@@ -58,6 +58,24 @@
     el.toc.appendChild(list(book.toc));
   }
 
+  /* Rebuilt per book: the typeface names only mean something in the script the
+     book is written in, and 楷書 has no Latin counterpart to offer. */
+  function populateFontStyles(language) {
+    el.fontStyle.textContent = '';
+    App.readingFonts.stylesFor(language).forEach(function (f) {
+      var opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.label;
+      opt.title = f.note;
+      el.fontStyle.appendChild(opt);
+    });
+  }
+
+  function bookLanguage(book) {
+    var meta = book.metadata || {};
+    return (meta.original && meta.original.language) || meta.language || '';
+  }
+
   function titleFor(book, useOriginal) {
     var meta = useOriginal && book.metadata.original ? book.metadata.original : book.metadata;
     return meta.title || current.filename;
@@ -253,7 +271,9 @@
     setStatus('');
 
     await reader.resume();
-    el.fontStyle.value = reader.state.fontStyle;
+    populateFontStyles(bookLanguage(book));
+    el.fontStyle.value =
+      App.readingFonts.effectiveStyle(reader.state.fontStyle, bookLanguage(book));
     syncMarksLabel();
     el.lineHeight.value = reader.state.lineHeight;
     el.align.value = reader.state.align;
@@ -715,13 +735,7 @@
 
     api.drawerOpen = drawerOpen;
 
-    App.readingFonts.STYLES.forEach(function (f) {
-      var opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.label;
-      opt.title = f.note;
-      el.fontStyle.appendChild(opt);
-    });
+    populateFontStyles('');
     el.fontStyle.addEventListener('change', function () {
       if (current.reader) current.reader.setFontStyle(this.value);
     });
