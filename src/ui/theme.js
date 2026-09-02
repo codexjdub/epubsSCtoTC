@@ -12,14 +12,15 @@
 
   /* Control labels are Chinese throughout; the prose that explains the tool
    * stays English. These appear in both the landing page and the reader. */
+  /* Labels live in ui/strings.js; these carry the key. */
   var THEMES = [
-    { id: 'system', label: '系統' },
-    { id: 'light',  label: '明亮' },
-    { id: 'sepia',  label: '米黃' },
-    { id: 'green',  label: '青綠' },
-    { id: 'slate',  label: '石板' },
-    { id: 'grey',   label: '淺灰' },
-    { id: 'dark',   label: '暗色' }
+    { id: 'system', labelKey: 'theme.system' },
+    { id: 'light',  labelKey: 'theme.light'  },
+    { id: 'sepia',  labelKey: 'theme.sepia'  },
+    { id: 'green',  labelKey: 'theme.green'  },
+    { id: 'slate',  labelKey: 'theme.slate'  },
+    { id: 'grey',   labelKey: 'theme.grey'   },
+    { id: 'dark',   labelKey: 'theme.dark'   }
   ];
 
   function isValid(id) {

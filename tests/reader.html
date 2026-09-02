@@ -23,6 +23,7 @@
 
 <script src="../vendor/jszip.min.js"></script>
 <script src="../vendor/opencc-cn2t.js"></script>
+<script src="../src/ui/strings.js"></script>
 <script src="../src/epub/zip.js"></script>
 <script src="../src/epub/parse.js"></script>
 <script src="../src/convert/ambiguity-table.js"></script>
@@ -198,6 +199,21 @@
         t.check('internal link navigated to chapter 1', reader.state.index === 0,
                 'index=' + reader.state.index);
       }
+
+      // ---- every label comes from one table ----
+      /* Single-language on purpose: a second means adding a column, not
+         hunting through markup, option lists and status calls. */
+      var STR = App.strings;
+      t.check('a missing key shows itself rather than blank',
+              STR.get('no.such.key') === 'no.such.key', STR.get('no.such.key'));
+      t.eq('placeholders are filled', STR.get('shelf.count', { n: 3 }), '這部裝置存了 3 本書。');
+      t.eq('an unknown placeholder is left alone',
+           STR.get('status.opening', {}), '開啟《{title}》…');
+      t.check('themes, presets and typefaces all resolve through it',
+              App.theme.THEMES.every(function (x) { return !!STR.TEXT[x.labelKey]; }) &&
+              App.convert.presets().every(function (p) { return p.label && p.note; }) &&
+              App.readingFonts.stylesFor('zh-TW').every(function (f) { return f.label && f.note; }),
+              'a label did not resolve');
 
       // ---- alignment is the publisher's until asked otherwise ----
       /* Every ereader that offers an alignment control overrides the book with

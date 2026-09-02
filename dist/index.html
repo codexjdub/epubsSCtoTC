@@ -510,7 +510,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.11.1</p>
+    <p class="hint build">v1.12.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -518,9 +518,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   <div id="chrome" class="hidden" style="display:contents">
     <div class="topbar">
       <button id="toggleShelf" type="button" aria-expanded="false"
-              aria-controls="shelfPanel" title="已存的書">書架</button>
+              aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
       <button id="toggleSidebar" type="button" aria-expanded="true"
-              aria-controls="sidebar">目錄</button>
+              aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
       <span class="title" id="bookTitle"></span>
       <!-- Order follows the surfaces: 書架 and 目錄 open panels anchored to the
            left edge, so they sit left of the title; Aa and 轉換 open panels
@@ -531,35 +531,35 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
            and what the conversion did. At 1280px the flat bar wrapped to two
            rows and left the title 77px. -->
       <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="aaPanel" title="閱讀設定">Aa</button>
+              aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
       <button id="convBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="convPanel" title="轉換設定">轉換</button>
-      <button id="exportBtn" class="primary" type="button">匯出 EPUB</button>
+              aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
+      <button id="exportBtn" class="primary" type="button" data-i18n="bar.export">匯出 EPUB</button>
 
       <div class="bar-panel hidden" id="aaPanel">
-        <label><select id="fontStyle" title="字體"></select></label>
+        <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
         <div class="row">
           <button id="fontSmaller" type="button">A−</button>
           <button id="fontBigger" type="button">A+</button>
         </div>
-        <label class="range">行距
+        <label class="range"><span data-i18n="panel.leading">行距</span>
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <label><select id="align" title="對齊方式"></select></label>
+        <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
         <!-- Kept here rather than moved to the ? overlay: that overlay only
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
-                title="Vim 鍵盤操作（按 ? 看說明）">Vim</button>
+                data-i18n-title="panel.vim.title">Vim</button>
       </div>
 
       <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
-        <label><input type="checkbox" id="punctTop"/> 匯出時轉為「 」</label>
-        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="toggleMarks" type="button" aria-pressed="false">顯示標記</button>
-        <button id="toggleReport" type="button">轉換報告</button>
+        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
+        <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
+        <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
@@ -575,14 +575,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              most-recent-first and that is usually what you came for, and the
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
-          <button id="openNew" type="button" class="open-new">開啟新書…</button>
-          <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
+          <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
+          <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>
     </div>
 
-    <div id="originalBanner" class="originalBanner hidden">
-      Showing the original text, unconverted. Marks and corrections are hidden.
+    <div id="originalBanner" class="originalBanner hidden" data-i18n="reader.banner">
+      正在顯示未轉換的原文，標記與更正暫時隱藏。
     </div>
 
     <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
@@ -596,13 +596,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     </div>
 
     <div class="pager">
-      <button id="back" type="button" hidden>↩ 返回</button>
-      <button id="prev" type="button">← 上一章</button>
+      <button id="back" type="button" hidden data-i18n="pager.back">↩ 返回</button>
+      <button id="prev" type="button" data-i18n="pager.prev">← 上一章</button>
       <span class="pos" id="position"></span>
       <!-- #status lives in the landing page, which is hidden while reading, so
            every reader-mode message went nowhere. -->
       <span class="status-line" id="readerStatus"></span>
-      <button id="next" type="button">下一章 →</button>
+      <button id="next" type="button" data-i18n="pager.next">下一章 →</button>
     </div>
 
     <div id="reportPanel" class="report hidden">
@@ -1161,24 +1161,31 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * conversion byte-identical. */
   var TEXT_ATTRS = ['alt', 'title', 'aria-label'];
 
-  /* Labels and their tooltips are Chinese: they name the target of a Chinese
-   * conversion and are read by someone reading a Chinese book. */
+  /* Labels and tooltips live in ui/strings.js; these carry the keys. `label`
+   * and `note` are filled in by presets() so callers still read plain text. */
   var PRESETS = [
-    { id: 'hk',  label: '香港',        to: 'hk',  lang: 'zh-HK',
-      note: '香港字形，詞彙照原文。' },
-    { id: 'hkp', label: '香港（含詞彙）', to: 'hkp', lang: 'zh-HK',
-      note: '連大陸詞彙一併轉換，小說讀來可能生硬。' },
-    { id: 'tw',  label: '臺灣',        to: 'tw',  lang: 'zh-TW',
-      note: '臺灣字形（裡、著），詞彙照原文。' },
-    { id: 'twp', label: '臺灣（含詞彙）', to: 'twp', lang: 'zh-TW',
-      note: '軟體、網路、滑鼠。適合技術類書籍。' },
-    { id: 't',   label: '繁體',        to: 't',   lang: 'zh-Hant',
-      note: '只轉字形，不分地區用法。' }
+    { id: 'hk',  to: 'hk',  lang: 'zh-HK' },
+    { id: 'hkp', to: 'hkp', lang: 'zh-HK' },
+    { id: 'tw',  to: 'tw',  lang: 'zh-TW' },
+    { id: 'twp', to: 'twp', lang: 'zh-TW' },
+    { id: 't',   to: 't',   lang: 'zh-Hant' }
   ];
 
+  function labelled(preset) {
+    return {
+      id: preset.id, to: preset.to, lang: preset.lang,
+      label: App.strings.get('preset.' + preset.id),
+      note: App.strings.get('preset.' + preset.id + '.note')
+    };
+  }
+
+  function presets() { return PRESETS.map(labelled); }
+
   function presetById(id) {
-    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].id === id) return PRESETS[i];
-    return PRESETS[0];
+    for (var i = 0; i < PRESETS.length; i++) {
+      if (PRESETS[i].id === id) return labelled(PRESETS[i]);
+    }
+    return labelled(PRESETS[0]);
   }
 
   function createConverter(presetId) {
@@ -1289,6 +1296,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   App.convert = App.convert || {};
   App.convert.PRESETS = PRESETS;
+  App.convert.presets = presets;
   App.convert.presetById = presetById;
   App.convert.createConverter = createConverter;
   App.convert.convertDocument = convertDocument;
@@ -2140,14 +2148,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
                         classic: 'serif', legible: 'sans-serif' };
 
   var LATIN_STYLES = [
-    { id: 'serif',   label: 'Serif',
-      note: 'Old-style serif. The conventional face for long-form reading.' },
-    { id: 'sans',    label: 'Sans',
-      note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'classic', label: 'Classic',
-      note: 'Higher contrast and about a tenth narrower — Baskerville and its kin.' },
-    { id: 'legible', label: 'Legible',
-      note: 'Wide and open. The easiest at small sizes or with tired eyes.' }
+    { id: 'serif',   key: 'latin.serif' },
+    { id: 'sans',    key: 'latin.sans' },
+    { id: 'classic', key: 'latin.classic' },
+    { id: 'legible', key: 'latin.legible' }
   ];
 
   /* Books this converter did not touch. An empty or missing language is
@@ -2157,18 +2161,28 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return v.indexOf('zh') === 0 || v.indexOf('cmn') === 0 || v.indexOf('yue') === 0;
   }
 
+  /* Labels live in ui/strings.js. stylesFor() fills in `label` and `note`, so
+   * callers still read plain text. */
   var STYLES = [
-    { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
-    { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' },
-    { id: 'yuan',  label: '圓體', note: 'Rounded sans-serif. Softer than 黑體.' },
-    { id: 'fangsong', label: '仿宋', note: 'A lighter Song, conventional for quoted passages.' }
+    { id: 'serif', key: 'font.serif' },
+    { id: 'sans',  key: 'font.sans' },
+    { id: 'kai',   key: 'font.kai' },
+    { id: 'yuan',  key: 'font.yuan' },
+    { id: 'fangsong', key: 'font.fangsong' }
   ];
 
   /* The choices worth offering for this book, named in terms that mean
    * something for the script it is written in. */
+  function labelled(style) {
+    return {
+      id: style.id,
+      label: App.strings.get(style.key),
+      note: App.strings.get(style.key + '.note')
+    };
+  }
+
   function stylesFor(language) {
-    return isHan(language) ? STYLES : LATIN_STYLES;
+    return (isHan(language) ? STYLES : LATIN_STYLES).map(labelled);
   }
 
   /* ---- availability, by rendering ---------------------------------------- */
@@ -3168,6 +3182,151 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 })(window.App = window.App || {});
 
 </script>
+<script>/* src/ui/strings.js */
+/* Every user-visible label in one table.
+ *
+ * The reader's controls are Chinese and its prose is English, which is a rule
+ * about the audience rather than about any one file -- so the strings live
+ * together where that rule can be seen, instead of scattered across markup,
+ * option lists and status calls.
+ *
+ * There is one language here on purpose. Adding a second means adding a column
+ * and a lookup that reads it: the point of this table is that the work is
+ * bounded and visible, not that it has already been done. When it is done, the
+ * language should follow the READER -- a locale setting, defaulting to
+ * navigator.language -- and never the book. No reading app relabels its
+ * interface because you opened a different title, and switching books from the
+ * shelf would do exactly that. Typeface selection is the opposite case and
+ * correctly follows the book: see reader/fonts.js.
+ *
+ * Markup carries data-i18n / data-i18n-title and is filled by apply(). Code
+ * asks for text through get(), which interpolates {placeholders}.
+ */
+(function (App) {
+  'use strict';
+
+  var TEXT = {
+    /* ---- the bar ---- */
+    'bar.shelf': '書架',
+    'bar.shelf.title': '已存的書',
+    'bar.toc': '目錄',
+    'bar.aa.title': '閱讀設定',
+    'bar.convert': '轉換',
+    'bar.convert.title': '轉換設定',
+    'bar.export': '匯出 EPUB',
+
+    /* ---- reading settings ---- */
+    'panel.typeface.title': '字體',
+    'panel.leading': '行距',
+    'panel.align.title': '對齊方式',
+    'panel.vim.title': 'Vim 鍵盤操作（按 ? 看說明）',
+    'align.default': '對齊：預設',
+    'align.left': '對齊：靠左',
+    'align.justify': '對齊：兩端',
+
+    /* ---- conversion settings ---- */
+    'panel.punct': '匯出時轉為「 」',
+    'panel.marks.show': '顯示標記',
+    'panel.marks.hide': '隱藏標記',
+    'panel.report': '轉換報告',
+    'reader.source.original': '原文',
+    'reader.source.converted': '轉換後',
+    'reader.banner': '正在顯示未轉換的原文，標記與更正暫時隱藏。',
+
+    /* ---- the shelf ---- */
+    'shelf.open': '開啟新書…',
+    'shelf.drag': '也可以把 EPUB 拖進視窗',
+    'shelf.count': '這部裝置存了 {n} 本書。',
+    'shelf.empty': '還沒有存書。開過的書會留在這裡。',
+
+    /* ---- the pager ---- */
+    'pager.back': '↩ 返回',
+    'pager.prev': '← 上一章',
+    'pager.next': '下一章 →',
+
+    /* ---- what the app is doing ---- */
+    'status.opening': '開啟《{title}》…',
+    'status.exporting': '正在匯出…',
+    'status.exporting.pct': '正在匯出… {pct}%',
+    'status.exported': '已匯出 {name}',
+    'status.exported.corrections': '，含 {n} 處手動更正',
+    'status.exported.fonts': '，移除 {n} 個內嵌字型',
+    'status.external': '未開啟外部連結：{href}',
+    'status.missing': '這個項目不在閱讀順序內（{path}）。',
+    'error.export': '匯出失敗：{message}',
+    'error.open': '無法開啟：{message}',
+
+    /* ---- themes ---- */
+    'theme.system': '系統',
+    'theme.light': '明亮',
+    'theme.sepia': '米黃',
+    'theme.green': '青綠',
+    'theme.slate': '石板',
+    'theme.grey': '淺灰',
+    'theme.dark': '暗色',
+
+    /* ---- conversion targets ---- */
+    'preset.hk': '香港',
+    'preset.hk.note': '香港字形，詞彙照原文。',
+    'preset.hkp': '香港（含詞彙）',
+    'preset.hkp.note': '連大陸詞彙一併轉換，小說讀來可能生硬。',
+    'preset.tw': '臺灣',
+    'preset.tw.note': '臺灣字形（裡、著），詞彙照原文。',
+    'preset.twp': '臺灣（含詞彙）',
+    'preset.twp.note': '軟體、網路、滑鼠。適合技術類書籍。',
+    'preset.t': '繁體',
+    'preset.t.note': '只轉字形，不分地區用法。',
+
+    /* ---- typefaces, Han ---- */
+    'font.serif': '明體',
+    'font.serif.note': '襯線體，長篇閱讀的慣用字體。',
+    'font.sans': '黑體',
+    'font.sans.note': '無襯線，低解析度螢幕上較清楚。',
+    'font.kai': '楷書',
+    'font.kai.note': '毛筆字形，課本與詩詞常用。',
+    'font.yuan': '圓體',
+    'font.yuan.note': '圓潤的無襯線，比黑體柔和。',
+    'font.fangsong': '仿宋',
+    'font.fangsong.note': '較細的宋體，引文與公文常用。',
+
+    /* ---- typefaces, Latin ---- */
+    'latin.serif': 'Serif',
+    'latin.serif.note': 'Old-style serif. The conventional face for long-form reading.',
+    'latin.sans': 'Sans',
+    'latin.sans.note': 'Sans-serif. Cleaner on lower-resolution screens.',
+    'latin.classic': 'Classic',
+    'latin.classic.note': 'Higher contrast and about a tenth narrower — Baskerville and its kin.',
+    'latin.legible': 'Legible',
+    'latin.legible.note': 'Wide and open. The easiest at small sizes or with tired eyes.'
+  };
+
+  /* A missing key returns the key itself: visible in the interface, harmless
+   * in use, and obvious in a test. */
+  function get(key, vars) {
+    var value = TEXT[key];
+    if (value === undefined) return key;
+    if (!vars) return value;
+    return value.replace(/\{(\w+)\}/g, function (whole, name) {
+      return vars[name] !== undefined ? vars[name] : whole;
+    });
+  }
+
+  function apply(root) {
+    var scope = root || document;
+    var nodes = scope.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].textContent = get(nodes[i].getAttribute('data-i18n'));
+    }
+    var titled = scope.querySelectorAll('[data-i18n-title]');
+    for (var j = 0; j < titled.length; j++) {
+      titled[j].setAttribute('title', get(titled[j].getAttribute('data-i18n-title')));
+    }
+  }
+
+  App.strings = { get: get, apply: apply, TEXT: TEXT };
+})(window.App = window.App || {});
+
+</script>
 <script>/* src/ui/theme.js */
 /* Reading themes.
  *
@@ -3183,14 +3342,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   /* Control labels are Chinese throughout; the prose that explains the tool
    * stays English. These appear in both the landing page and the reader. */
+  /* Labels live in ui/strings.js; these carry the key. */
   var THEMES = [
-    { id: 'system', label: '系統' },
-    { id: 'light',  label: '明亮' },
-    { id: 'sepia',  label: '米黃' },
-    { id: 'green',  label: '青綠' },
-    { id: 'slate',  label: '石板' },
-    { id: 'grey',   label: '淺灰' },
-    { id: 'dark',   label: '暗色' }
+    { id: 'system', labelKey: 'theme.system' },
+    { id: 'light',  labelKey: 'theme.light'  },
+    { id: 'sepia',  labelKey: 'theme.sepia'  },
+    { id: 'green',  labelKey: 'theme.green'  },
+    { id: 'slate',  labelKey: 'theme.slate'  },
+    { id: 'grey',   labelKey: 'theme.grey'   },
+    { id: 'dark',   labelKey: 'theme.dark'   }
   ];
 
   function isValid(id) {
@@ -3427,6 +3587,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
 
   function $(id) { return document.getElementById(id); }
+  function S(key, vars) { return App.strings.get(key, vars); }
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
@@ -3511,7 +3672,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   function syncMarksLabel() {
     if (!el.toggleMarks || !current.reader) return;
     var on = current.reader.state.showMarks;
-    el.toggleMarks.textContent = on ? '隱藏標記' : '顯示標記';
+    el.toggleMarks.textContent = S(on ? 'panel.marks.hide' : 'panel.marks.show');
     el.toggleMarks.classList.toggle('active', on);
     el.toggleMarks.setAttribute('aria-pressed', String(!!on));
   }
@@ -3519,7 +3680,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
-    el.toggleSource.textContent = original ? '轉換後' : '原文';
+    el.toggleSource.textContent =
+      S(original ? 'reader.source.converted' : 'reader.source.original');
     el.toggleSource.classList.toggle('active', original);
     el.toggleSource.setAttribute('aria-pressed', String(!!original));
     el.banner.classList.toggle('hidden', !original);
@@ -3672,10 +3834,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
-      setStatus('未開啟外部連結：' + e.href);
+      setStatus(S('status.external', { href: e.href }));
     });
     reader.on('missing', function (e) {
-      setStatus('這個項目不在閱讀順序內（' + e.path + '）。');
+      setStatus(S('status.missing', { path: e.path }));
     });
 
     buildToc(book, reader, reader.state.source === 'original');
@@ -3729,7 +3891,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   async function openStored(entry, row) {
     clearError();
     if (row) row.classList.add('busy');
-    setStatus('開啟《' + entry.title + '》…');
+    setStatus(S('status.opening', { title: entry.title }));
     var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
@@ -3738,7 +3900,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       ok = true;
     } catch (e) {
       setStatus('');
-      showError('無法開啟：' + e.message);
+      showError(S('error.open', { message: e.message }));
     }
     if (row) row.classList.remove('busy');
     return ok;
@@ -3881,8 +4043,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }, books, currentId);
 
     el.shelfNote.textContent = books.length
-      ? '這部裝置存了 ' + books.length + ' 本書。'
-      : '還沒有存書。開過的書會留在這裡。';
+      ? S('shelf.count', { n: books.length })
+      : S('shelf.empty');
   }
 
   function readFile(file) {
@@ -3897,7 +4059,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   async function doExport() {
     if (!current.book) return;
     el.exportBtn.disabled = true;
-    setStatus('正在匯出…');
+    setStatus(S('status.exporting'));
     try {
       /* Covers the archive write, which is the slow part on a large book.
          The passes before it are fast enough not to need their own reporting. */
@@ -3905,14 +4067,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         overrides: current.reader ? current.reader.overrides() : {},
         punctuation: current.punctuation
       }, function (fraction) {
-        setStatus('正在匯出… ' + Math.round(fraction * 100) + '%');
+        setStatus(S('status.exporting.pct', { pct: Math.round(fraction * 100) }));
       });
       App.export.download(summary.blob, App.export.filenameFor(current.book));
-      setStatus('已匯出 ' + App.export.filenameFor(current.book) +
-                (summary.overrides ? '，含 ' + summary.overrides + ' 處手動更正' : '') +
-                (summary.fontsStripped.length ? '，移除 ' + summary.fontsStripped.length + ' 個內嵌字型' : ''));
+      setStatus(S('status.exported', { name: App.export.filenameFor(current.book) }) +
+                (summary.overrides ? S('status.exported.corrections', { n: summary.overrides }) : '') +
+                (summary.fontsStripped.length
+                  ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''));
     } catch (e) {
-      showError('匯出失敗：' + e.message);
+      showError(S('error.export', { message: e.message }));
       setStatus('');
     }
     el.exportBtn.disabled = false;
@@ -3967,11 +4130,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
 
+    App.strings.apply(document);
+
     App.theme.THEMES.forEach(function (t) {
       [el.theme, el.themeLanding].forEach(function (select) {
         var opt = document.createElement('option');
         opt.value = t.id;
-        opt.textContent = t.label;
+        opt.textContent = S(t.labelKey);
         select.appendChild(opt);
       });
     });
@@ -3986,7 +4151,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });
     el.themeLanding.addEventListener('change', function () { onThemeChange(this.value); });
 
-    App.convert.PRESETS.forEach(function (p) {
+    App.convert.presets().forEach(function (p) {
       [el.preset, el.presetTop].forEach(function (select) {
         var opt = document.createElement('option');
         opt.value = p.id;
@@ -4194,13 +4359,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* "Publisher" is the default and the honest one: most EPUBs set their own
        alignment, and overriding it unasked is not this reader's business. */
-    [['default', '對齊：預設'], ['left', '對齊：靠左'], ['justify', '對齊：兩端']]
-      .forEach(function (pair) {
-        var opt = document.createElement('option');
-        opt.value = pair[0];
-        opt.textContent = pair[1];
-        el.align.appendChild(opt);
-      });
+    ['default', 'left', 'justify'].forEach(function (id) {
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = S('align.' + id);
+      el.align.appendChild(opt);
+    });
     el.align.addEventListener('change', function () {
       if (current.reader) current.reader.setAlign(this.value);
     });

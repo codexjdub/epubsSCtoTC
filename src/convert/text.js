@@ -18,24 +18,31 @@
    * conversion byte-identical. */
   var TEXT_ATTRS = ['alt', 'title', 'aria-label'];
 
-  /* Labels and their tooltips are Chinese: they name the target of a Chinese
-   * conversion and are read by someone reading a Chinese book. */
+  /* Labels and tooltips live in ui/strings.js; these carry the keys. `label`
+   * and `note` are filled in by presets() so callers still read plain text. */
   var PRESETS = [
-    { id: 'hk',  label: '香港',        to: 'hk',  lang: 'zh-HK',
-      note: '香港字形，詞彙照原文。' },
-    { id: 'hkp', label: '香港（含詞彙）', to: 'hkp', lang: 'zh-HK',
-      note: '連大陸詞彙一併轉換，小說讀來可能生硬。' },
-    { id: 'tw',  label: '臺灣',        to: 'tw',  lang: 'zh-TW',
-      note: '臺灣字形（裡、著），詞彙照原文。' },
-    { id: 'twp', label: '臺灣（含詞彙）', to: 'twp', lang: 'zh-TW',
-      note: '軟體、網路、滑鼠。適合技術類書籍。' },
-    { id: 't',   label: '繁體',        to: 't',   lang: 'zh-Hant',
-      note: '只轉字形，不分地區用法。' }
+    { id: 'hk',  to: 'hk',  lang: 'zh-HK' },
+    { id: 'hkp', to: 'hkp', lang: 'zh-HK' },
+    { id: 'tw',  to: 'tw',  lang: 'zh-TW' },
+    { id: 'twp', to: 'twp', lang: 'zh-TW' },
+    { id: 't',   to: 't',   lang: 'zh-Hant' }
   ];
 
+  function labelled(preset) {
+    return {
+      id: preset.id, to: preset.to, lang: preset.lang,
+      label: App.strings.get('preset.' + preset.id),
+      note: App.strings.get('preset.' + preset.id + '.note')
+    };
+  }
+
+  function presets() { return PRESETS.map(labelled); }
+
   function presetById(id) {
-    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].id === id) return PRESETS[i];
-    return PRESETS[0];
+    for (var i = 0; i < PRESETS.length; i++) {
+      if (PRESETS[i].id === id) return labelled(PRESETS[i]);
+    }
+    return labelled(PRESETS[0]);
   }
 
   function createConverter(presetId) {
@@ -146,6 +153,7 @@
 
   App.convert = App.convert || {};
   App.convert.PRESETS = PRESETS;
+  App.convert.presets = presets;
   App.convert.presetById = presetById;
   App.convert.createConverter = createConverter;
   App.convert.convertDocument = convertDocument;

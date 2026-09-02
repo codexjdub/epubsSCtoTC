@@ -94,14 +94,10 @@
                         classic: 'serif', legible: 'sans-serif' };
 
   var LATIN_STYLES = [
-    { id: 'serif',   label: 'Serif',
-      note: 'Old-style serif. The conventional face for long-form reading.' },
-    { id: 'sans',    label: 'Sans',
-      note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'classic', label: 'Classic',
-      note: 'Higher contrast and about a tenth narrower — Baskerville and its kin.' },
-    { id: 'legible', label: 'Legible',
-      note: 'Wide and open. The easiest at small sizes or with tired eyes.' }
+    { id: 'serif',   key: 'latin.serif' },
+    { id: 'sans',    key: 'latin.sans' },
+    { id: 'classic', key: 'latin.classic' },
+    { id: 'legible', key: 'latin.legible' }
   ];
 
   /* Books this converter did not touch. An empty or missing language is
@@ -111,18 +107,28 @@
     return v.indexOf('zh') === 0 || v.indexOf('cmn') === 0 || v.indexOf('yue') === 0;
   }
 
+  /* Labels live in ui/strings.js. stylesFor() fills in `label` and `note`, so
+   * callers still read plain text. */
   var STYLES = [
-    { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
-    { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' },
-    { id: 'yuan',  label: '圓體', note: 'Rounded sans-serif. Softer than 黑體.' },
-    { id: 'fangsong', label: '仿宋', note: 'A lighter Song, conventional for quoted passages.' }
+    { id: 'serif', key: 'font.serif' },
+    { id: 'sans',  key: 'font.sans' },
+    { id: 'kai',   key: 'font.kai' },
+    { id: 'yuan',  key: 'font.yuan' },
+    { id: 'fangsong', key: 'font.fangsong' }
   ];
 
   /* The choices worth offering for this book, named in terms that mean
    * something for the script it is written in. */
+  function labelled(style) {
+    return {
+      id: style.id,
+      label: App.strings.get(style.key),
+      note: App.strings.get(style.key + '.note')
+    };
+  }
+
   function stylesFor(language) {
-    return isHan(language) ? STYLES : LATIN_STYLES;
+    return (isHan(language) ? STYLES : LATIN_STYLES).map(labelled);
   }
 
   /* ---- availability, by rendering ---------------------------------------- */

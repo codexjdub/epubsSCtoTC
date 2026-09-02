@@ -7,6 +7,7 @@
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
 
   function $(id) { return document.getElementById(id); }
+  function S(key, vars) { return App.strings.get(key, vars); }
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
@@ -91,7 +92,7 @@
   function syncMarksLabel() {
     if (!el.toggleMarks || !current.reader) return;
     var on = current.reader.state.showMarks;
-    el.toggleMarks.textContent = on ? '隱藏標記' : '顯示標記';
+    el.toggleMarks.textContent = S(on ? 'panel.marks.hide' : 'panel.marks.show');
     el.toggleMarks.classList.toggle('active', on);
     el.toggleMarks.setAttribute('aria-pressed', String(!!on));
   }
@@ -99,7 +100,8 @@
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
-    el.toggleSource.textContent = original ? '轉換後' : '原文';
+    el.toggleSource.textContent =
+      S(original ? 'reader.source.converted' : 'reader.source.original');
     el.toggleSource.classList.toggle('active', original);
     el.toggleSource.setAttribute('aria-pressed', String(!!original));
     el.banner.classList.toggle('hidden', !original);
@@ -252,10 +254,10 @@
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
-      setStatus('未開啟外部連結：' + e.href);
+      setStatus(S('status.external', { href: e.href }));
     });
     reader.on('missing', function (e) {
-      setStatus('這個項目不在閱讀順序內（' + e.path + '）。');
+      setStatus(S('status.missing', { path: e.path }));
     });
 
     buildToc(book, reader, reader.state.source === 'original');
@@ -309,7 +311,7 @@
   async function openStored(entry, row) {
     clearError();
     if (row) row.classList.add('busy');
-    setStatus('開啟《' + entry.title + '》…');
+    setStatus(S('status.opening', { title: entry.title }));
     var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
@@ -318,7 +320,7 @@
       ok = true;
     } catch (e) {
       setStatus('');
-      showError('無法開啟：' + e.message);
+      showError(S('error.open', { message: e.message }));
     }
     if (row) row.classList.remove('busy');
     return ok;
@@ -461,8 +463,8 @@
     }, books, currentId);
 
     el.shelfNote.textContent = books.length
-      ? '這部裝置存了 ' + books.length + ' 本書。'
-      : '還沒有存書。開過的書會留在這裡。';
+      ? S('shelf.count', { n: books.length })
+      : S('shelf.empty');
   }
 
   function readFile(file) {
@@ -477,7 +479,7 @@
   async function doExport() {
     if (!current.book) return;
     el.exportBtn.disabled = true;
-    setStatus('正在匯出…');
+    setStatus(S('status.exporting'));
     try {
       /* Covers the archive write, which is the slow part on a large book.
          The passes before it are fast enough not to need their own reporting. */
@@ -485,14 +487,15 @@
         overrides: current.reader ? current.reader.overrides() : {},
         punctuation: current.punctuation
       }, function (fraction) {
-        setStatus('正在匯出… ' + Math.round(fraction * 100) + '%');
+        setStatus(S('status.exporting.pct', { pct: Math.round(fraction * 100) }));
       });
       App.export.download(summary.blob, App.export.filenameFor(current.book));
-      setStatus('已匯出 ' + App.export.filenameFor(current.book) +
-                (summary.overrides ? '，含 ' + summary.overrides + ' 處手動更正' : '') +
-                (summary.fontsStripped.length ? '，移除 ' + summary.fontsStripped.length + ' 個內嵌字型' : ''));
+      setStatus(S('status.exported', { name: App.export.filenameFor(current.book) }) +
+                (summary.overrides ? S('status.exported.corrections', { n: summary.overrides }) : '') +
+                (summary.fontsStripped.length
+                  ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''));
     } catch (e) {
-      showError('匯出失敗：' + e.message);
+      showError(S('error.export', { message: e.message }));
       setStatus('');
     }
     el.exportBtn.disabled = false;
@@ -547,11 +550,13 @@
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
 
+    App.strings.apply(document);
+
     App.theme.THEMES.forEach(function (t) {
       [el.theme, el.themeLanding].forEach(function (select) {
         var opt = document.createElement('option');
         opt.value = t.id;
-        opt.textContent = t.label;
+        opt.textContent = S(t.labelKey);
         select.appendChild(opt);
       });
     });
@@ -566,7 +571,7 @@
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });
     el.themeLanding.addEventListener('change', function () { onThemeChange(this.value); });
 
-    App.convert.PRESETS.forEach(function (p) {
+    App.convert.presets().forEach(function (p) {
       [el.preset, el.presetTop].forEach(function (select) {
         var opt = document.createElement('option');
         opt.value = p.id;
@@ -774,13 +779,12 @@
 
     /* "Publisher" is the default and the honest one: most EPUBs set their own
        alignment, and overriding it unasked is not this reader's business. */
-    [['default', '對齊：預設'], ['left', '對齊：靠左'], ['justify', '對齊：兩端']]
-      .forEach(function (pair) {
-        var opt = document.createElement('option');
-        opt.value = pair[0];
-        opt.textContent = pair[1];
-        el.align.appendChild(opt);
-      });
+    ['default', 'left', 'justify'].forEach(function (id) {
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = S('align.' + id);
+      el.align.appendChild(opt);
+    });
     el.align.addEventListener('change', function () {
       if (current.reader) current.reader.setAlign(this.value);
     });

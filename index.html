@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.11.1</p>
+    <p class="hint build">v1.12.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -43,9 +43,9 @@
   <div id="chrome" class="hidden" style="display:contents">
     <div class="topbar">
       <button id="toggleShelf" type="button" aria-expanded="false"
-              aria-controls="shelfPanel" title="已存的書">書架</button>
+              aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
       <button id="toggleSidebar" type="button" aria-expanded="true"
-              aria-controls="sidebar">目錄</button>
+              aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
       <span class="title" id="bookTitle"></span>
       <!-- Order follows the surfaces: 書架 and 目錄 open panels anchored to the
            left edge, so they sit left of the title; Aa and 轉換 open panels
@@ -56,35 +56,35 @@
            and what the conversion did. At 1280px the flat bar wrapped to two
            rows and left the title 77px. -->
       <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="aaPanel" title="閱讀設定">Aa</button>
+              aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
       <button id="convBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="convPanel" title="轉換設定">轉換</button>
-      <button id="exportBtn" class="primary" type="button">匯出 EPUB</button>
+              aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
+      <button id="exportBtn" class="primary" type="button" data-i18n="bar.export">匯出 EPUB</button>
 
       <div class="bar-panel hidden" id="aaPanel">
-        <label><select id="fontStyle" title="字體"></select></label>
+        <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
         <div class="row">
           <button id="fontSmaller" type="button">A−</button>
           <button id="fontBigger" type="button">A+</button>
         </div>
-        <label class="range">行距
+        <label class="range"><span data-i18n="panel.leading">行距</span>
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <label><select id="align" title="對齊方式"></select></label>
+        <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
         <!-- Kept here rather than moved to the ? overlay: that overlay only
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
-                title="Vim 鍵盤操作（按 ? 看說明）">Vim</button>
+                data-i18n-title="panel.vim.title">Vim</button>
       </div>
 
       <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
-        <label><input type="checkbox" id="punctTop"/> 匯出時轉為「 」</label>
-        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="toggleMarks" type="button" aria-pressed="false">顯示標記</button>
-        <button id="toggleReport" type="button">轉換報告</button>
+        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
+        <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
+        <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
@@ -100,14 +100,14 @@
              most-recent-first and that is usually what you came for, and the
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
-          <button id="openNew" type="button" class="open-new">開啟新書…</button>
-          <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
+          <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
+          <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>
     </div>
 
-    <div id="originalBanner" class="originalBanner hidden">
-      Showing the original text, unconverted. Marks and corrections are hidden.
+    <div id="originalBanner" class="originalBanner hidden" data-i18n="reader.banner">
+      正在顯示未轉換的原文，標記與更正暫時隱藏。
     </div>
 
     <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
@@ -121,13 +121,13 @@
     </div>
 
     <div class="pager">
-      <button id="back" type="button" hidden>↩ 返回</button>
-      <button id="prev" type="button">← 上一章</button>
+      <button id="back" type="button" hidden data-i18n="pager.back">↩ 返回</button>
+      <button id="prev" type="button" data-i18n="pager.prev">← 上一章</button>
       <span class="pos" id="position"></span>
       <!-- #status lives in the landing page, which is hidden while reading, so
            every reader-mode message went nowhere. -->
       <span class="status-line" id="readerStatus"></span>
-      <button id="next" type="button">下一章 →</button>
+      <button id="next" type="button" data-i18n="pager.next">下一章 →</button>
     </div>
 
     <div id="reportPanel" class="report hidden">
@@ -154,6 +154,7 @@
 <script src="src/reader/keys.js"></script>
 <script src="src/export/write.js"></script>
 <script src="src/llm/disambiguate.js"></script>
+<script src="src/ui/strings.js"></script>
 <script src="src/ui/theme.js"></script>
 <script src="src/ui/library.js"></script>
 <script src="src/ui/app.js"></script>
