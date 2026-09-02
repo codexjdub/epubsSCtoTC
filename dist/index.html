@@ -296,6 +296,136 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .drawer-backdrop { display: none; }
 
+/* The title used to be dropped below 420px so fifteen controls could keep
+   their touch targets. There are five now, and shortening the export label to
+   匯出 frees 41px more, so it stays and ellipses instead: knowing which book
+   you are in matters more than the last three characters of its name. */
+
+}
+
+/* ---- typeface + leading controls ---- */
+.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+
+/* ---- saved books ---- */
+.library { width: 100%; max-width: 560px; }
+.library.hidden { display: none !important; }
+/* The 52ch cap on .hint keeps prose readable, but this line sits under a
+   560px list and wrapped, orphaning its last two words on a centred line. */
+#libraryNote { max-width: none; }
+.library h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin: 0 0 10px; text-align: center;
+}
+.library-list { display: flex; flex-direction: column; gap: 8px; }
+.library-row {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.library-row .open {
+  flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
+  padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+}
+.library-row .text {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px;
+}
+.library-row .name {
+  flex: 1 1 auto; min-width: 0; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.library-row .remove {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 11px 13px; font-size: 16px; line-height: 1;
+}
+.library-row .remove:hover { color: var(--warn); }
+
+/* ---- shelf, opened from the bar ---- */
+.shelf-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
+  max-height: 60vh; max-height: 60dvh; overflow-y: auto;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+}
+.shelf-panel:not(.hidden) { display: block; }
+.shelf-panel .hint { margin: 8px 2px 2px; text-align: left; font-size: 12px; }
+
+.shelf-row {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; margin-bottom: 4px;
+}
+.shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
+.shelf-row .pick {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  border: 0; background: none; padding: 8px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.shelf-row .pick .text {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+}
+.shelf-row .pick .t {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
+}
+.shelf-row .pick .s { font-size: 11px; color: var(--muted); }
+.shelf-row .drop {
+  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
+  padding: 8px 10px; font-size: 15px; line-height: 1;
+}
+.shelf-row .drop:hover { color: var(--warn); }
+
+}
+
+.hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
+
+/* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
+   the background shows while a large JPEG decodes. */
+.library-row .cover, .shelf-row .cover {
+  flex: 0 0 auto; object-fit: cover; border-radius: 3px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.library-row .cover { width: 36px; height: 52px; }
+.shelf-row .cover { width: 26px; height: 38px; }
+
+/* The reader's own status line. Empty most of the time, so it must not
+   reserve space or shift the pager when it fills. */
+.pager .status-line { font-size: 12px; color: var(--muted); }
+
+/* Opening a file from the shelf. Sticky at the foot: the panel scrolls past
+   roughly six books, and a button that scrolls away is missing exactly when a
+   long library makes it most useful. The background is opaque so rows pass
+   underneath rather than through it. */
+.shelf-foot {
+  position: sticky; bottom: -10px; z-index: 1;
+  margin: 4px -10px -10px; padding: 8px 10px 10px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+.shelf-panel .open-new {
+  width: 100%; justify-content: center; text-align: center;
+  border-style: dashed; font-weight: 600;
+}
+.shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
+.shelf-panel .drag-hint {
+  margin: 6px 2px 0; text-align: center; font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pager, .topbar { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive overrides, and they live LAST on purpose.
+
+   A media query adds no specificity, so whether one wins is decided by source
+   order alone. These blocks used to sit in the middle of the file with
+   ordinary rules below them, and a `.topbar { position: relative }` written
+   260 lines further down quietly beat the phone layout's `position: fixed` --
+   the bar animated correctly and the reading column never grew, which is the
+   kind of wrong that does not look wrong. Anything added below this line will
+   do the same, so add it above.
+   --------------------------------------------------------------------------- */
+
 @media (max-width: 700px) {
   .topbar {
     flex-wrap: nowrap;
@@ -391,139 +521,18 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
   .report { max-height: 55vh; max-height: 55dvh; }
   .keyhelp-panel { padding: 16px; }
-}
 
-/* The title used to be dropped below 420px so fifteen controls could keep
-   their touch targets. There are five now, and shortening the export label to
-   匯出 frees 41px more, so it stays and ellipses instead: knowing which book
-   you are in matters more than the last three characters of its name. */
-@media (max-width: 420px) {
-  .topbar .title { font-size: 13px; }
-}
 
-}
-
-/* ---- typeface + leading controls ---- */
-.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
-@media (max-width: 700px) {
+  /* Touch targets inside the panels and lists, folded in from blocks that
+     used to trail this one. */
   .bar-panel input[type="range"] { min-height: 44px; }
-}
-
-/* ---- saved books ---- */
-.library { width: 100%; max-width: 560px; }
-.library.hidden { display: none !important; }
-/* The 52ch cap on .hint keeps prose readable, but this line sits under a
-   560px list and wrapped, orphaning its last two words on a centred line. */
-#libraryNote { max-width: none; }
-.library h2 {
-  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--muted); margin: 0 0 10px; text-align: center;
-}
-.library-list { display: flex; flex-direction: column; gap: 8px; }
-.library-row {
-  display: flex; align-items: center; gap: 8px;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
-}
-.library-row .open {
-  flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
-  padding: 11px 13px; display: flex; align-items: center; gap: 10px;
-}
-.library-row .text {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px;
-}
-.library-row .name {
-  flex: 1 1 auto; min-width: 0; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
-.library-row .remove {
-  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
-  padding: 11px 13px; font-size: 16px; line-height: 1;
-}
-.library-row .remove:hover { color: var(--warn); }
-
-@media (max-width: 700px) {
   .library-row .open, .library-row .remove { min-height: 44px; }
-}
-
-/* ---- shelf, opened from the bar ---- */
-.shelf-panel {
-  display: none;
-  position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
-  max-height: 60vh; max-height: 60dvh; overflow-y: auto;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
-}
-.shelf-panel:not(.hidden) { display: block; }
-.shelf-panel .hint { margin: 8px 2px 2px; text-align: left; font-size: 12px; }
-
-.shelf-row {
-  display: flex; align-items: center; gap: 4px;
-  border-radius: 8px; margin-bottom: 4px;
-}
-.shelf-row.current { background: var(--bg); outline: 1px solid var(--line); }
-.shelf-row .pick {
-  flex: 1 1 auto; min-width: 0; text-align: left;
-  border: 0; background: none; padding: 8px; font-size: 14px;
-  display: flex; align-items: center; gap: 8px;
-}
-.shelf-row .pick .text {
-  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
-}
-.shelf-row .pick .t {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
-}
-.shelf-row .pick .s { font-size: 11px; color: var(--muted); }
-.shelf-row .drop {
-  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
-  padding: 8px 10px; font-size: 15px; line-height: 1;
-}
-.shelf-row .drop:hover { color: var(--warn); }
-
-@media (max-width: 700px) {
   .shelf-panel { left: 4px; right: 4px; max-width: none; }
   .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
 }
 
-}
-
-.hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
-
-/* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
-   the background shows while a large JPEG decodes. */
-.library-row .cover, .shelf-row .cover {
-  flex: 0 0 auto; object-fit: cover; border-radius: 3px;
-  background: var(--bg); border: 1px solid var(--line);
-}
-.library-row .cover { width: 36px; height: 52px; }
-.shelf-row .cover { width: 26px; height: 38px; }
-
-/* The reader's own status line. Empty most of the time, so it must not
-   reserve space or shift the pager when it fills. */
-.pager .status-line { font-size: 12px; color: var(--muted); }
-
-/* Opening a file from the shelf. Sticky at the foot: the panel scrolls past
-   roughly six books, and a button that scrolls away is missing exactly when a
-   long library makes it most useful. The background is opaque so rows pass
-   underneath rather than through it. */
-.shelf-foot {
-  position: sticky; bottom: -10px; z-index: 1;
-  margin: 4px -10px -10px; padding: 8px 10px 10px;
-  background: var(--panel); border-top: 1px solid var(--line);
-}
-.shelf-panel .open-new {
-  width: 100%; justify-content: center; text-align: center;
-  border-style: dashed; font-weight: 600;
-}
-.shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
-.shelf-panel .drag-hint {
-  margin: 6px 2px 0; text-align: center; font-size: 11px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pager, .topbar { transition: none; }
+@media (max-width: 420px) {
+  .topbar .title { font-size: 13px; }
 }
 
 </style>
@@ -557,7 +566,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.17.0</p>
+    <p class="hint build">v1.17.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>

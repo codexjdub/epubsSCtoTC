@@ -29,6 +29,28 @@ const h1 = (read('index.html').match(/<h1>([^<]+)<\/h1>/) || [])[1] || '';
 check('Chinese text survives the build',
       /[\u4e00-\u9fff]/.test(h1) && html.includes(h1), h1 ? 'missing: ' + h1 : 'no <h1> in index.html');
 
+/* Responsive overrides must stay LAST in the stylesheet. A media query adds no
+   specificity, so whether it wins is decided by source order alone -- a plain
+   rule written below one silently beats it. That is not hypothetical: a
+   `.topbar { position: relative }` sitting 260 lines below the phone layout
+   beat its `position: fixed`, and the bar animated correctly while the reading
+   column never grew. */
+const styleBlock = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+const lastMedia = styleBlock.lastIndexOf('@media (max-width');
+let trailing = '';
+if (lastMedia >= 0) {
+  let depth = 0;
+  let end = styleBlock.length;
+  for (let i = lastMedia; i < styleBlock.length; i++) {
+    if (styleBlock[i] === '{') depth++;
+    else if (styleBlock[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  trailing = styleBlock.slice(end).replace(/\/\*[\s\S]*?\*\//g, '').trim();
+}
+check('responsive overrides are last in the stylesheet',
+      lastMedia >= 0 && trailing === '',
+      trailing ? trailing.split('\n')[0].slice(0, 60) + ' …' : 'no width media query found');
+
 // ES modules do not load from a null origin.
 check('no ES module scripts', !/<script[^>]+type=["']module["']/i.test(html));
 check('no import statements', !/^\s*import\s+[\w{*]/m.test(html));
