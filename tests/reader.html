@@ -200,6 +200,50 @@
                 'index=' + reader.state.index);
       }
 
+      // ---- one object knows what scrolls ----
+      /* Everything positional reads through it so the answer can change:
+         having the document scroll rather than an inner element is what lets a
+         mobile browser collapse its own chrome. */
+      var sc = App.reader.elementScroller(document.createElement('div'));
+      t.eq('the scroller names its kind', sc.kind, 'element');
+      t.check('and offers the whole positional surface',
+              ['top', 'setTop', 'extent', 'contentExtent', 'viewportRect',
+               'scrollBy', 'listen', 'unlisten'].every(function (m) {
+                return typeof sc[m] === 'function';
+              }), 'the seam is incomplete');
+
+      // ---- a reading position survives being rebuilt, not just reflowed ----
+      /* The safety net for moving the scroller: existing anchor tests prove
+         position survives a REFLOW. What a scroller swap threatens is the
+         other case -- closing the book and opening it again. */
+      var rebuildHost = document.createElement('div');
+      /* Shaped like #viewer: a bounded, scrolling box. A bare div grows with
+         its content and never scrolls, so the reader would have nothing to
+         remember. */
+      rebuildHost.style.cssText = 'height: 320px; overflow: auto;';
+      document.body.appendChild(rebuildHost);
+      var rebuildBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(rebuildBook, 'hk');
+      var first = App.reader.create(rebuildHost, rebuildBook);
+      await first.show(0);
+      first.scrollBy(700);
+      await wait(600);                    // let the debounced persist run
+      var savedAt = first.scrollPosition();
+      var savedBlock = first.captureAnchor();
+      first.destroy();
+
+      var second = App.reader.create(rebuildHost, rebuildBook);
+      await second.resume();
+      await wait(120);
+      var restoredAt = second.scrollPosition();
+      t.check('the position was worth saving', savedAt > 100, String(savedAt));
+      t.check('and a rebuilt reader lands back on it',
+              Math.abs(restoredAt - savedAt) < 80,
+              savedAt + ' -> ' + restoredAt);
+      t.eq('on the same block', second.captureAnchor().index, savedBlock.index);
+      second.destroy();
+      rebuildHost.remove();
+
       // ---- every label comes from one table ----
       /* Single-language on purpose: a second means adding a column, not
          hunting through markup, option lists and status calls. */

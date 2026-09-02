@@ -69,6 +69,34 @@
    * Keeping it per book meant every new book reset the font size. */
   var PREFS_KEY = 'epub-tc:reading';
 
+  /* The one object that knows what scrolls.
+   *
+   * Everything positional reads through it: the reading anchor, the progress
+   * figure, the vim motions, the chrome that tucks away. It is an object
+   * rather than a handful of helpers so the answer can change -- having the
+   * DOCUMENT scroll instead of an inner element is what lets a mobile browser
+   * collapse its own chrome, and that swap should be one implementation, not
+   * ten call sites.
+   *
+   * viewportRect is deliberately separate from the element itself. For an
+   * element scroller they are the same box; for a document scroller they are
+   * not, and reading the element's rect there returns the whole page.
+   */
+  function elementScroller(element) {
+    return {
+      kind: 'element',
+      element: element,
+      top: function () { return element.scrollTop; },
+      setTop: function (value) { element.scrollTop = value; },
+      extent: function () { return element.clientHeight; },
+      contentExtent: function () { return element.scrollHeight; },
+      viewportRect: function () { return element.getBoundingClientRect(); },
+      scrollBy: function (delta) { element.scrollBy({ top: delta, behavior: 'auto' }); },
+      listen: function (fn) { element.addEventListener('scroll', fn, { passive: true }); },
+      unlisten: function (fn) { element.removeEventListener('scroll', fn); }
+    };
+  }
+
   function create(host, book, opts) {
     opts = opts || {};
     var resources = App.reader.createResourceMap(book);
@@ -111,19 +139,21 @@
     shadow.appendChild(content);
 
     /* The content expands the shadow host and the surrounding container
-     * scrolls it. Reading for the wrong element silently does nothing -- it is
-     * why saved positions were always 0. */
-    function scroller() { return mount.parentNode; }
+     * scrolls it. Reading the wrong element silently does nothing -- it is why
+     * saved positions were always 0 -- so nothing here names an element
+     * directly; it all goes through the scroller. Captured once, so teardown
+     * can still detach its listener after the mount is gone. */
+    var scroll = elementScroller(mount.parentNode);
 
-    function scrollPosition() { return scroller().scrollTop; }
+    function scrollPosition() { return scroll.top(); }
 
-    function scrollBy(delta) { scroller().scrollBy({ top: delta, behavior: 'auto' }); }
+    function scrollBy(delta) { scroll.scrollBy(delta); }
 
-    function viewportExtent() { return scroller().clientHeight; }
+    function viewportExtent() { return scroll.extent(); }
 
-    function scrollToStart() { scroller().scrollTop = 0; }
+    function scrollToStart() { scroll.setTop(0); }
 
-    function scrollToEnd() { scroller().scrollTop = scroller().scrollHeight; }
+    function scrollToEnd() { scroll.setTop(scroll.contentExtent()); }
 
     /* Glyph region follows the conversion target, so the rendering does not
      * undo what the conversion just did. */
@@ -160,7 +190,7 @@
       if (!mount.isConnected) return null;
       var blocks = content.children;
       if (!blocks.length) return null;
-      var containerRect = scroller().getBoundingClientRect();
+      var containerRect = scroll.viewportRect();
       for (var i = 0; i < blocks.length; i++) {
         var rect = blocks[i].getBoundingClientRect();
         var size = blockSize(rect);
@@ -252,10 +282,8 @@
       var w = chapterWeights();
       if (!totalChars) return null;
       var cur = w[state.index] || { start: 0, size: 0 };
-      var el = scroller();
-      if (!el) return null;
-      var span = el.scrollHeight - el.clientHeight;
-      var frac = span > 0 ? Math.min(1, Math.max(0, el.scrollTop / span)) : 0;
+      var span = scroll.contentExtent() - scroll.extent();
+      var frac = span > 0 ? Math.min(1, Math.max(0, scroll.top() / span)) : 0;
       return Math.min(1, (cur.start + cur.size * frac) / totalChars);
     }
 
@@ -310,13 +338,12 @@
      * destroy(). Left attached, each replaced reader keeps persisting against
      * its own store from a detached mount. */
     var scrollTimer = null;
-    var scrollHost = mount.parentNode;
     function onScroll() {
       emit('progress', { fraction: progress() });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
     }
-    scrollHost.addEventListener('scroll', onScroll, { passive: true });
+    scroll.listen(onScroll);
 
     shadow.addEventListener('click', function (ev) {
       var path = ev.composedPath ? ev.composedPath() : [ev.target];
@@ -491,7 +518,7 @@
       viewportExtent: viewportExtent,
       scrollPosition: scrollPosition,
       destroy: function () {
-        scrollHost.removeEventListener('scroll', onScroll);
+        scroll.unlisten(onScroll);
         if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
         resources.revokeAll();
         mount.remove();
@@ -503,4 +530,5 @@
   App.reader.create = create;
   App.reader.hashKey = hashKey;
   App.reader.alignCss = alignCss;
+  App.reader.elementScroller = elementScroller;
 })(window.App = window.App || {});
