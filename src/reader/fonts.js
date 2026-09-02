@@ -239,7 +239,9 @@
       .concat([generic]).join(', ');
   }
 
-  App.fonts = App.fonts || {};
+  /* App.fonts belongs to convert/fonts.js, which owns it outright; this file
+   * only ever added an empty object to a namespace it does not use. The two
+   * files sharing a basename is the whole reason that line looked necessary. */
   App.readingFonts = {
     STYLES: STYLES,
     STACKS: STACKS,
