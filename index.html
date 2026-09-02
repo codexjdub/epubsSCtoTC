@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.11.0</p>
+    <p class="hint build">v1.11.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -88,14 +88,21 @@
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
+        <div id="shelfList"></div>
+        <p class="hint" id="shelfNote"></p>
         <!-- The only click or keyboard route to the file picker once a book is
              open: the landing page holds the dropzone, and it is hidden while
              reading. Dropping a file on the window has always worked, but
-             nothing said so. -->
-        <button id="openNew" type="button" class="open-new">開啟新書…</button>
-        <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
-        <div id="shelfList"></div>
-        <p class="hint" id="shelfNote"></p>
+             nothing said so.
+
+             Anchored to the foot of the panel, which scrolls once there are
+             more than about six books: the list leads, because the shelf sorts
+             most-recent-first and that is usually what you came for, and the
+             action stays put instead of scrolling out of reach. -->
+        <div class="shelf-foot">
+          <button id="openNew" type="button" class="open-new">開啟新書…</button>
+          <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
+        </div>
       </div>
     </div>
 

@@ -454,14 +454,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    reserve space or shift the pager when it fills. */
 .pager .status-line { font-size: 12px; color: var(--muted); }
 
-/* Opening a file from the shelf: the primary action in that panel, so it reads
-   as one rather than sitting among the book rows. */
+/* Opening a file from the shelf. Sticky at the foot: the panel scrolls past
+   roughly six books, and a button that scrolls away is missing exactly when a
+   long library makes it most useful. The background is opaque so rows pass
+   underneath rather than through it. */
+.shelf-foot {
+  position: sticky; bottom: -10px; z-index: 1;
+  margin: 4px -10px -10px; padding: 8px 10px 10px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
 .shelf-panel .open-new {
   width: 100%; justify-content: center; text-align: center;
   border-style: dashed; font-weight: 600;
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
 .shelf-panel .drag-hint {
-  margin: 6px 2px 10px; text-align: center; font-size: 11px;
-  border-bottom: 1px solid var(--line); padding-bottom: 10px;
+  margin: 6px 2px 0; text-align: center; font-size: 11px;
 }

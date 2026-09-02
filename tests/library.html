@@ -216,6 +216,17 @@
       D.getElementById('fileInput').addEventListener('click', function () { picks++; });
       t.check('the shelf offers a way to open a file',
               !!openNew && openNew.getClientRects().length > 0, 'missing or hidden');
+      /* At the foot, and sticky: the panel scrolls past roughly six books, so a
+         button at either plain end goes missing -- the top one when you scroll
+         down, the bottom one until you do. The list leads because the shelf is
+         sorted most-recent-first. */
+      var foot = D.querySelector('.shelf-foot');
+      t.check('it sits below the list', !!foot &&
+              (foot.compareDocumentPosition(D.getElementById('shelfList')) &
+               Node.DOCUMENT_POSITION_PRECEDING) !== 0,
+              'the action is above the books');
+      t.eq('and stays put while the list scrolls',
+           W.getComputedStyle(foot).position, 'sticky');
       openNew.click();
       await wait(150);
       t.eq('it opens the picker', picks, 1);
