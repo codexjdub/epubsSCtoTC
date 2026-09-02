@@ -761,12 +761,20 @@
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
+    syncExportLabel();
     var narrowQuery = window.matchMedia('(max-width: 700px)');
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
+    /* "EPUB" is redundant where the app exports nothing else, and dropping it
+       on a phone is what buys the title enough room to be worth showing. */
+    function syncExportLabel() {
+      el.exportBtn.textContent = S(isNarrow() ? 'bar.export.short' : 'bar.export');
+    }
+
     function settleForWidth() {
       closeDropdowns(null);
       tuckPager(false);
+      syncExportLabel();
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

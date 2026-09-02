@@ -371,9 +371,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .keyhelp-panel { padding: 16px; }
 }
 
-/* Very narrow: drop the title so the controls keep their targets. */
+/* The title used to be dropped below 420px so fifteen controls could keep
+   their touch targets. There are five now, and shortening the export label to
+   匯出 frees 41px more, so it stays and ellipses instead: knowing which book
+   you are in matters more than the last three characters of its name. */
 @media (max-width: 420px) {
-  .topbar .title { display: none; }
+  .topbar .title { font-size: 13px; }
 }
 
 }

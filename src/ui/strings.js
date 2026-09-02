@@ -29,6 +29,7 @@
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
     'bar.export': '匯出 EPUB',
+    'bar.export.short': '匯出',
 
     /* ---- reading settings ---- */
     'panel.typeface.title': '字體',

@@ -120,6 +120,18 @@
          flow, and tucks away while you read: 55px of a 812px screen was held
          for controls touched a few times a chapter. */
       var pager = D.querySelector('.pager');
+      /* The title used to be dropped below 420px, from when fifteen controls
+         needed the room. Five need less, and 匯出 instead of 匯出 EPUB frees
+         41px more -- knowing which book you are in beats the last characters
+         of its name. */
+      t.check('the book title is shown on a phone',
+              D.getElementById('bookTitle').getClientRects().length > 0, 'hidden');
+      t.check('with room to read some of it',
+              px(D.getElementById('bookTitle')).width > 30,
+              Math.round(px(D.getElementById('bookTitle')).width) + 'px');
+      t.eq('and the export label drops the redundant format',
+           D.getElementById('exportBtn').textContent, '匯出');
+
       t.eq('the pager leaves the flow on a phone',
            W.getComputedStyle(pager).position, 'fixed');
       t.eq('and so does the bar', W.getComputedStyle(bar).position, 'fixed');
@@ -290,6 +302,8 @@
       /* The panels behave the same at every width now. Fifteen inline controls
          wrapped the bar to two rows at 1280px and left the title 77px, so the
          grouping is not a phone concession. */
+      t.eq('the desktop keeps the full export label',
+           DD.getElementById('exportBtn').textContent, '匯出 EPUB');
       t.eq('reading settings are a panel on desktop too',
            DW.getComputedStyle(dAa).display, 'none');
       t.check('the bar itself is a single row',

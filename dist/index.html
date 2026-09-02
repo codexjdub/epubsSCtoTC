@@ -378,9 +378,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .keyhelp-panel { padding: 16px; }
 }
 
-/* Very narrow: drop the title so the controls keep their targets. */
+/* The title used to be dropped below 420px so fifteen controls could keep
+   their touch targets. There are five now, and shortening the export label to
+   匯出 frees 41px more, so it stays and ellipses instead: knowing which book
+   you are in matters more than the last three characters of its name. */
 @media (max-width: 420px) {
-  .topbar .title { display: none; }
+  .topbar .title { font-size: 13px; }
 }
 
 }
@@ -539,7 +542,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.14.0</p>
+    <p class="hint build">v1.15.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3245,6 +3248,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
     'bar.export': '匯出 EPUB',
+    'bar.export.short': '匯出',
 
     /* ---- reading settings ---- */
     'panel.typeface.title': '字體',
@@ -4372,12 +4376,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
+    syncExportLabel();
     var narrowQuery = window.matchMedia('(max-width: 700px)');
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
+    /* "EPUB" is redundant where the app exports nothing else, and dropping it
+       on a phone is what buys the title enough room to be worth showing. */
+    function syncExportLabel() {
+      el.exportBtn.textContent = S(isNarrow() ? 'bar.export.short' : 'bar.export');
+    }
+
     function settleForWidth() {
       closeDropdowns(null);
       tuckPager(false);
+      syncExportLabel();
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');
