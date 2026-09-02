@@ -29,6 +29,36 @@ const h1 = (read('index.html').match(/<h1>([^<]+)<\/h1>/) || [])[1] || '';
 check('Chinese text survives the build',
       /[\u4e00-\u9fff]/.test(h1) && html.includes(h1), h1 ? 'missing: ' + h1 : 'no <h1> in index.html');
 
+/* The script list is written twice -- once in index.html for development, once
+   in tools/build.js for the bundle -- and only one of them is exercised
+   locally. Adding a module to index.html and forgetting build.js leaves
+   localhost working perfectly while the deployed page fails on the missing
+   global, which is the wrong way round for a mistake to hide. */
+const devScripts = (read('index.html').match(/<script src="[^"]+"/g) || [])
+  .map(tag => tag.slice('<script src="'.length, -1));
+const bundled = (() => {
+  const src = read('tools/build.js');
+  const list = src.match(/const SCRIPTS = \[([\s\S]*?)\];/);
+  return list ? (list[1].match(/'([^']+)'/g) || []).map(q => q.slice(1, -1)) : [];
+})();
+check('the dev page and the bundle load the same scripts, in the same order',
+      devScripts.length > 0 && devScripts.join('|') === bundled.join('|'),
+      'index.html: ' + devScripts.length + ', build.js: ' + bundled.length + ' -> ' +
+      (devScripts.filter(x => !bundled.includes(x)).concat(
+        bundled.filter(x => !devScripts.includes(x))).join(', ') || 'order differs'));
+
+/* A label key with no entry renders as the key itself -- deliberate, so it is
+   visible rather than blank, but nothing stops one shipping. */
+const usedKeys = [...new Set((read('index.html')
+  .match(/data-i18n(?:-title)?="[^"]+"/g) || [])
+  .map(a => a.slice(a.indexOf('"') + 1, -1)))];
+const definedKeys = new Set((read('src/ui/strings.js').match(/^\s*'[a-z][\w.]*':/gm) || [])
+  .map(k => k.trim().slice(1, k.trim().indexOf(':') - 1)));
+const unknownKeys = usedKeys.filter(k => !definedKeys.has(k));
+check('every label key in the markup exists in the table',
+      usedKeys.length > 0 && unknownKeys.length === 0,
+      unknownKeys.length ? unknownKeys.join(', ') : 'no data-i18n attributes found');
+
 /* Responsive overrides must stay LAST in the stylesheet. A media query adds no
    specificity, so whether it wins is decided by source order alone -- a plain
    rule written below one silently beats it. That is not hypothetical: a
