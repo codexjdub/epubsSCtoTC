@@ -458,6 +458,13 @@
       await App.convert.book(twBook, 'tw');
       var twReader = App.reader.create(document.getElementById('stage'), twBook);
       await twReader.show(0);
+      /* Say which style we are testing rather than inheriting whatever the
+         reader above happened to persist. Fixture bytes carry a zip timestamp
+         at DOS's two-second resolution, so twBook only SOMETIMES hashes to the
+         same storage key as that book; when it did not, this reader started on
+         the default sans stack and the assertion below failed -- 5 runs in 12
+         locally. What is under test is the region, not the default. */
+      await twReader.setFontStyle('serif');
       var twCss = twReader.shadow.querySelector('style').textContent;
       t.check('a tw-converted book renders with TC faces',
               twCss.indexOf('Songti TC') >= 0 && twCss.indexOf('Noto Serif CJK HK') < 0,
