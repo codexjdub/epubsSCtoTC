@@ -200,7 +200,7 @@
     current.filename = filename;
 
     el.title.textContent = book.metadata.title || filename;
-    document.title = (book.metadata.title || filename) + ' — 簡繁轉換';
+    document.title = (book.metadata.title || filename) + ' — 繁花似錦';
 
     var reader = App.reader.create(el.viewer, book);
     current.reader = reader;

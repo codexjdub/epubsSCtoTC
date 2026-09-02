@@ -1,4 +1,4 @@
-# 簡繁轉換
+# 繁花似錦
 
 Convert a simplified Chinese EPUB to traditional and read it in the browser.
 
