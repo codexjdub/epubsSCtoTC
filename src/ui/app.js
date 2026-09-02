@@ -548,7 +548,6 @@
     el.fileInput = $('fileInput');
     el.preset = $('preset');
     el.presetTop = $('presetTop');
-    el.punct = $('punct');
     el.punctTop = $('punctTop');
     el.library = $('library');
     el.libraryList = $('libraryList');
@@ -705,16 +704,12 @@
     api.closeDropdowns = closeDropdowns;
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
-    /* One setting with a control in two places -- the landing page and the
-     * reader bar, beside the Export button it actually affects -- kept in
-     * step the same way the preset and theme selectors are. */
-    function onPunctChange(on) {
-      current.punctuation = on;
-      el.punct.checked = on;
-      el.punctTop.checked = on;
-    }
-    el.punct.addEventListener('change', function () { onPunctChange(this.checked); });
-    el.punctTop.addEventListener('change', function () { onPunctChange(this.checked); });
+    /* One control, in the export options where it takes effect. It used to be
+     * mirrored on the landing page, offered before there was a book to export
+     * and kept in step by hand. */
+    el.punctTop.addEventListener('change', function () {
+      current.punctuation = this.checked;
+    });
 
     /* Changing the target re-converts from the ORIGINAL bytes: conversion
      * rewrites entries in place, so re-running it on an already-converted
