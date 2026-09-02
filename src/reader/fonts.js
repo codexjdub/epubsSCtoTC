@@ -5,11 +5,18 @@
  * single-file design and reintroduce a network dependency the page is built
  * to avoid.
  *
- * There is deliberately no availability detection. It cannot be done reliably
- * for CJK: document.fonts.check() returns true for any family name at all, and
- * width measurement cannot discriminate because CJK glyphs are uniformly
- * full-width across virtually every CJK face. So each choice is an ordered
- * stack and the browser silently uses the first family that is installed.
+ * Each choice is an ordered stack and the browser silently uses the first
+ * family that is installed.
+ *
+ * Availability IS detectable, contrary to what this comment used to claim.
+ * document.fonts.check() does return true for any family name at all, and
+ * width measurement genuinely cannot discriminate CJK, because every glyph is
+ * one em wide across virtually every CJK face. Both of those are true and
+ * neither rules out the third method: draw a glyph to a canvas and hash the
+ * pixels. A family that is not installed renders as the default face, byte for
+ * byte, so a stack that resolves to nothing is recognisable. That matters --
+ * Apple moved Kaiti, Yuanti and Fangsong to on-demand download, so 楷書 was
+ * offered on machines where it silently rendered as the generic fallback.
  *
  * The stacks are ordered by REGION as well as style. Taiwan and Hong Kong
  * standards draw the same codepoints with different glyph shapes (骨, 直, 者
@@ -21,7 +28,8 @@
 (function (App) {
   'use strict';
 
-  var GENERIC = { serif: 'serif', sans: 'sans-serif', kai: 'serif' };
+  var GENERIC = { serif: 'serif', sans: 'sans-serif', kai: 'serif',
+                  yuan: 'sans-serif', fangsong: 'serif' };
   var DEFAULT = 'sans';
 
   /* Per style, per region, most-preferred first. Windows, macOS and Noto
@@ -49,6 +57,20 @@
       hk: ['Kaiti TC', 'DFKai-SB', 'BiauKai', 'Kaiti SC', 'KaiTi'],
       tw: ['Kaiti TC', 'DFKai-SB', 'BiauKai', 'Kaiti SC', 'KaiTi'],
       cn: ['Kaiti SC', 'KaiTi', 'Kaiti TC', 'DFKai-SB']
+    },
+    /* 圓體: a rounded sans, softer than 黑體. Common on Apple platforms,
+     * scarce elsewhere, which is what the availability check is for. */
+    yuan: {
+      hk: ['Yuanti TC', 'Yuanti SC', 'YouYuan'],
+      tw: ['Yuanti TC', 'Yuanti SC', 'YouYuan'],
+      cn: ['Yuanti SC', 'YouYuan', 'Yuanti TC']
+    },
+    /* 仿宋: a lighter Song with calligraphic movement, conventional for
+     * official documents and quoted passages. Windows ships FangSong. */
+    fangsong: {
+      hk: ['STFangsong', 'FangSong', 'FangSong_GB2312'],
+      tw: ['STFangsong', 'FangSong', 'FangSong_GB2312'],
+      cn: ['STFangsong', 'FangSong', 'FangSong_GB2312']
     }
   };
 
@@ -92,13 +114,75 @@
   var STYLES = [
     { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
     { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' }
+    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' },
+    { id: 'yuan',  label: '圓體', note: 'Rounded sans-serif. Softer than 黑體.' },
+    { id: 'fangsong', label: '仿宋', note: 'A lighter Song, conventional for quoted passages.' }
   ];
 
   /* The choices worth offering for this book, named in terms that mean
    * something for the script it is written in. */
   function stylesFor(language) {
     return isHan(language) ? STYLES : LATIN_STYLES;
+  }
+
+  /* ---- availability, by rendering ---------------------------------------- */
+
+  var signatures = {};
+
+  /* Hash of the pixels a single glyph paints in this family. Two families that
+   * are both absent hash identically, because both render as the default. */
+  function signature(fontSpec, sample) {
+    var key = fontSpec + '\u0000' + sample;
+    if (signatures[key] !== undefined) return signatures[key];
+    var value = '';
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = 120; canvas.height = 120;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 120, 120);
+      ctx.fillStyle = '#000';
+      ctx.font = '96px ' + fontSpec;
+      ctx.textBaseline = 'top';
+      ctx.fillText(sample, 6, 6);
+      var data = ctx.getImageData(0, 0, 120, 120).data;
+      var h = 2166136261;
+      for (var i = 3; i < data.length; i += 4) { h ^= data[i]; h = Math.imul(h, 16777619); }
+      value = (h >>> 0).toString(36);
+    } catch (e) { value = ''; }   /* no canvas: treat everything as available */
+    signatures[key] = value;
+    return value;
+  }
+
+  var MISSING = '"__no_such_family__"';
+
+  function familyAvailable(family, sample) {
+    var absent = signature(MISSING, sample);
+    if (!absent) return true;
+    return signature('"' + family + '"', sample) !== absent;
+  }
+
+  function stackAvailable(families, sample) {
+    for (var i = 0; i < families.length; i++) {
+      if (familyAvailable(families[i], sample)) return true;
+    }
+    return false;
+  }
+
+  /* The styles worth offering on THIS machine. A style whose whole stack is
+   * missing renders as the generic fallback, so listing it promises something
+   * the reader cannot deliver. The default is never dropped -- an empty menu
+   * would be worse than an optimistic one. */
+  function availableStyles(language, presetId) {
+    var han = isHan(language);
+    var all = stylesFor(language);
+    var sample = han ? '書' : 'Rg';
+    var kept = all.filter(function (st) {
+      var families = han
+        ? (STACKS[st.id][regionFor(presetId)] || STACKS[st.id].tw)
+        : LATIN[st.id];
+      return st.id === DEFAULT || stackAvailable(families, sample);
+    });
+    return kept.length ? kept : all;
   }
 
   /* Which option should appear selected: a stored 楷書 has no entry in a Latin
@@ -122,17 +206,20 @@
     return !!(id && (STACKS[id] || LATIN[id]));
   }
 
+  /* What a choice made in one script becomes in the other. */
+  var EQUIVALENT = {
+    classic: 'serif', legible: 'sans',
+    kai: 'serif', yuan: 'sans', fangsong: 'serif'
+  };
+
   function hanStyle(id) {
     if (STACKS[id]) return id;
-    if (id === 'classic') return 'serif';
-    if (id === 'legible') return 'sans';
-    return DEFAULT;
+    return STACKS[EQUIVALENT[id]] ? EQUIVALENT[id] : DEFAULT;
   }
 
   function latinStyle(id) {
     if (LATIN[id]) return id;
-    if (id === 'kai') return 'serif';
-    return DEFAULT;
+    return LATIN[EQUIVALENT[id]] ? EQUIVALENT[id] : DEFAULT;
   }
 
   function stackFor(styleId, presetId, language) {
@@ -151,6 +238,9 @@
     STYLES: STYLES,
     STACKS: STACKS,
     stylesFor: stylesFor,
+    availableStyles: availableStyles,
+    familyAvailable: familyAvailable,
+    stackAvailable: stackAvailable,
     effectiveStyle: effectiveStyle,
     LATIN: LATIN,
     LATIN_STYLES: LATIN_STYLES,

@@ -60,9 +60,9 @@
 
   /* Rebuilt per book: the typeface names only mean something in the script the
      book is written in, and 楷書 has no Latin counterpart to offer. */
-  function populateFontStyles(language) {
+  function populateFontStyles(language, presetId) {
     el.fontStyle.textContent = '';
-    App.readingFonts.stylesFor(language).forEach(function (f) {
+    App.readingFonts.availableStyles(language, presetId).forEach(function (f) {
       var opt = document.createElement('option');
       opt.value = f.id;
       opt.textContent = f.label;
@@ -271,7 +271,7 @@
     setStatus('');
 
     await reader.resume();
-    populateFontStyles(bookLanguage(book));
+    populateFontStyles(bookLanguage(book), current.presetId);
     el.fontStyle.value =
       App.readingFonts.effectiveStyle(reader.state.fontStyle, bookLanguage(book));
     syncMarksLabel();
@@ -735,7 +735,7 @@
 
     api.drawerOpen = drawerOpen;
 
-    populateFontStyles('');
+    populateFontStyles('', current.presetId);
     el.fontStyle.addEventListener('change', function () {
       if (current.reader) current.reader.setFontStyle(this.value);
     });

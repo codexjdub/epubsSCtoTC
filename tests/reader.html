@@ -225,7 +225,27 @@
       t.eq('an English book is offered Latin faces, named for its script',
            RF2.stylesFor('en').map(function (f) { return f.label; }).join(','),
            'Serif,Sans,Classic,Legible');
-      t.eq('a Chinese book keeps its three', RF2.stylesFor('zh-TW').length, 3);
+      t.eq('a Chinese book is offered its own faces',
+           RF2.stylesFor('zh-TW').map(function (f) { return f.label; }).join(','),
+           '明體,黑體,楷書,圓體,仿宋');
+
+      /* ---- availability, by rendering ----
+         Asserted without naming a font that has to exist: CI runs on a machine
+         with a different font set than any desktop. */
+      t.check('a fabricated family reads as absent',
+              RF2.familyAvailable('Definitely Not A Real Family', '書') === false,
+              'a missing family was reported as present');
+      var offered = RF2.availableStyles('zh-TW', 'tw');
+      t.check('something is always offered', offered.length >= 1, String(offered.length));
+      t.check('the default is never dropped',
+              offered.some(function (f) { return f.id === RF2.DEFAULT; }),
+              offered.map(function (f) { return f.id; }).join(','));
+      t.check('and every offer is a real style',
+              offered.every(function (f) {
+                return RF2.stylesFor('zh-TW').some(function (g) { return g.id === f.id; });
+              }), 'an unknown style was offered');
+      t.check('offers never exceed the full list',
+              offered.length <= RF2.stylesFor('zh-TW').length, String(offered.length));
       /* A choice made on one script survives a trip through the other. */
       t.eq('a stored 楷書 shows as Serif on an English book',
            RF2.effectiveStyle('kai', 'en'), 'serif');
@@ -233,6 +253,12 @@
       t.eq('Legible resolves to 黑體 on a Chinese book',
            RF2.effectiveStyle('legible', 'zh-TW'), 'sans');
       t.eq('Classic resolves to 明體 there', RF2.effectiveStyle('classic', 'zh-TW'), 'serif');
+      t.eq('仿宋 resolves to Serif on an English book',
+           RF2.effectiveStyle('fangsong', 'en'), 'serif');
+      t.eq('圓體 resolves to Sans there', RF2.effectiveStyle('yuan', 'en'), 'sans');
+      t.check('仿宋 is a distinct Han stack',
+              RF2.stackFor('fangsong', 'tw', 'zh-TW').indexOf('STFangsong') >= 0,
+              RF2.stackFor('fangsong', 'tw', 'zh-TW'));
       t.check('Classic is a distinct Latin stack',
               RF2.stackFor('classic', 'tw', 'en').indexOf('Baskerville') >= 0 &&
               RF2.stackFor('classic', 'tw', 'en').indexOf('Iowan') < 0,
@@ -412,8 +438,8 @@
 
       // ---- reading fonts ----
       var RF = App.readingFonts;
-      t.eq('three typeface choices', RF.STYLES.map(function (x) { return x.id; }).join(','),
-           'serif,sans,kai');
+      t.eq('the Han typefaces on offer', RF.STYLES.map(function (x) { return x.id; }).join(','),
+           'serif,sans,kai,yuan,fangsong');
 
       /* Glyph region must follow the conversion target, or Hong Kong text gets
        * rendered with Taiwan glyph shapes. */
