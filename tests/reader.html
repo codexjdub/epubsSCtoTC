@@ -222,12 +222,27 @@
               RF2.stackFor('serif', 'tw', 'en').indexOf('Songti TC') < 0 &&
               RF2.stackFor('serif', 'tw', 'en').indexOf('Iowan') >= 0,
               RF2.stackFor('serif', 'tw', 'en'));
-      t.eq('an English book is offered two typefaces, named for its script',
-           RF2.stylesFor('en').map(function (f) { return f.label; }).join(','), 'Serif,Sans');
-      t.eq('a Chinese book keeps all three', RF2.stylesFor('zh-TW').length, 3);
+      t.eq('an English book is offered Latin faces, named for its script',
+           RF2.stylesFor('en').map(function (f) { return f.label; }).join(','),
+           'Serif,Sans,Classic,Legible');
+      t.eq('a Chinese book keeps its three', RF2.stylesFor('zh-TW').length, 3);
+      /* A choice made on one script survives a trip through the other. */
       t.eq('a stored 楷書 shows as Serif on an English book',
            RF2.effectiveStyle('kai', 'en'), 'serif');
       t.eq('and is untouched on a Chinese one', RF2.effectiveStyle('kai', 'zh-TW'), 'kai');
+      t.eq('Legible resolves to 黑體 on a Chinese book',
+           RF2.effectiveStyle('legible', 'zh-TW'), 'sans');
+      t.eq('Classic resolves to 明體 there', RF2.effectiveStyle('classic', 'zh-TW'), 'serif');
+      t.check('Classic is a distinct Latin stack',
+              RF2.stackFor('classic', 'tw', 'en').indexOf('Baskerville') >= 0 &&
+              RF2.stackFor('classic', 'tw', 'en').indexOf('Iowan') < 0,
+              RF2.stackFor('classic', 'tw', 'en'));
+      t.check('Legible is a distinct Latin stack',
+              RF2.stackFor('legible', 'tw', 'en').indexOf('Verdana') >= 0,
+              RF2.stackFor('legible', 'tw', 'en'));
+      t.check('and both still render Han text with Han faces',
+              RF2.stackFor('legible', 'tw', 'zh-TW').indexOf('PingFang TC') >= 0,
+              RF2.stackFor('legible', 'tw', 'zh-TW'));
       t.check('a missing language is treated as Chinese',
               RF2.isHan('') && RF2.isHan(undefined) && !RF2.isHan('en'),
               'language default wrong');

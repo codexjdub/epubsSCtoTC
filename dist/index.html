@@ -482,7 +482,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.6.1</p>
+    <p class="hint build">v1.7.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -2043,11 +2043,30 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * that argument does not apply to a book nothing was converted in, and
    * rendering English through a CJK face gives it that face's cramped,
    * incidental Latin glyphs. */
+  /* Four faces that are genuinely distinct, each listing the macOS and Windows
+   * members so a stack resolves on either. Measured at 48px, the widths of
+   * "Handgloves mixed 0123" separate them: the old-style group sits around
+   * 507-515, Baskerville and Times near 466-469, Verdana out at 581. */
   var LATIN = {
-    serif: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter'],
-    sans: ['Helvetica Neue', 'Inter', 'Segoe UI', 'Arial'],
-    kai: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter']
+    serif:   ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter'],
+    sans:    ['Helvetica Neue', 'Inter', 'Segoe UI', 'Arial'],
+    classic: ['Baskerville', 'Constantia', 'Cambria', 'Times New Roman'],
+    legible: ['Verdana', 'Tahoma', 'DejaVu Sans', 'Geneva']
   };
+
+  var LATIN_GENERIC = { serif: 'serif', sans: 'sans-serif',
+                        classic: 'serif', legible: 'sans-serif' };
+
+  var LATIN_STYLES = [
+    { id: 'serif',   label: 'Serif',
+      note: 'Old-style serif. The conventional face for long-form reading.' },
+    { id: 'sans',    label: 'Sans',
+      note: 'Sans-serif. Cleaner on lower-resolution screens.' },
+    { id: 'classic', label: 'Classic',
+      note: 'Higher contrast and about a tenth narrower — Baskerville and its kin.' },
+    { id: 'legible', label: 'Legible',
+      note: 'Wide and open. The easiest at small sizes or with tired eyes.' }
+  ];
 
   /* Books this converter did not touch. An empty or missing language is
    * treated as Chinese: that is what this app is for. */
@@ -2057,30 +2076,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   var STYLES = [
-    { id: 'serif', label: '明體', latin: 'Serif',
-      note: 'Serif. The conventional face for long-form reading.' },
-    { id: 'sans',  label: '黑體', latin: 'Sans',
-      note: 'Sans-serif. Cleaner on lower-resolution screens.' },
-    /* No latin label: 楷書 is a brush style with no Latin counterpart, and
-     * offering it for an English book meant two of three choices rendered
-     * identically. */
-    { id: 'kai',   label: '楷書', latin: '',
-      note: 'Brush style, as used in textbooks and poetry.' }
+    { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
+    { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
+    { id: 'kai',   label: '楷書', note: 'Brush style, as used in textbooks and poetry.' }
   ];
 
   /* The choices worth offering for this book, named in terms that mean
    * something for the script it is written in. */
   function stylesFor(language) {
-    if (isHan(language)) return STYLES;
-    return STYLES.filter(function (st) { return st.latin; })
-      .map(function (st) { return { id: st.id, label: st.latin, note: st.note }; });
+    return isHan(language) ? STYLES : LATIN_STYLES;
   }
 
   /* Which option should appear selected: a stored 楷書 has no entry in a Latin
    * list, and it renders as the serif stack there anyway. */
   function effectiveStyle(styleId, language) {
-    if (isHan(language)) return isValidStyle(styleId) ? styleId : DEFAULT;
-    return styleId === 'kai' ? 'serif' : (isValidStyle(styleId) ? styleId : DEFAULT);
+    return isHan(language) ? hanStyle(styleId) : latinStyle(styleId);
   }
 
   /* Which glyph region a conversion preset implies. */
@@ -2090,18 +2100,36 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return 'tw';   // plain traditional: Taiwan shapes are the common default
   }
 
+  /* A stored choice is kept whichever script it came from: someone who picks
+   * Legible for an English book and then opens a Chinese one should still find
+   * Legible waiting when they go back. Each script resolves it to its own
+   * nearest equivalent for rendering. */
   function isValidStyle(id) {
-    for (var i = 0; i < STYLES.length; i++) if (STYLES[i].id === id) return true;
-    return false;
+    return !!(id && (STACKS[id] || LATIN[id]));
+  }
+
+  function hanStyle(id) {
+    if (STACKS[id]) return id;
+    if (id === 'classic') return 'serif';
+    if (id === 'legible') return 'sans';
+    return DEFAULT;
+  }
+
+  function latinStyle(id) {
+    if (LATIN[id]) return id;
+    if (id === 'kai') return 'serif';
+    return DEFAULT;
   }
 
   function stackFor(styleId, presetId, language) {
-    var style = isValidStyle(styleId) ? styleId : DEFAULT;
-    var families = isHan(language)
+    var han = isHan(language);
+    var style = han ? hanStyle(styleId) : latinStyle(styleId);
+    var families = han
       ? (STACKS[style][regionFor(presetId)] || STACKS[style].tw)
       : LATIN[style];
+    var generic = han ? GENERIC[style] : LATIN_GENERIC[style];
     return families.map(function (f) { return '"' + f + '"'; })
-      .concat([GENERIC[style]]).join(', ');
+      .concat([generic]).join(', ');
   }
 
   App.fonts = App.fonts || {};
@@ -2111,6 +2139,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     stylesFor: stylesFor,
     effectiveStyle: effectiveStyle,
     LATIN: LATIN,
+    LATIN_STYLES: LATIN_STYLES,
     isHan: isHan,
     DEFAULT: DEFAULT,
     stackFor: stackFor,
