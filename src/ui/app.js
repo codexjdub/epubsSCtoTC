@@ -4,6 +4,7 @@
 
   var el = {};
   var api = {};      // internals exposed for tests
+  var lastViewerScroll = 0;
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
 
   function $(id) { return document.getElementById(id); }
@@ -244,6 +245,9 @@
       reader.state.path = e.path;
       pos.index = e.index;
       pos.total = e.total;
+      /* A new chapter starts at the top, so the pager belongs on screen. */
+      if (api.tuckPager) api.tuckPager(false);
+      lastViewerScroll = 0;
       renderPosition();
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
@@ -528,6 +532,7 @@
     el.openNew = $('openNew');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
+    el.pager = document.querySelector('.pager');
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
@@ -722,6 +727,25 @@
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
 
+    /* The pager gets out of the way while you read and comes back the moment
+       you scroll up -- or reach the end of the chapter, which is exactly when
+       下一章 is wanted. Only below the breakpoint: on a desktop, with a mouse
+       and arrow keys, chrome that moves on scroll costs more than the height
+       it saves. */
+    function tuckPager(hide) { el.pager.classList.toggle('tucked', !!hide); }
+
+    el.viewer.addEventListener('scroll', function () {
+      if (!isNarrow()) { tuckPager(false); return; }
+      var top = el.viewer.scrollTop;
+      var delta = top - lastViewerScroll;
+      if (Math.abs(delta) < 8) return;          /* ignore jitter and bounce */
+      lastViewerScroll = top;
+      var atEnd = top + el.viewer.clientHeight >= el.viewer.scrollHeight - 8;
+      tuckPager(atEnd ? false : delta > 0);
+    }, { passive: true });
+
+    api.tuckPager = tuckPager;
+
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
@@ -730,6 +754,7 @@
      * for each layout already comes from CSS. */
     function settleForWidth() {
       closeDropdowns(null);
+      tuckPager(false);
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

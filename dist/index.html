@@ -343,8 +343,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   .drawer-backdrop.hidden { display: none !important; }
 
-  /* Reclaim vertical space: the pager was eating a fifth of the screen. */
-  .pager { padding: 5px 10px; gap: 8px; }
+  /* Reclaim vertical space: the pager was eating a fifth of the screen.
+     It also leaves the flow entirely here and floats at the foot, so the
+     reading column gets its 55px back -- 7% of a phone screen held for
+     controls touched a few times a chapter. The mount carries bottom padding
+     so the last lines of a chapter are never stuck underneath it. */
+  .pager {
+    padding: 5px 10px; gap: 8px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    border-top: 1px solid var(--line);
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  .pager.tucked { transform: translateY(100%); opacity: 0; pointer-events: none; }
+  .reader-mount { padding-bottom: 58px; }
   .pager .pos { font-size: 12px; min-width: 6ch; }
 
   .report { max-height: 55vh; }
@@ -479,6 +490,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   margin: 6px 2px 0; text-align: center; font-size: 11px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .pager { transition: none; }
+}
+
 </style>
 </head>
 <body>
@@ -510,7 +525,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.12.1</p>
+    <p class="hint build">v1.13.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3586,6 +3601,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   var el = {};
   var api = {};      // internals exposed for tests
+  var lastViewerScroll = 0;
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
 
   function $(id) { return document.getElementById(id); }
@@ -3826,6 +3842,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       reader.state.path = e.path;
       pos.index = e.index;
       pos.total = e.total;
+      /* A new chapter starts at the top, so the pager belongs on screen. */
+      if (api.tuckPager) api.tuckPager(false);
+      lastViewerScroll = 0;
       renderPosition();
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
@@ -4110,6 +4129,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.openNew = $('openNew');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
+    el.pager = document.querySelector('.pager');
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
@@ -4304,6 +4324,25 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
 
+    /* The pager gets out of the way while you read and comes back the moment
+       you scroll up -- or reach the end of the chapter, which is exactly when
+       下一章 is wanted. Only below the breakpoint: on a desktop, with a mouse
+       and arrow keys, chrome that moves on scroll costs more than the height
+       it saves. */
+    function tuckPager(hide) { el.pager.classList.toggle('tucked', !!hide); }
+
+    el.viewer.addEventListener('scroll', function () {
+      if (!isNarrow()) { tuckPager(false); return; }
+      var top = el.viewer.scrollTop;
+      var delta = top - lastViewerScroll;
+      if (Math.abs(delta) < 8) return;          /* ignore jitter and bounce */
+      lastViewerScroll = top;
+      var atEnd = top + el.viewer.clientHeight >= el.viewer.scrollHeight - 8;
+      tuckPager(atEnd ? false : delta > 0);
+    }, { passive: true });
+
+    api.tuckPager = tuckPager;
+
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
@@ -4312,6 +4351,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * for each layout already comes from CSS. */
     function settleForWidth() {
       closeDropdowns(null);
+      tuckPager(false);
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

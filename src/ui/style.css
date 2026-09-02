@@ -336,8 +336,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   .drawer-backdrop.hidden { display: none !important; }
 
-  /* Reclaim vertical space: the pager was eating a fifth of the screen. */
-  .pager { padding: 5px 10px; gap: 8px; }
+  /* Reclaim vertical space: the pager was eating a fifth of the screen.
+     It also leaves the flow entirely here and floats at the foot, so the
+     reading column gets its 55px back -- 7% of a phone screen held for
+     controls touched a few times a chapter. The mount carries bottom padding
+     so the last lines of a chapter are never stuck underneath it. */
+  .pager {
+    padding: 5px 10px; gap: 8px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    border-top: 1px solid var(--line);
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  .pager.tucked { transform: translateY(100%); opacity: 0; pointer-events: none; }
+  .reader-mount { padding-bottom: 58px; }
   .pager .pos { font-size: 12px; min-width: 6ch; }
 
   .report { max-height: 55vh; }
@@ -470,4 +481,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
 .shelf-panel .drag-hint {
   margin: 6px 2px 0; text-align: center; font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pager { transition: none; }
 }

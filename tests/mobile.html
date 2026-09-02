@@ -116,6 +116,34 @@
       t.check('toolbar is a single compact row', px(bar).height <= 70,
               Math.round(px(bar).height) + 'px tall');
 
+      /* The pager floats at the foot on a phone rather than sitting in the
+         flow, and tucks away while you read: 55px of a 812px screen was held
+         for controls touched a few times a chapter. */
+      var pager = D.querySelector('.pager');
+      t.eq('the pager leaves the flow on a phone',
+           W.getComputedStyle(pager).position, 'fixed');
+      t.check('so the reading column gets the height back',
+              px(viewer).height > W.innerHeight - px(bar).height - 12,
+              Math.round(px(viewer).height) + 'px of ' + W.innerHeight);
+
+      var scrollTo = function (top) {
+        viewer.scrollTop = top;
+        viewer.dispatchEvent(new W.Event('scroll'));
+      };
+      t.check('it starts on screen', !pager.classList.contains('tucked'), 'tucked at rest');
+      scrollTo(300);
+      await wait(120);
+      t.check('reading forward tucks it away', pager.classList.contains('tucked'), 'stayed put');
+      scrollTo(120);
+      await wait(120);
+      t.check('scrolling back brings it out', !pager.classList.contains('tucked'), 'stayed hidden');
+      scrollTo(viewer.scrollHeight);
+      await wait(120);
+      t.check('and the end of a chapter always shows it',
+              !pager.classList.contains('tucked'), 'hidden where 下一章 is wanted');
+      scrollTo(0);
+      await wait(120);
+
       var chrome = px(bar).height + px(D.querySelector('.pager')).height;
       t.check('chrome takes under a fifth of the screen', chrome / W.innerHeight < 0.2,
               Math.round(chrome / W.innerHeight * 100) + '%');
