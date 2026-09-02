@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.18.1</p>
+    <p class="hint build">v1.19.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -59,7 +59,9 @@
               aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
       <button id="convBtn" class="grouped" type="button" aria-expanded="false"
               aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
-      <button id="exportBtn" class="primary" type="button" data-i18n="bar.export">匯出 EPUB</button>
+      <button id="exportBtn" class="primary grouped" type="button" aria-expanded="false"
+              aria-controls="exportPanel" data-i18n-title="bar.export.title"
+              data-i18n="bar.export">匯出</button>
 
       <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
@@ -81,10 +83,19 @@
                 data-i18n-title="panel.vim.title">Vim</button>
       </div>
 
-      <div class="bar-panel hidden" id="convPanel">
-        <label><select id="presetTop"></select></label>
+      <!-- Everything about producing a file, in one place, at the moment you
+           want one. These used to sit in the 轉換 panel, which is named for
+           the conversion you are reading rather than for the file you are
+           making, and only took effect via a button on the other side of the
+           bar. -->
+      <div class="bar-panel hidden" id="exportPanel">
         <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
         <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
+      </div>
+
+      <div class="bar-panel hidden" id="convPanel">
+        <label><select id="presetTop"></select></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
         <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>

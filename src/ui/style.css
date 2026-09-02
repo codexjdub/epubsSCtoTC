@@ -284,6 +284,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel label { justify-content: space-between; }
 .bar-panel .row { display: flex; gap: 8px; }
 .bar-panel .row button { flex: 1; }
+/* The action inside the export options, set apart from the settings above it. */
+.bar-panel .primary { margin-top: 2px; justify-content: center; text-align: center; }
 .topbar .grouped[aria-expanded="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
 }

@@ -163,7 +163,7 @@
       t.check('with room to read some of it',
               px(D.getElementById('bookTitle')).width > 30,
               Math.round(px(D.getElementById('bookTitle')).width) + 'px');
-      t.eq('and the export label drops the redundant format',
+      t.eq('the export button reads the same on a phone',
            D.getElementById('exportBtn').textContent, '匯出');
 
       t.eq('the pager leaves the flow on a phone',
@@ -335,8 +335,30 @@
       /* The panels behave the same at every width now. Fifteen inline controls
          wrapped the bar to two rows at 1280px and left the title 77px, so the
          grouping is not a phone concession. */
-      t.eq('the desktop keeps the full export label',
-           DD.getElementById('exportBtn').textContent, '匯出 EPUB');
+      /* The bar's button is a way into the export options, not the action, so
+         it reads the same at every width; the format is named on the button
+         that actually writes the file, where the format is chosen. */
+      t.eq('the bar button just says 匯出',
+           DD.getElementById('exportBtn').textContent, '匯出');
+      DD.getElementById('exportBtn').click();
+      await wait(80);
+      t.check('pressing it opens the export options',
+              !DD.getElementById('exportPanel').classList.contains('hidden'), 'stayed shut');
+      t.check('which is where the format lives',
+              !!DD.getElementById('exportFormat') && !!DD.getElementById('punctTop'),
+              'export settings are elsewhere');
+      t.eq('and the action names the format',
+           DD.getElementById('exportRun').textContent, '匯出 EPUB');
+      t.check('the conversion panel keeps only the conversion',
+              Array.prototype.map.call(
+                DD.getElementById('convPanel').querySelectorAll('button,select,input'),
+                function (e) { return e.id; }).join(',') ===
+              'presetTop,toggleSource,toggleMarks,toggleReport',
+              Array.prototype.map.call(
+                DD.getElementById('convPanel').querySelectorAll('button,select,input'),
+                function (e) { return e.id; }).join(','));
+      DD.getElementById('exportBtn').click();
+      await wait(60);
       t.eq('reading settings are a panel on desktop too',
            DW.getComputedStyle(dAa).display, 'none');
       t.check('the bar itself is a single row',

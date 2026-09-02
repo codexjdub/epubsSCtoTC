@@ -515,7 +515,7 @@
 
   async function doExport() {
     if (!current.book) return;
-    el.exportBtn.disabled = true;
+    el.exportRun.disabled = true;
     setStatus(S('status.exporting'));
     try {
       /* Covers the archive write, which is the slow part on a large book.
@@ -536,7 +536,7 @@
       showError(S('error.export', { message: e.message }));
       setStatus('');
     }
-    el.exportBtn.disabled = false;
+    el.exportRun.disabled = false;
   }
 
   /* ---- wiring ---- */
@@ -582,6 +582,8 @@
     el.lineHeight = $('lineHeight');
     el.align = $('align');
     el.exportFormat = $('exportFormat');
+    el.exportPanel = $('exportPanel');
+    el.exportRun = $('exportRun');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
@@ -662,7 +664,8 @@
     var dropdowns = [
       { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
       { btn: el.aaBtn, panel: el.aaPanel },
-      { btn: el.convBtn, panel: el.convPanel }
+      { btn: el.convBtn, panel: el.convPanel },
+      { btn: el.exportBtn, panel: el.exportPanel }
     ];
 
     function setDropdown(entry, open) {
@@ -691,7 +694,7 @@
        can see what it did. One that is adjusted by degrees -- the font size
        steps, and any select or slider -- leaves it open: closing after the
        first press means aiming at the button again for every step. */
-    [el.aaPanel, el.convPanel].forEach(function (panel) {
+    [el.aaPanel, el.convPanel, el.exportPanel].forEach(function (panel) {
       panel.addEventListener('click', function (ev) {
         if (ev.target.localName !== 'button') return;
         if (ev.target.hasAttribute('data-keep-open')) return;
@@ -725,7 +728,7 @@
     el.back.addEventListener('click', function () { current.reader.back(); });
     el.prev.addEventListener('click', function () { current.reader.prev(); });
     el.next.addEventListener('click', function () { current.reader.next(); });
-    el.exportBtn.addEventListener('click', doExport);
+
 
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
      * state has to drive a backdrop too. Above it, the backdrop stays out of
@@ -820,10 +823,12 @@
      * for each layout already comes from CSS. */
     /* "EPUB" is redundant where the app exports nothing else, and dropping it
        on a phone is what buys the title enough room to be worth showing. */
+    /* The bar's button is now a way in rather than the action, so it says the
+       same thing at every width; the button that does the work names the
+       format, where the format is chosen. */
     function syncExportLabel() {
-      el.exportBtn.textContent = isNarrow()
-        ? S('bar.export.short')
-        : S('bar.export.format', { format: S('format.' + current.format) });
+      el.exportRun.textContent =
+        S('panel.export.run', { format: S('format.' + current.format) });
     }
 
     function settleForWidth() {
@@ -910,6 +915,7 @@
       current.format = this.value;
       syncExportLabel();
     });
+    el.exportRun.addEventListener('click', doExport);
 
     el.toggleSource.addEventListener('click', async function () {
       if (!current.reader) return;

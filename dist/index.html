@@ -291,6 +291,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel label { justify-content: space-between; }
 .bar-panel .row { display: flex; gap: 8px; }
 .bar-panel .row button { flex: 1; }
+/* The action inside the export options, set apart from the settings above it. */
+.bar-panel .primary { margin-top: 2px; justify-content: center; text-align: center; }
 .topbar .grouped[aria-expanded="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
 }
@@ -566,7 +568,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.18.1</p>
+    <p class="hint build">v1.19.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -590,7 +592,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
               aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
       <button id="convBtn" class="grouped" type="button" aria-expanded="false"
               aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
-      <button id="exportBtn" class="primary" type="button" data-i18n="bar.export">匯出 EPUB</button>
+      <button id="exportBtn" class="primary grouped" type="button" aria-expanded="false"
+              aria-controls="exportPanel" data-i18n-title="bar.export.title"
+              data-i18n="bar.export">匯出</button>
 
       <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
@@ -612,10 +616,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
                 data-i18n-title="panel.vim.title">Vim</button>
       </div>
 
-      <div class="bar-panel hidden" id="convPanel">
-        <label><select id="presetTop"></select></label>
+      <!-- Everything about producing a file, in one place, at the moment you
+           want one. These used to sit in the 轉換 panel, which is named for
+           the conversion you are reading rather than for the file you are
+           making, and only took effect via a button on the other side of the
+           bar. -->
+      <div class="bar-panel hidden" id="exportPanel">
         <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
         <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
+      </div>
+
+      <div class="bar-panel hidden" id="convPanel">
+        <label><select id="presetTop"></select></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
         <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>
@@ -3711,9 +3724,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'bar.aa.title': '閱讀設定',
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
-    'bar.export': '匯出 EPUB',
-    'bar.export.format': '匯出 {format}',
-    'bar.export.short': '匯出',
+    /* The bar's button opens the export options; the one inside them does it.
+       The format is chosen there, so the bar's label no longer names it. */
+    'bar.export': '匯出',
+    'bar.export.title': '匯出檔案',
+    'panel.export.run': '匯出 {format}',
     'panel.format.title': '匯出格式',
     'format.epub': 'EPUB',
     'format.html': 'HTML',
@@ -4602,7 +4617,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   async function doExport() {
     if (!current.book) return;
-    el.exportBtn.disabled = true;
+    el.exportRun.disabled = true;
     setStatus(S('status.exporting'));
     try {
       /* Covers the archive write, which is the slow part on a large book.
@@ -4623,7 +4638,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       showError(S('error.export', { message: e.message }));
       setStatus('');
     }
-    el.exportBtn.disabled = false;
+    el.exportRun.disabled = false;
   }
 
   /* ---- wiring ---- */
@@ -4669,6 +4684,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.lineHeight = $('lineHeight');
     el.align = $('align');
     el.exportFormat = $('exportFormat');
+    el.exportPanel = $('exportPanel');
+    el.exportRun = $('exportRun');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
@@ -4749,7 +4766,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var dropdowns = [
       { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
       { btn: el.aaBtn, panel: el.aaPanel },
-      { btn: el.convBtn, panel: el.convPanel }
+      { btn: el.convBtn, panel: el.convPanel },
+      { btn: el.exportBtn, panel: el.exportPanel }
     ];
 
     function setDropdown(entry, open) {
@@ -4778,7 +4796,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        can see what it did. One that is adjusted by degrees -- the font size
        steps, and any select or slider -- leaves it open: closing after the
        first press means aiming at the button again for every step. */
-    [el.aaPanel, el.convPanel].forEach(function (panel) {
+    [el.aaPanel, el.convPanel, el.exportPanel].forEach(function (panel) {
       panel.addEventListener('click', function (ev) {
         if (ev.target.localName !== 'button') return;
         if (ev.target.hasAttribute('data-keep-open')) return;
@@ -4812,7 +4830,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.back.addEventListener('click', function () { current.reader.back(); });
     el.prev.addEventListener('click', function () { current.reader.prev(); });
     el.next.addEventListener('click', function () { current.reader.next(); });
-    el.exportBtn.addEventListener('click', doExport);
+
 
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
      * state has to drive a backdrop too. Above it, the backdrop stays out of
@@ -4907,10 +4925,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * for each layout already comes from CSS. */
     /* "EPUB" is redundant where the app exports nothing else, and dropping it
        on a phone is what buys the title enough room to be worth showing. */
+    /* The bar's button is now a way in rather than the action, so it says the
+       same thing at every width; the button that does the work names the
+       format, where the format is chosen. */
     function syncExportLabel() {
-      el.exportBtn.textContent = isNarrow()
-        ? S('bar.export.short')
-        : S('bar.export.format', { format: S('format.' + current.format) });
+      el.exportRun.textContent =
+        S('panel.export.run', { format: S('format.' + current.format) });
     }
 
     function settleForWidth() {
@@ -4997,6 +5017,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       current.format = this.value;
       syncExportLabel();
     });
+    el.exportRun.addEventListener('click', doExport);
 
     el.toggleSource.addEventListener('click', async function () {
       if (!current.reader) return;

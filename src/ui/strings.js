@@ -28,9 +28,11 @@
     'bar.aa.title': '閱讀設定',
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
-    'bar.export': '匯出 EPUB',
-    'bar.export.format': '匯出 {format}',
-    'bar.export.short': '匯出',
+    /* The bar's button opens the export options; the one inside them does it.
+       The format is chosen there, so the bar's label no longer names it. */
+    'bar.export': '匯出',
+    'bar.export.title': '匯出檔案',
+    'panel.export.run': '匯出 {format}',
     'panel.format.title': '匯出格式',
     'format.epub': 'EPUB',
     'format.html': 'HTML',
