@@ -533,6 +533,7 @@
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
+    el.topbar = document.querySelector('.topbar');
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
@@ -732,7 +733,18 @@
        下一章 is wanted. Only below the breakpoint: on a desktop, with a mouse
        and arrow keys, chrome that moves on scroll costs more than the height
        it saves. */
-    function tuckPager(hide) { el.pager.classList.toggle('tucked', !!hide); }
+    function anyDropdownOpen() {
+      return dropdowns.some(function (d) { return !d.panel.classList.contains('hidden'); });
+    }
+
+    /* Both strips move together: hiding one and leaving the other looks like a
+       glitch rather than a decision. The bar stays while a panel is open --
+       the panels hang off it, so tucking would take them along. */
+    function tuckPager(hide) {
+      var tuck = !!hide && !anyDropdownOpen();
+      el.pager.classList.toggle('tucked', tuck);
+      el.topbar.classList.toggle('tucked', tuck);
+    }
 
     el.viewer.addEventListener('scroll', function () {
       if (!isNarrow()) { tuckPager(false); return; }

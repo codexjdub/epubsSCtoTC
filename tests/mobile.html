@@ -122,9 +122,19 @@
       var pager = D.querySelector('.pager');
       t.eq('the pager leaves the flow on a phone',
            W.getComputedStyle(pager).position, 'fixed');
-      t.check('so the reading column gets the height back',
-              px(viewer).height > W.innerHeight - px(bar).height - 12,
+      t.eq('and so does the bar', W.getComputedStyle(bar).position, 'fixed');
+      /* Both out of the flow means the column is the whole screen. A stray
+         `.topbar { position: relative }` sitting 260 lines below the phone
+         layout used to win on source order and quietly cost 57px. */
+      t.check('so the reading column is the whole screen',
+              px(viewer).height >= W.innerHeight - 2,
               Math.round(px(viewer).height) + 'px of ' + W.innerHeight);
+      t.check('and the panels still hang off the bar', (function () {
+        D.getElementById('aaBtn').click();
+        var gap = px(D.getElementById('aaPanel')).top - px(bar).bottom;
+        D.getElementById('aaBtn').click();
+        return gap >= 0 && gap < 12;
+      })(), 'panel is not anchored to the bar');
 
       var scrollTo = function (top) {
         viewer.scrollTop = top;
@@ -134,6 +144,8 @@
       scrollTo(300);
       await wait(120);
       t.check('reading forward tucks it away', pager.classList.contains('tucked'), 'stayed put');
+      t.check('and takes the bar with it', bar.classList.contains('tucked'),
+              'the bar stayed while the pager left');
       scrollTo(120);
       await wait(120);
       t.check('scrolling back brings it out', !pager.classList.contains('tucked'), 'stayed hidden');
@@ -141,6 +153,18 @@
       await wait(120);
       t.check('and the end of a chapter always shows it',
               !pager.classList.contains('tucked'), 'hidden where 下一章 is wanted');
+      scrollTo(0);
+      await wait(120);
+
+      /* A panel hangs off the bar, so tucking would carry it off screen. */
+      D.getElementById('convBtn').click();
+      await wait(60);
+      scrollTo(600);
+      await wait(150);
+      t.check('an open panel keeps the bar in place',
+              !bar.classList.contains('tucked'), 'tucked with a panel open');
+      D.getElementById('convBtn').click();
+      await wait(60);
       scrollTo(0);
       await wait(120);
 
