@@ -52,6 +52,24 @@
     }
   };
 
+  /* Latin faces for books that are not Chinese. The reader forces a font
+   * because converted text needs glyphs the book's embedded subset lacks --
+   * that argument does not apply to a book nothing was converted in, and
+   * rendering English through a CJK face gives it that face's cramped,
+   * incidental Latin glyphs. */
+  var LATIN = {
+    serif: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter'],
+    sans: ['Helvetica Neue', 'Inter', 'Segoe UI', 'Arial'],
+    kai: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter']
+  };
+
+  /* Books this converter did not touch. An empty or missing language is
+   * treated as Chinese: that is what this app is for. */
+  function isHan(language) {
+    var v = String(language || 'zh').toLowerCase();
+    return v.indexOf('zh') === 0 || v.indexOf('cmn') === 0 || v.indexOf('yue') === 0;
+  }
+
   var STYLES = [
     { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
     { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
@@ -70,9 +88,11 @@
     return false;
   }
 
-  function stackFor(styleId, presetId) {
+  function stackFor(styleId, presetId, language) {
     var style = isValidStyle(styleId) ? styleId : DEFAULT;
-    var families = STACKS[style][regionFor(presetId)] || STACKS[style].tw;
+    var families = isHan(language)
+      ? (STACKS[style][regionFor(presetId)] || STACKS[style].tw)
+      : LATIN[style];
     return families.map(function (f) { return '"' + f + '"'; })
       .concat([GENERIC[style]]).join(', ');
   }
@@ -81,6 +101,8 @@
   App.readingFonts = {
     STYLES: STYLES,
     STACKS: STACKS,
+    LATIN: LATIN,
+    isHan: isHan,
     DEFAULT: DEFAULT,
     stackFor: stackFor,
     regionFor: regionFor,

@@ -24,6 +24,14 @@
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
   }
 
+  /* Overriding the publisher, which is what an alignment control is for --
+   * every reader that offers one does exactly this. Restricted to <p> so a
+   * centred title or a right-aligned attribution is left as the book set it. */
+  function alignCss(align) {
+    if (align !== 'left' && align !== 'justify') return '';
+    return ':host p { text-align: ' + align + ' !important; }\n';
+  }
+
   function modeCss() {
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
@@ -81,6 +89,7 @@
         ? pref('fontStyle') : App.readingFonts.DEFAULT,
       fontScale: pref('fontScale', 1),
       lineHeight: pref('lineHeight', 1.9),
+      align: pref('align', 'default'),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
        * doubt about, so underlining them all obscures the text rather than
@@ -120,7 +129,11 @@
      * undo what the conversion just did. */
     function fontStack() {
       var preset = book.report && book.report.preset ? book.report.preset.id : 'hk';
-      return App.readingFonts.stackFor(state.fontStyle, preset);
+      /* The language BEFORE conversion: an English book is still English, and
+       * conversion retags Chinese ones to the preset's tag anyway. */
+      var meta = book.metadata || {};
+      var language = (meta.original && meta.original.language) || meta.language;
+      return App.readingFonts.stackFor(state.fontStyle, preset, language);
     }
 
     /* Reading position as a content anchor rather than a pixel offset.
@@ -193,7 +206,8 @@
       prefs.write({
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
-        lineHeight: state.lineHeight
+        lineHeight: state.lineHeight,
+        align: state.align
       });
     }
 
@@ -336,6 +350,7 @@
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
         modeCss() +
+        alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -429,6 +444,11 @@
     }
     function setFontScale(scale) { return reflow(function () { state.fontScale = scale; }); }
     function setLineHeight(v) { return reflow(function () { state.lineHeight = v; }); }
+    function setAlign(v) {
+      return reflow(function () {
+        state.align = (v === 'left' || v === 'justify') ? v : 'default';
+      });
+    }
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
@@ -452,6 +472,7 @@
       fontStack: fontStack,
       setFontScale: setFontScale,
       setLineHeight: setLineHeight,
+      setAlign: setAlign,
       setShowMarks: setShowMarks,
       setSource: setSource,
       overrides: function () { return state.overrides; },
@@ -481,4 +502,5 @@
   App.reader = App.reader || {};
   App.reader.create = create;
   App.reader.hashKey = hashKey;
+  App.reader.alignCss = alignCss;
 })(window.App = window.App || {});

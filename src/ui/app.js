@@ -256,6 +256,7 @@
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
     el.lineHeight.value = reader.state.lineHeight;
+    el.align.value = reader.state.align;
     syncSource();
   }
 
@@ -508,6 +509,7 @@
     el.toggleVim = $('toggleVim');
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
+    el.align = $('align');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
@@ -725,6 +727,19 @@
     });
     el.lineHeight.addEventListener('input', function () {
       if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
+    });
+
+    /* "Publisher" is the default and the honest one: most EPUBs set their own
+       alignment, and overriding it unasked is not this reader's business. */
+    [['default', '對齊：預設'], ['left', '對齊：靠左'], ['justify', '對齊：兩端']]
+      .forEach(function (pair) {
+        var opt = document.createElement('option');
+        opt.value = pair[0];
+        opt.textContent = pair[1];
+        el.align.appendChild(opt);
+      });
+    el.align.addEventListener('change', function () {
+      if (current.reader) current.reader.setAlign(this.value);
     });
 
     el.toggleSource.addEventListener('click', async function () {

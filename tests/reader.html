@@ -199,6 +199,33 @@
                 'index=' + reader.state.index);
       }
 
+      // ---- alignment is the publisher's until asked otherwise ----
+      /* Every ereader that offers an alignment control overrides the book with
+         it; none override by default. Restricted to <p> so centred titles and
+         right-aligned attributions survive. */
+      t.eq('no alignment rule by default', App.reader.alignCss('default'), '');
+      t.has(App.reader.alignCss('justify'), 'text-align: justify !important',
+            'justify overrides the publisher');
+      t.check('only paragraphs are touched',
+              App.reader.alignCss('left').indexOf(':host p') === 0,
+              App.reader.alignCss('left'));
+
+      // ---- a non-Chinese book gets Latin faces ----
+      /* The reader forces a font because converted text needs glyphs the
+         book's embedded subset lacks. Nothing was converted in an English
+         book, and a CJK face renders its Latin as an afterthought. */
+      var RF2 = App.readingFonts;
+      t.check('a Chinese book keeps the Han stack',
+              RF2.stackFor('serif', 'tw', 'zh-TW').indexOf('Songti TC') >= 0,
+              RF2.stackFor('serif', 'tw', 'zh-TW'));
+      t.check('an English book gets a Latin stack',
+              RF2.stackFor('serif', 'tw', 'en').indexOf('Songti TC') < 0 &&
+              RF2.stackFor('serif', 'tw', 'en').indexOf('Iowan') >= 0,
+              RF2.stackFor('serif', 'tw', 'en'));
+      t.check('a missing language is treated as Chinese',
+              RF2.isHan('') && RF2.isHan(undefined) && !RF2.isHan('en'),
+              'language default wrong');
+
       // ---- progress through the book ----
       /* The spine index alone says nothing about how far in you are when
          chapters differ in length, so progress is weighted by character

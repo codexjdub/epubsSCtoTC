@@ -482,7 +482,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.5.1</p>
+    <p class="hint build">v1.6.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -506,6 +506,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
         <label><select id="fontStyle" title="Typeface"></select></label>
+        <label><select id="align" title="Text alignment"></select></label>
         <label class="range">行距
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
@@ -2037,6 +2038,24 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
   };
 
+  /* Latin faces for books that are not Chinese. The reader forces a font
+   * because converted text needs glyphs the book's embedded subset lacks --
+   * that argument does not apply to a book nothing was converted in, and
+   * rendering English through a CJK face gives it that face's cramped,
+   * incidental Latin glyphs. */
+  var LATIN = {
+    serif: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter'],
+    sans: ['Helvetica Neue', 'Inter', 'Segoe UI', 'Arial'],
+    kai: ['Iowan Old Style', 'Palatino Linotype', 'Palatino', 'Georgia', 'Charter']
+  };
+
+  /* Books this converter did not touch. An empty or missing language is
+   * treated as Chinese: that is what this app is for. */
+  function isHan(language) {
+    var v = String(language || 'zh').toLowerCase();
+    return v.indexOf('zh') === 0 || v.indexOf('cmn') === 0 || v.indexOf('yue') === 0;
+  }
+
   var STYLES = [
     { id: 'serif', label: '明體', note: 'Serif. The conventional face for long-form reading.' },
     { id: 'sans',  label: '黑體', note: 'Sans-serif. Cleaner on lower-resolution screens.' },
@@ -2055,9 +2074,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return false;
   }
 
-  function stackFor(styleId, presetId) {
+  function stackFor(styleId, presetId, language) {
     var style = isValidStyle(styleId) ? styleId : DEFAULT;
-    var families = STACKS[style][regionFor(presetId)] || STACKS[style].tw;
+    var families = isHan(language)
+      ? (STACKS[style][regionFor(presetId)] || STACKS[style].tw)
+      : LATIN[style];
     return families.map(function (f) { return '"' + f + '"'; })
       .concat([GENERIC[style]]).join(', ');
   }
@@ -2066,6 +2087,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.readingFonts = {
     STYLES: STYLES,
     STACKS: STACKS,
+    LATIN: LATIN,
+    isHan: isHan,
     DEFAULT: DEFAULT,
     stackFor: stackFor,
     regionFor: regionFor,
@@ -2099,6 +2122,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   function fontCss(family, scale, lineHeight) {
     return ':host, :host * { font-family: ' + family + ' !important; }\n' +
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
+  }
+
+  /* Overriding the publisher, which is what an alignment control is for --
+   * every reader that offers one does exactly this. Restricted to <p> so a
+   * centred title or a right-aligned attribution is left as the book set it. */
+  function alignCss(align) {
+    if (align !== 'left' && align !== 'justify') return '';
+    return ':host p { text-align: ' + align + ' !important; }\n';
   }
 
   function modeCss() {
@@ -2158,6 +2189,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         ? pref('fontStyle') : App.readingFonts.DEFAULT,
       fontScale: pref('fontScale', 1),
       lineHeight: pref('lineHeight', 1.9),
+      align: pref('align', 'default'),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
        * doubt about, so underlining them all obscures the text rather than
@@ -2197,7 +2229,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * undo what the conversion just did. */
     function fontStack() {
       var preset = book.report && book.report.preset ? book.report.preset.id : 'hk';
-      return App.readingFonts.stackFor(state.fontStyle, preset);
+      /* The language BEFORE conversion: an English book is still English, and
+       * conversion retags Chinese ones to the preset's tag anyway. */
+      var meta = book.metadata || {};
+      var language = (meta.original && meta.original.language) || meta.language;
+      return App.readingFonts.stackFor(state.fontStyle, preset, language);
     }
 
     /* Reading position as a content anchor rather than a pixel offset.
@@ -2270,7 +2306,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       prefs.write({
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
-        lineHeight: state.lineHeight
+        lineHeight: state.lineHeight,
+        align: state.align
       });
     }
 
@@ -2413,6 +2450,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
         modeCss() +
+        alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -2506,6 +2544,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
     function setFontScale(scale) { return reflow(function () { state.fontScale = scale; }); }
     function setLineHeight(v) { return reflow(function () { state.lineHeight = v; }); }
+    function setAlign(v) {
+      return reflow(function () {
+        state.align = (v === 'left' || v === 'justify') ? v : 'default';
+      });
+    }
     function setShowMarks(v) { state.showMarks = v; return show(state.index); }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
@@ -2529,6 +2572,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       fontStack: fontStack,
       setFontScale: setFontScale,
       setLineHeight: setLineHeight,
+      setAlign: setAlign,
       setShowMarks: setShowMarks,
       setSource: setSource,
       overrides: function () { return state.overrides; },
@@ -2558,6 +2602,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.reader = App.reader || {};
   App.reader.create = create;
   App.reader.hashKey = hashKey;
+  App.reader.alignCss = alignCss;
 })(window.App = window.App || {});
 
 </script>
@@ -3427,6 +3472,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
     el.lineHeight.value = reader.state.lineHeight;
+    el.align.value = reader.state.align;
     syncSource();
   }
 
@@ -3679,6 +3725,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleVim = $('toggleVim');
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
+    el.align = $('align');
     el.toggleSidebar = $('toggleSidebar');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
@@ -3896,6 +3943,19 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
     el.lineHeight.addEventListener('input', function () {
       if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
+    });
+
+    /* "Publisher" is the default and the honest one: most EPUBs set their own
+       alignment, and overriding it unasked is not this reader's business. */
+    [['default', '對齊：預設'], ['left', '對齊：靠左'], ['justify', '對齊：兩端']]
+      .forEach(function (pair) {
+        var opt = document.createElement('option');
+        opt.value = pair[0];
+        opt.textContent = pair[1];
+        el.align.appendChild(opt);
+      });
+    el.align.addEventListener('change', function () {
+      if (current.reader) current.reader.setAlign(this.value);
     });
 
     el.toggleSource.addEventListener('click', async function () {
