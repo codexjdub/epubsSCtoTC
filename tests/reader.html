@@ -199,6 +199,19 @@
                 'index=' + reader.state.index);
       }
 
+      // ---- progress through the book ----
+      /* The spine index alone says nothing about how far in you are when
+         chapters differ in length, so progress is weighted by character
+         count rather than by chapter number. */
+      await reader.show(0);
+      var p0 = reader.progress();
+      await reader.show(1);
+      var p1 = reader.progress();
+      t.check('progress is a fraction', p0 !== null && p0 >= 0 && p0 <= 1, String(p0));
+      t.check('and it advances with the chapter', p1 > p0, p0 + ' -> ' + p1);
+      t.check('the first chapter starts at zero', p0 === 0, String(p0));
+      await reader.show(0);
+
       // ---- layout ----
       t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
             'horizontal writing mode applied');

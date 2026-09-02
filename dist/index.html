@@ -467,7 +467,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.3.0</p>
+    <p class="hint build">v1.4.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -2227,6 +2227,43 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       });
     }
 
+    /* How far through the BOOK, not the chapter list.
+     *
+     * The spine index is a poor proxy: chapters vary by an order of magnitude,
+     * so "3 / 42" says nothing about how much is left. Weight each chapter by
+     * its character count with tags stripped -- computed once, from text that
+     * is already in memory after conversion. */
+    var weights = null;
+    var totalChars = 0;
+
+    function chapterWeights() {
+      if (weights) return weights;
+      var items = spineItems();
+      weights = [];
+      totalChars = 0;
+      for (var i = 0; i < items.length; i++) {
+        var entry = book.entries.get(items[i].item.path);
+        var text = entry && typeof entry.text === 'string' ? entry.text : '';
+        var n = text.replace(/<[^>]*>/g, '').replace(/\s+/g, '').length;
+        weights.push({ start: totalChars, size: n });
+        totalChars += n;
+      }
+      return weights;
+    }
+
+    /* null when the weights are unusable -- an unconverted book has no text in
+     * memory to count, and a fabricated percentage would be worse than none. */
+    function progress() {
+      var w = chapterWeights();
+      if (!totalChars) return null;
+      var cur = w[state.index] || { start: 0, size: 0 };
+      var el = scroller();
+      if (!el) return null;
+      var span = el.scrollHeight - el.clientHeight;
+      var frac = span > 0 ? Math.min(1, Math.max(0, el.scrollTop / span)) : 0;
+      return Math.min(1, (cur.start + cur.size * frac) / totalChars);
+    }
+
     function spineItems() {
       return book.spine.items.filter(function (s) { return s.linear !== false; });
     }
@@ -2280,6 +2317,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var scrollTimer = null;
     var scrollHost = mount.parentNode;
     function onScroll() {
+      emit('progress', { fraction: progress() });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
     }
@@ -2353,7 +2391,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         index: state.index,
         total: items.length,
         path: rendered.path,
-        markCount: rendered.markCount
+        markCount: rendered.markCount,
+        progress: progress()
       });
       return rendered;
     }
@@ -2415,6 +2454,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       setShowMarks: setShowMarks,
       setSource: setSource,
       overrides: function () { return state.overrides; },
+      progress: progress,
       resume: function () {
         restoreScroll = saved.anchor || null;
         return show(saved.index || 0);
@@ -3242,13 +3282,25 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var reader = App.reader.create(el.viewer, book);
     current.reader = reader;
 
+    /* Chapter count plus how far through the book, which the index alone does
+       not tell you when chapters differ in length by an order of magnitude. */
+    var pos = { index: 0, total: 0 };
+    function renderPosition() {
+      var pct = current.reader ? current.reader.progress() : null;
+      el.position.textContent = (pos.index + 1) + ' / ' + pos.total +
+        (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+    }
+
     reader.on('chapter', function (e) {
       reader.state.path = e.path;
-      el.position.textContent = (e.index + 1) + ' / ' + e.total;
+      pos.index = e.index;
+      pos.total = e.total;
+      renderPosition();
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
       highlightToc(e.path);
     });
+    reader.on('progress', renderPosition);
     reader.on('external', function (e) {
       setStatus('External link not opened: ' + e.href);
     });

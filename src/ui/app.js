@@ -205,13 +205,25 @@
     var reader = App.reader.create(el.viewer, book);
     current.reader = reader;
 
+    /* Chapter count plus how far through the book, which the index alone does
+       not tell you when chapters differ in length by an order of magnitude. */
+    var pos = { index: 0, total: 0 };
+    function renderPosition() {
+      var pct = current.reader ? current.reader.progress() : null;
+      el.position.textContent = (pos.index + 1) + ' / ' + pos.total +
+        (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+    }
+
     reader.on('chapter', function (e) {
       reader.state.path = e.path;
-      el.position.textContent = (e.index + 1) + ' / ' + e.total;
+      pos.index = e.index;
+      pos.total = e.total;
+      renderPosition();
       el.prev.disabled = e.index === 0;
       el.next.disabled = e.index === e.total - 1;
       highlightToc(e.path);
     });
+    reader.on('progress', renderPosition);
     reader.on('external', function (e) {
       setStatus('External link not opened: ' + e.href);
     });

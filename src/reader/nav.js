@@ -189,6 +189,43 @@
       });
     }
 
+    /* How far through the BOOK, not the chapter list.
+     *
+     * The spine index is a poor proxy: chapters vary by an order of magnitude,
+     * so "3 / 42" says nothing about how much is left. Weight each chapter by
+     * its character count with tags stripped -- computed once, from text that
+     * is already in memory after conversion. */
+    var weights = null;
+    var totalChars = 0;
+
+    function chapterWeights() {
+      if (weights) return weights;
+      var items = spineItems();
+      weights = [];
+      totalChars = 0;
+      for (var i = 0; i < items.length; i++) {
+        var entry = book.entries.get(items[i].item.path);
+        var text = entry && typeof entry.text === 'string' ? entry.text : '';
+        var n = text.replace(/<[^>]*>/g, '').replace(/\s+/g, '').length;
+        weights.push({ start: totalChars, size: n });
+        totalChars += n;
+      }
+      return weights;
+    }
+
+    /* null when the weights are unusable -- an unconverted book has no text in
+     * memory to count, and a fabricated percentage would be worse than none. */
+    function progress() {
+      var w = chapterWeights();
+      if (!totalChars) return null;
+      var cur = w[state.index] || { start: 0, size: 0 };
+      var el = scroller();
+      if (!el) return null;
+      var span = el.scrollHeight - el.clientHeight;
+      var frac = span > 0 ? Math.min(1, Math.max(0, el.scrollTop / span)) : 0;
+      return Math.min(1, (cur.start + cur.size * frac) / totalChars);
+    }
+
     function spineItems() {
       return book.spine.items.filter(function (s) { return s.linear !== false; });
     }
@@ -242,6 +279,7 @@
     var scrollTimer = null;
     var scrollHost = mount.parentNode;
     function onScroll() {
+      emit('progress', { fraction: progress() });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
     }
@@ -315,7 +353,8 @@
         index: state.index,
         total: items.length,
         path: rendered.path,
-        markCount: rendered.markCount
+        markCount: rendered.markCount,
+        progress: progress()
       });
       return rendered;
     }
@@ -377,6 +416,7 @@
       setShowMarks: setShowMarks,
       setSource: setSource,
       overrides: function () { return state.overrides; },
+      progress: progress,
       resume: function () {
         restoreScroll = saved.anchor || null;
         return show(saved.index || 0);
