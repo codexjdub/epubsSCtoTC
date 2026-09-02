@@ -105,6 +105,7 @@
         if (aa.classList.contains('hidden') === open) aaBtn.click();
       };
 
+      var pagerEl = function () { return D.querySelector('.pager'); };
       t.eq('phone viewport', W.innerWidth, PHONE);
       t.check('no horizontal page overflow', doc.scrollWidth <= doc.clientWidth,
               (doc.scrollWidth - doc.clientWidth) + 'px over');
@@ -119,11 +120,29 @@
       /* The pager floats at the foot on a phone rather than sitting in the
          flow, and tucks away while you read: 55px of a 812px screen was held
          for controls touched a few times a chapter. */
-      var pager = D.querySelector('.pager');
+      var pager = pagerEl();
       /* The title used to be dropped below 420px, from when fifteen controls
          needed the room. Five need less, and 匯出 instead of 匯出 EPUB frees
          41px more -- knowing which book you are in beats the last characters
          of its name. */
+      /* 100vh on iOS Safari is the LARGE viewport, the height with the URL bar
+         hidden, so while that bar shows the app is taller than the screen --
+         and since the document never scrolls, its bottom is unreachable. dvh
+         tracks what is actually visible. Headless Chromium has no URL bar, so
+         this checks the wiring rather than the iOS symptom. */
+      t.check('the shell is sized to the visible viewport',
+              Math.abs(px(D.querySelector('.app')).height - W.innerHeight) < 1,
+              Math.round(px(D.querySelector('.app')).height) + ' vs ' + W.innerHeight);
+      t.check('and the pager is reachable within it',
+              px(pagerEl()).bottom <= W.innerHeight + 1,
+              Math.round(px(pagerEl()).bottom) + ' vs ' + W.innerHeight);
+      if (W.CSS && W.CSS.supports) {
+        t.check('sized in dvh where the browser knows it',
+                !W.CSS.supports('height', '100dvh') ||
+                W.getComputedStyle(D.querySelector('.app')).height !== '',
+                'no height resolved');
+      }
+
       t.check('the book title is shown on a phone',
               D.getElementById('bookTitle').getClientRects().length > 0, 'hidden');
       t.check('with room to read some of it',

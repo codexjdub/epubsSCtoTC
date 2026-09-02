@@ -118,7 +118,13 @@ body {
         "PingFang HK", "Noto Sans CJK HK", sans-serif;
 }
 
-.app { display: flex; flex-direction: column; height: 100vh; }
+/* dvh, not vh. On iOS Safari 100vh is the LARGE viewport -- the height with
+   the URL bar hidden -- so while that bar is showing the app is taller than
+   what you can see, and because the document itself never scrolls (an inner
+   container does), the bottom of it is simply out of reach. dvh tracks the
+   height actually on screen. The vh line stays as the fallback for browsers
+   that do not know dvh. */
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 
 /* ---- drop screen ---- */
 .landing {
@@ -194,7 +200,7 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* ---- report ---- */
 .report { padding: 16px; border-top: 1px solid var(--line); background: var(--panel);
-          max-height: 40vh; overflow-y: auto; }
+          max-height: 40vh; max-height: 40dvh; overflow-y: auto; }
 .report.hidden { display: none; }
 .report h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
              color: var(--muted); margin: 0 0 10px; }
@@ -231,7 +237,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .keyhelp-panel {
   background: var(--panel); color: var(--fg); border: 1px solid var(--line);
   border-radius: 12px; padding: 20px 24px; max-width: 460px; width: 100%;
-  max-height: 80vh; overflow-y: auto;
+  max-height: 80vh; max-height: 80dvh; overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
 }
 .keyhelp-panel h2 { margin: 0 0 14px; font-size: 15px; }
@@ -367,7 +373,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .reader-mount { padding-bottom: 58px; }
   .pager .pos { font-size: 12px; min-width: 6ch; }
 
-  .report { max-height: 55vh; }
+  .report { max-height: 55vh; max-height: 55dvh; }
   .keyhelp-panel { padding: 16px; }
 }
 
@@ -431,7 +437,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
-  max-height: 60vh; overflow-y: auto;
+  max-height: 60vh; max-height: 60dvh; overflow-y: auto;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
 }
 .shelf-panel:not(.hidden) { display: block; }
