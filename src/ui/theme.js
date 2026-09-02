@@ -10,14 +10,16 @@
   var KEY = 'epub-tc:theme';
   var DEFAULT = 'green';
 
+  /* Control labels are Chinese throughout; the prose that explains the tool
+   * stays English. These appear in both the landing page and the reader. */
   var THEMES = [
-    { id: 'system', label: 'System' },
-    { id: 'light',  label: 'Light'  },
-    { id: 'sepia',  label: 'Sepia'  },
-    { id: 'green',  label: 'Green'  },
-    { id: 'slate',  label: 'Slate'  },
-    { id: 'grey',   label: 'Grey'   },
-    { id: 'dark',   label: 'Dark'   }
+    { id: 'system', label: '系統' },
+    { id: 'light',  label: '明亮' },
+    { id: 'sepia',  label: '米黃' },
+    { id: 'green',  label: '青綠' },
+    { id: 'slate',  label: '石板' },
+    { id: 'grey',   label: '淺灰' },
+    { id: 'dark',   label: '暗色' }
   ];
 
   function isValid(id) {

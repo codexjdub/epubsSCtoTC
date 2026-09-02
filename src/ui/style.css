@@ -449,3 +449,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .library-row .cover { width: 36px; height: 52px; }
 .shelf-row .cover { width: 26px; height: 38px; }
+
+/* The reader's own status line. Empty most of the time, so it must not
+   reserve space or shift the pager when it fills. */
+.pager .status-line { font-size: 12px; color: var(--muted); }

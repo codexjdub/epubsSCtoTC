@@ -245,6 +245,22 @@
               px(DD.getElementById('toggleSidebar')).left < px(dSidebar).right,
               'button sits past the sidebar');
 
+      /* #status sits in the landing page, which is hidden the moment a book
+         opens, so every reader-mode message -- export progress included -- was
+         written somewhere nobody could see. */
+      var readerStatus = DD.getElementById('readerStatus');
+      var landingStatus = DD.getElementById('status');
+      readerStatus.textContent = '正在匯出… 42%';
+      landingStatus.textContent = '正在匯出… 42%';
+      t.check('the reader has a status line of its own',
+              !!readerStatus && readerStatus.getClientRects().length > 0,
+              'missing or hidden while reading');
+      t.check('and the landing one is out of sight while reading',
+              landingStatus.getClientRects().length === 0,
+              'landing status still rendered');
+      readerStatus.textContent = '';
+      landingStatus.textContent = '';
+
       t.check('the controls that stay on the bar are visible',
               ['toggleShelf', 'toggleSidebar', 'aaBtn', 'convBtn', 'exportBtn']
                 .every(function (id) {

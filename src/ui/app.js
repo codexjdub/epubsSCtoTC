@@ -10,7 +10,13 @@
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
-  function setStatus(text) { el.status.textContent = text || ''; }
+  /* Written to both lines: the landing page's own, and the reader's, since the
+     landing one is hidden the moment a book opens. */
+  function setStatus(text) {
+    var value = text || '';
+    el.status.textContent = value;
+    if (el.readerStatus) el.readerStatus.textContent = value;
+  }
 
   function showError(message) {
     el.error.textContent = message;
@@ -85,7 +91,7 @@
   function syncMarksLabel() {
     if (!el.toggleMarks || !current.reader) return;
     var on = current.reader.state.showMarks;
-    el.toggleMarks.textContent = on ? 'Hide marks' : 'Show marks';
+    el.toggleMarks.textContent = on ? '隱藏標記' : '顯示標記';
     el.toggleMarks.classList.toggle('active', on);
     el.toggleMarks.setAttribute('aria-pressed', String(!!on));
   }
@@ -246,10 +252,10 @@
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
-      setStatus('External link not opened: ' + e.href);
+      setStatus('未開啟外部連結：' + e.href);
     });
     reader.on('missing', function (e) {
-      setStatus('That entry points outside the reading order (' + e.path + ').');
+      setStatus('這個項目不在閱讀順序內（' + e.path + '）。');
     });
 
     buildToc(book, reader, reader.state.source === 'original');
@@ -303,7 +309,7 @@
   async function openStored(entry, row) {
     clearError();
     if (row) row.classList.add('busy');
-    setStatus('Opening ' + entry.title + '…');
+    setStatus('開啟《' + entry.title + '》…');
     var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
@@ -312,7 +318,7 @@
       ok = true;
     } catch (e) {
       setStatus('');
-      showError('Could not open it: ' + e.message);
+      showError('無法開啟：' + e.message);
     }
     if (row) row.classList.remove('busy');
     return ok;
@@ -471,7 +477,7 @@
   async function doExport() {
     if (!current.book) return;
     el.exportBtn.disabled = true;
-    setStatus('Building EPUB…');
+    setStatus('正在匯出…');
     try {
       /* Covers the archive write, which is the slow part on a large book.
          The passes before it are fast enough not to need their own reporting. */
@@ -479,14 +485,14 @@
         overrides: current.reader ? current.reader.overrides() : {},
         punctuation: current.punctuation
       }, function (fraction) {
-        setStatus('Building EPUB… ' + Math.round(fraction * 100) + '%');
+        setStatus('正在匯出… ' + Math.round(fraction * 100) + '%');
       });
       App.export.download(summary.blob, App.export.filenameFor(current.book));
-      setStatus('Exported ' + App.export.filenameFor(current.book) +
-                (summary.overrides ? ' with ' + summary.overrides + ' manual correction(s)' : '') +
-                (summary.fontsStripped.length ? ', ' + summary.fontsStripped.length + ' font(s) dropped' : ''));
+      setStatus('已匯出 ' + App.export.filenameFor(current.book) +
+                (summary.overrides ? '，含 ' + summary.overrides + ' 處手動更正' : '') +
+                (summary.fontsStripped.length ? '，移除 ' + summary.fontsStripped.length + ' 個內嵌字型' : ''));
     } catch (e) {
-      showError('Export failed: ' + e.message);
+      showError('匯出失敗：' + e.message);
       setStatus('');
     }
     el.exportBtn.disabled = false;
@@ -507,6 +513,7 @@
     el.libraryList = $('libraryList');
     el.libraryNote = $('libraryNote');
     el.status = $('status');
+    el.readerStatus = $('readerStatus');
     el.error = $('error');
     el.title = $('bookTitle');
     el.viewer = $('viewer');
