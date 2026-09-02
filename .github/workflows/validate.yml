@@ -50,12 +50,19 @@ jobs:
       - name: Convert a fixture in a real browser
         run: node tools/validate/export-fixture.js
 
+      # Pinned, and downloaded straight from the release rather than looked up
+      # through api.github.com. The API call was unauthenticated, and runners
+      # share an IP, so a rate-limited response left $url empty and curl failed
+      # on a malformed URL -- a red build caused by nothing in the repository.
+      # Pinning also means a new epubcheck cannot change the verdict on a
+      # commit that did not touch the exporter; bump it deliberately instead.
       - name: Fetch epubcheck
+        env:
+          EPUBCHECK_VERSION: 5.3.0
         run: |
-          url=$(curl -sSL https://api.github.com/repos/w3c/epubcheck/releases/latest \
-                | grep -o 'https://[^"]*epubcheck-[0-9.]*\.zip' | head -1)
+          url="https://github.com/w3c/epubcheck/releases/download/v${EPUBCHECK_VERSION}/epubcheck-${EPUBCHECK_VERSION}.zip"
           echo "using $url"
-          curl -sSL -o epubcheck.zip "$url"
+          curl -fsSL -o epubcheck.zip "$url"
           unzip -q epubcheck.zip -d epubcheck
           find epubcheck -name epubcheck.jar
 
