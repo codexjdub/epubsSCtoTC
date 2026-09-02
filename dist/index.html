@@ -566,7 +566,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.18.0</p>
+    <p class="hint build">v1.18.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3562,26 +3562,43 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * fragment keeps its own target, one without lands on the chapter's section.
    * Left alone they were 157 dead hrefs in a file whose whole promise is that
    * it stands on its own. */
-  function rewriteLinks(doc, basePath, sectionFor, ids) {
+  /* Ids are unique per document in the archive and merely common across it --
+   * Calibre stamps calibre_pb_0 into every file it splits, ten times over in
+   * the sample. Collapsing the book into one document turns that into ten
+   * elements sharing an id, where a link can only ever reach the first. The
+   * later ones are renamed, and the map is kept so links from the chapter that
+   * owned them follow. */
+  function claimIds(doc, claimed) {
+    var map = {};
+    var all = doc.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) {
+      var id = all[i].getAttribute && all[i].getAttribute('id');
+      if (!id) continue;
+      if (!claimed[id]) { claimed[id] = true; map[id] = id; continue; }
+      var n = 2;
+      var candidate = id + '-' + n;
+      while (claimed[candidate]) candidate = id + '-' + (++n);
+      claimed[candidate] = true;
+      map[id] = candidate;
+      all[i].setAttribute('id', candidate);
+    }
+    return map;
+  }
+
+  function rewriteLinks(doc, basePath, sectionFor, renames) {
     var anchors = P.tags(doc, 'a');
     for (var i = 0; i < anchors.length; i++) {
       var href = anchors[i].getAttribute('href');
       if (!href || /^(https?:|mailto:)/i.test(href)) continue;
       var fragment = Z.fragmentOf(href);
       var target = href.charAt(0) === '#' ? basePath : Z.resolve(Z.dirname(basePath), href);
-      if (fragment && ids[fragment]) anchors[i].setAttribute('href', '#' + fragment);
+      /* Through the target document's own renaming, so a link into a chapter
+       * whose id was a duplicate still reaches that chapter's copy. */
+      var renamed = renames[target] && renames[target][fragment];
+      if (renamed) anchors[i].setAttribute('href', '#' + renamed);
       else if (sectionFor[target]) anchors[i].setAttribute('href', '#' + sectionFor[target]);
       else anchors[i].removeAttribute('href');
     }
-  }
-
-  function collectIds(doc, into) {
-    var all = doc.getElementsByTagName('*');
-    for (var i = 0; i < all.length; i++) {
-      var id = all[i].getAttribute && all[i].getAttribute('id');
-      if (id) into[id] = true;
-    }
-    return into;
   }
 
   async function toHtml(book) {
@@ -3593,20 +3610,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        so every id in the book has to be known before any href is rewritten.
        Otherwise a fragment is kept on faith and lands nowhere. */
     var docs = [];
-    var ids = {};
+    var claimed = {};
+    var renames = {};
+    /* Section ids are claimed first so a book cannot contain one already. */
+    Object.keys(sectionFor).forEach(function (path) { claimed[sectionFor[path]] = true; });
     for (var d = 0; d < paths.length; d++) {
       var parsed = await documentFor(book, paths[d]);
-      collectIds(parsed, ids);
+      renames[paths[d]] = claimIds(parsed, claimed);
       docs.push(parsed);
     }
-    Object.keys(sectionFor).forEach(function (path) { ids[sectionFor[path]] = true; });
 
     var sections = [];
-    var claimed = {};
     for (var i = 0; i < paths.length; i++) {
       var doc = docs[i];
       await inlineImages(doc, paths[i], book);
-      rewriteLinks(doc, paths[i], sectionFor, ids);
+      rewriteLinks(doc, paths[i], sectionFor, renames);
       var body = bodyOf(doc);
       var inner = '';
       for (var child = body.firstChild; child; child = child.nextSibling) {
@@ -3619,12 +3637,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        * empty anchor inside the section, because the section already carries
        * its own id, and only once: a book split by Calibre repeats the same
        * body id across every piece of the original chapter. */
+      /* Already made unique above, so it can be emitted as it stands. */
       var bodyId = body.getAttribute && body.getAttribute('id');
-      var anchor = '';
-      if (bodyId && !claimed[bodyId]) {
-        claimed[bodyId] = true;
-        anchor = '<span id="' + escapeHtml(bodyId) + '"></span>\n';
-      }
+      var anchor = bodyId ? '<span id="' + escapeHtml(bodyId) + '"></span>\n' : '';
       sections.push('<section id="' + sectionFor[paths[i]] + '">\n' +
                     anchor + inner + '\n</section>');
     }

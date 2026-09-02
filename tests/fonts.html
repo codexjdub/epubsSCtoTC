@@ -249,6 +249,35 @@
               fragments.every(function (f) { return asHtml.indexOf('id="' + f + '"') >= 0; }),
               fragments.filter(function (f) { return asHtml.indexOf('id="' + f + '"') < 0; }).join(','));
 
+      /* Ids are unique per file in an archive and merely common across it --
+         Calibre stamps calibre_pb_0 into every piece it splits. Collapsed into
+         one document that becomes several elements sharing an id, where a link
+         can only ever reach the first. */
+      var htmlIds = (asHtml.match(/id="([^"]+)"/g) || []).map(function (m) { return m.slice(4, -1); });
+      t.check('no id appears twice in the merged document',
+              htmlIds.length === new Set(htmlIds).size,
+              htmlIds.filter(function (x, i) { return htmlIds.indexOf(x) !== i; }).join(','));
+      /* Parsed rather than pattern-matched: getElementById is the thing a
+         reader's browser will actually do with those links. */
+      var parsedOut = new DOMParser().parseFromString(asHtml, 'text/html');
+      t.check('and every link reaches an element that exists',
+              fragments.every(function (f) { return !!parsedOut.getElementById(f); }),
+              fragments.filter(function (f) { return !parsedOut.getElementById(f); }).join(','));
+
+      /* The real case, not just the invariant: two chapters with one id, and a
+         link that must reach its own chapter's copy rather than the first. */
+      var dupeBook = await App.parse.load(await App.fixtures.buildDuplicateIds());
+      await App.convert.book(dupeBook, 'hk');
+      var dupeHtml = await App.formats.toHtml(dupeBook);
+      var dupeDoc = new DOMParser().parseFromString(dupeHtml, 'text/html');
+      var dupeIds = (dupeHtml.match(/id="([^"]+)"/g) || []).map(function (m) { return m.slice(4, -1); });
+      t.eq('a shared id becomes two', dupeIds.length, new Set(dupeIds).size);
+      var secondLink = dupeDoc.querySelector('section:last-of-type a');
+      var landedOn = secondLink && dupeDoc.getElementById(secondLink.getAttribute('href').slice(1));
+      t.check('and the link lands in its own chapter',
+              !!landedOn && landedOn.textContent.indexOf('第二章') >= 0,
+              landedOn ? landedOn.textContent : 'nothing found');
+
       t.eq('each format names its file', ['epub', 'html', 'md', 'txt']
              .map(function (f) { return App.export.filenameFor(fBook, f).split('.').pop(); })
              .join(','), 'epub,html,md,txt');

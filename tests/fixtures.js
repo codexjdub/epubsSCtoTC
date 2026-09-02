@@ -364,7 +364,35 @@
     return zip.generateAsync({ type: 'arraybuffer' });
   }
 
-  App.fixtures = { build: build, buildBroken: buildBroken, buildQuotes: buildQuotes, buildLong: buildLong, buildHostile: buildHostile,
+  /* Two chapters carrying the SAME id, which is what Calibre produces when it
+   * splits a book -- calibre_pb_0 in every piece. Legal in an archive, where
+   * each file is its own document; a collision once they are merged into one.
+   * The second chapter links to its own copy, so a merge that keeps only the
+   * first id sends the reader to the wrong chapter. */
+  async function buildDuplicateIds() {
+    var zip = new JSZip();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml', container('OEBPS/content.opf'));
+    var oebps = zip.folder('OEBPS');
+    oebps.file('content.opf',
+      '<?xml version="1.0" encoding="utf-8"?>\n' +
+      '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">\n' +
+      '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>重複編號</dc:title>\n' +
+      '<dc:language>zh-CN</dc:language><dc:identifier id="bookid">urn:uuid:dupe</dc:identifier>\n' +
+      '</metadata><manifest>\n' +
+      '<item id="c1" href="one.xhtml" media-type="application/xhtml+xml"/>\n' +
+      '<item id="c2" href="two.xhtml" media-type="application/xhtml+xml"/>\n' +
+      '</manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>\n');
+    oebps.file('one.xhtml', xhtml('第一章',
+      '<p id="calibre_pb_0">第一章的头发。</p>', 'zh-CN'));
+    oebps.file('two.xhtml', xhtml('第二章',
+      '<p id="calibre_pb_0">第二章的头发。</p>' +
+      '<p><a href="two.xhtml#calibre_pb_0">回到本章開頭</a></p>', 'zh-CN'));
+    return zip.generateAsync({ type: 'arraybuffer' });
+  }
+
+  App.fixtures = { build: build, buildBroken: buildBroken, buildQuotes: buildQuotes,
+                   buildDuplicateIds: buildDuplicateIds, buildLong: buildLong, buildHostile: buildHostile,
                    buildWithFont: buildWithFont,
                    subsetFont: subsetFont, SIMPLIFIED_COVERAGE: SIMPLIFIED_COVERAGE,
                    PNG_B64: PNG_B64 };
