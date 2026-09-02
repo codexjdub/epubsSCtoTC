@@ -10,7 +10,7 @@ Nothing is uploaded.
 
 - Converts text only — stylesheets and internal links keep working
 - Hong Kong, Taiwan or plain traditional (面条 → 麪條 in HK, 麵條 in TW)
-- Built-in reader: table of contents, vertical (直書) mode, seven themes
+- Built-in reader: table of contents, seven themes
 - Ambiguous characters (发 → 發 or 髮) are underlined — click to cycle, and the
   choice carries into the export
 - Drops embedded fonts that can't render the converted text

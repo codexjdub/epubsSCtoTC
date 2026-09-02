@@ -21,7 +21,6 @@
     ['n  /  ]  /  L', 'Next chapter'],
     ['p  /  [  /  H', 'Previous chapter'],
     ['t', 'Toggle table of contents'],
-    ['v', 'Toggle vertical (直書)'],
     ['o', 'Toggle original / converted'],
     ['m', 'Toggle ambiguity marks'],
     ['+  /  -', 'Font size'],
@@ -142,7 +141,6 @@
         case 'n': case ']': case 'L': count = ''; r.next(); break;
         case 'p': case '[': case 'H': count = ''; r.prev(); break;
         case 't': count = ''; actions.toggleToc(); break;
-        case 'v': count = ''; actions.toggleVertical(); break;
         case 'o': count = ''; actions.toggleSource(); break;
         case 'm': count = ''; actions.toggleMarks(); break;
         case '+': case '=': count = ''; actions.fontBigger(); break;

@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.0.0</p>
+    <p class="hint build">v1.1.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -52,11 +52,10 @@
       <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
               aria-controls="topbarMore" title="More controls">⋯</button>
       <div class="topbar-more" id="topbarMore">
-        <!-- 原文 and 直書 live in the collapsing group: on a 375px screen the
-             bar could not fit them without squeezing every label into two
-             lines, which made the bar 80px tall. -->
+        <!-- 原文 lives in the collapsing group: on a 375px screen the bar
+             could not fit it without squeezing every label into two lines,
+             which made the bar 80px tall. -->
         <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="toggleVertical" type="button" aria-pressed="false">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
         <label><select id="fontStyle" title="Typeface"></select></label>

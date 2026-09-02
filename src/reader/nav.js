@@ -24,13 +24,7 @@
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
   }
 
-  function modeCss(mode) {
-    if (mode === 'vertical') {
-      return ':host { writing-mode: vertical-rl; text-orientation: upright; ' +
-             'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
-             'column-width: 18em; column-gap: 3em; padding: 1em 0; }\n' +
-             ':host img { max-height: 60vh; }\n';
-    }
+  function modeCss() {
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
 
@@ -70,7 +64,6 @@
 
     var state = {
       index: 0,
-      mode: saved.mode || opts.mode || 'scroll',
       fontStyle: App.readingFonts.isValidStyle(saved.fontStyle)
         ? saved.fontStyle : App.readingFonts.DEFAULT,
       fontScale: saved.fontScale || 1,
@@ -95,53 +88,20 @@
     shadow.appendChild(styleEl);
     shadow.appendChild(content);
 
-    /* Which element actually scrolls, and along which axis.
-     *
-     * In scroll mode the content expands the shadow host and the surrounding
-     * container scrolls vertically. In vertical mode :host carries
-     * overflow-x, so the host itself scrolls horizontally. Using the wrong
-     * one silently does nothing -- it is why saved positions were always 0. */
-    function scroller() {
-      return state.mode === 'vertical'
-        ? { el: mount, axis: 'left' }
-        : { el: mount.parentNode, axis: 'top' };
-    }
+    /* The content expands the shadow host and the surrounding container
+     * scrolls it. Reading for the wrong element silently does nothing -- it is
+     * why saved positions were always 0. */
+    function scroller() { return mount.parentNode; }
 
-    function scrollPosition() {
-      var s = scroller();
-      return s.axis === 'top' ? s.el.scrollTop : s.el.scrollLeft;
-    }
+    function scrollPosition() { return scroller().scrollTop; }
 
-    function setScrollPosition(value) {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = value;
-      else s.el.scrollLeft = value;
-    }
+    function scrollBy(delta) { scroller().scrollBy({ top: delta, behavior: 'auto' }); }
 
-    /* Positive delta always means "further along in reading order", whichever
-     * way the text actually flows. */
-    function scrollBy(delta) {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollBy({ top: delta, behavior: 'auto' });
-      else s.el.scrollBy({ left: -delta, behavior: 'auto' });
-    }
+    function viewportExtent() { return scroller().clientHeight; }
 
-    function viewportExtent() {
-      var s = scroller();
-      return s.axis === 'top' ? s.el.clientHeight : s.el.clientWidth;
-    }
+    function scrollToStart() { scroller().scrollTop = 0; }
 
-    function scrollToStart() {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = 0;
-      else s.el.scrollLeft = s.el.scrollWidth;
-    }
-
-    function scrollToEnd() {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = s.el.scrollHeight;
-      else s.el.scrollLeft = -s.el.scrollWidth;
-    }
+    function scrollToEnd() { scroller().scrollTop = scroller().scrollHeight; }
 
     /* Glyph region follows the conversion target, so the rendering does not
      * undo what the conversion just did. */
@@ -160,28 +120,21 @@
      * Instead: remember which block was at the leading edge and how far into
      * it we had read. Both survive reflow.
      */
-    function blockSize(rect) {
-      return scroller().axis === 'left' ? rect.width : rect.height;
-    }
+    function blockSize(rect) { return rect.height; }
 
-    /* How far the leading edge has moved past this block's start, along
-     * whichever axis is doing the scrolling. */
+    /* How far the leading edge has moved past this block's start. */
     function scrolledPast(rect, containerRect) {
-      var s = scroller();
-      if (s.axis === 'top') return containerRect.top - rect.top;
-      if (state.mode === 'vertical') return rect.right - containerRect.right;
-      return containerRect.left - rect.left;
+      return containerRect.top - rect.top;
     }
 
     function captureAnchor() {
       /* A destroyed reader must not answer. Its mount is detached, so the
-       * scroll container is either gone (scroll mode: parentNode is null) or
-       * measures zero in every direction (vertical mode), and the anchor it
-       * would produce gets written over the book's real saved position. */
+       * scroll container is gone (parentNode is null) and the anchor it would
+       * produce gets written over the book's real saved position. */
       if (!mount.isConnected) return null;
       var blocks = content.children;
       if (!blocks.length) return null;
-      var containerRect = scroller().el.getBoundingClientRect();
+      var containerRect = scroller().getBoundingClientRect();
       for (var i = 0; i < blocks.length; i++) {
         var rect = blocks[i].getBoundingClientRect();
         var size = blockSize(rect);
@@ -210,9 +163,7 @@
       if (!el) el = content.children[anchor.index] || null;
       if (!el) return false;
 
-      /* scrollIntoView understands the writing mode; scrollBy already means
-       * "forward in reading order" whichever way the text runs. */
-      el.scrollIntoView({ block: 'start', inline: 'start' });
+      el.scrollIntoView({ block: 'start' });
       var offset = (anchor.fraction || 0) * blockSize(el.getBoundingClientRect());
       if (offset) scrollBy(offset);
       return true;
@@ -228,7 +179,6 @@
     function persist() {
       store.write({
         index: state.index,
-        mode: state.mode,
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
         lineHeight: state.lineHeight,
@@ -327,7 +277,7 @@
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        modeCss(state.mode) +
+        modeCss() +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -381,8 +331,6 @@
       return Promise.resolve(null);
     }
 
-    function setMode(mode) { state.mode = mode; return show(state.index); }
-
     function next() { return show(state.index + 1); }
     function prev() { return show(state.index - 1); }
 
@@ -422,7 +370,6 @@
       goToPath: goToPath,
       next: next,
       prev: prev,
-      setMode: setMode,
       setFontStyle: setFontStyle,
       fontStack: fontStack,
       setFontScale: setFontScale,
@@ -453,5 +400,4 @@
   App.reader = App.reader || {};
   App.reader.create = create;
   App.reader.hashKey = hashKey;
-  App.reader.scopeModeCss = modeCss;
 })(window.App = window.App || {});

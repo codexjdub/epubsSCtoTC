@@ -172,7 +172,7 @@
       setMoreOpen(true);
       await wait(60);
       t.check('the collapsed controls are reachable on a phone',
-              ['toggleVertical', 'fontStyle', 'theme', 'presetTop'].every(function (id) {
+              ['fontStyle', 'theme', 'presetTop'].every(function (id) {
                 var e = D.getElementById(id);
                 return e && e.getClientRects().length > 0;
               }), 'a control is unreachable in the menu');
@@ -220,7 +220,7 @@
       t.eq('more button hidden on desktop',
            DW.getComputedStyle(DD.getElementById('moreBtn')).display, 'none');
       t.check('the controls people reach for are actually on the bar',
-              ['toggleSidebar', 'toggleSource', 'toggleVertical', 'fontSmaller',
+              ['toggleSidebar', 'toggleSource', 'fontSmaller',
                'fontBigger', 'fontStyle', 'theme', 'presetTop', 'exportBtn']
                 .every(function (id) {
                   var e = DD.getElementById(id);

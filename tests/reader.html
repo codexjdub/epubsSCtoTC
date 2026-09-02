@@ -199,13 +199,9 @@
                 'index=' + reader.state.index);
       }
 
-      // ---- modes ----
-      await reader.setMode('vertical');
-      t.has(reader.shadow.querySelector('style').textContent, 'writing-mode: vertical-rl',
-            'vertical mode applied');
-      await reader.setMode('scroll');
+      // ---- layout ----
       t.has(reader.shadow.querySelector('style').textContent, 'horizontal-tb',
-            'scroll mode restored');
+            'horizontal writing mode applied');
 
       // ---- reading position survives reflow ----
       /* Position used to be a raw pixel offset, so changing the font size --
@@ -415,9 +411,7 @@
       /* ---- a destroyed reader lets go of the viewer ----
          The scroll container outlives the reader -- it is the viewer element,
          reused for every book -- so a listener left on it kept firing against
-         a detached mount: a TypeError per scroll in scroll mode, and in
-         vertical mode a bogus end-of-chapter anchor written over the previous
-         book's saved position.
+         a detached mount, throwing a TypeError on every scroll.
 
          A DIFFERENT book on purpose: identity comes from the file's bytes, so
          two readers on the same fixture share one record and this would be
@@ -433,9 +427,6 @@
       var afterDestroy = localStorage.getItem(deadKey);
       t.check('a destroyed reader captures no anchor', deadReader.captureAnchor() === null,
               JSON.stringify(deadReader.captureAnchor()));
-      deadReader.state.mode = 'vertical';
-      t.check('nor in vertical mode, where it used to invent one',
-              deadReader.captureAnchor() === null, JSON.stringify(deadReader.captureAnchor()));
       /* A leaked listener would fire here and persist against the dead
          reader's own store, so an unchanged record is the proof it is gone. */
       deadHost.dispatchEvent(new Event('scroll'));
@@ -537,7 +528,6 @@
       var vim = App.keys.create({
         reader: function () { return reader; },
         toggleToc: function () { calls.push('toc'); },
-        toggleVertical: function () { calls.push('vertical'); },
         toggleSource: function () { calls.push('source'); },
         toggleMarks: function () { calls.push('marks'); },
         fontBigger: function () { calls.push('bigger'); },
@@ -601,9 +591,9 @@
 
       // delegated actions
       calls.length = 0;
-      ['t', 'v', 'o', 'm', '+', '-'].forEach(function (k) { press(k); });
+      ['t', 'o', 'm', '+', '-'].forEach(function (k) { press(k); });
       t.eq('action keys are delegated in order', calls.join(','),
-           'toc,vertical,source,marks,bigger,smaller');
+           'toc,source,marks,bigger,smaller');
 
       // help overlay
       t.check('help starts hidden', !vim.helpVisible(), 'visible too early');

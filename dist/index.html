@@ -459,7 +459,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.0.0</p>
+    <p class="hint build">v1.1.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -476,11 +476,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
               aria-controls="topbarMore" title="More controls">⋯</button>
       <div class="topbar-more" id="topbarMore">
-        <!-- 原文 and 直書 live in the collapsing group: on a 375px screen the
-             bar could not fit them without squeezing every label into two
-             lines, which made the bar 80px tall. -->
+        <!-- 原文 lives in the collapsing group: on a 375px screen the bar
+             could not fit it without squeezing every label into two lines,
+             which made the bar 80px tall. -->
         <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="toggleVertical" type="button" aria-pressed="false">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
         <label><select id="fontStyle" title="Typeface"></select></label>
@@ -2055,13 +2054,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
            ':host { font-size: ' + scale + 'em; line-height: ' + lineHeight + '; }\n';
   }
 
-  function modeCss(mode) {
-    if (mode === 'vertical') {
-      return ':host { writing-mode: vertical-rl; text-orientation: upright; ' +
-             'height: 100%; overflow-x: auto; overflow-y: hidden; ' +
-             'column-width: 18em; column-gap: 3em; padding: 1em 0; }\n' +
-             ':host img { max-height: 60vh; }\n';
-    }
+  function modeCss() {
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
 
@@ -2101,7 +2094,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     var state = {
       index: 0,
-      mode: saved.mode || opts.mode || 'scroll',
       fontStyle: App.readingFonts.isValidStyle(saved.fontStyle)
         ? saved.fontStyle : App.readingFonts.DEFAULT,
       fontScale: saved.fontScale || 1,
@@ -2126,53 +2118,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     shadow.appendChild(styleEl);
     shadow.appendChild(content);
 
-    /* Which element actually scrolls, and along which axis.
-     *
-     * In scroll mode the content expands the shadow host and the surrounding
-     * container scrolls vertically. In vertical mode :host carries
-     * overflow-x, so the host itself scrolls horizontally. Using the wrong
-     * one silently does nothing -- it is why saved positions were always 0. */
-    function scroller() {
-      return state.mode === 'vertical'
-        ? { el: mount, axis: 'left' }
-        : { el: mount.parentNode, axis: 'top' };
-    }
+    /* The content expands the shadow host and the surrounding container
+     * scrolls it. Reading for the wrong element silently does nothing -- it is
+     * why saved positions were always 0. */
+    function scroller() { return mount.parentNode; }
 
-    function scrollPosition() {
-      var s = scroller();
-      return s.axis === 'top' ? s.el.scrollTop : s.el.scrollLeft;
-    }
+    function scrollPosition() { return scroller().scrollTop; }
 
-    function setScrollPosition(value) {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = value;
-      else s.el.scrollLeft = value;
-    }
+    function scrollBy(delta) { scroller().scrollBy({ top: delta, behavior: 'auto' }); }
 
-    /* Positive delta always means "further along in reading order", whichever
-     * way the text actually flows. */
-    function scrollBy(delta) {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollBy({ top: delta, behavior: 'auto' });
-      else s.el.scrollBy({ left: -delta, behavior: 'auto' });
-    }
+    function viewportExtent() { return scroller().clientHeight; }
 
-    function viewportExtent() {
-      var s = scroller();
-      return s.axis === 'top' ? s.el.clientHeight : s.el.clientWidth;
-    }
+    function scrollToStart() { scroller().scrollTop = 0; }
 
-    function scrollToStart() {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = 0;
-      else s.el.scrollLeft = s.el.scrollWidth;
-    }
-
-    function scrollToEnd() {
-      var s = scroller();
-      if (s.axis === 'top') s.el.scrollTop = s.el.scrollHeight;
-      else s.el.scrollLeft = -s.el.scrollWidth;
-    }
+    function scrollToEnd() { scroller().scrollTop = scroller().scrollHeight; }
 
     /* Glyph region follows the conversion target, so the rendering does not
      * undo what the conversion just did. */
@@ -2191,28 +2150,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * Instead: remember which block was at the leading edge and how far into
      * it we had read. Both survive reflow.
      */
-    function blockSize(rect) {
-      return scroller().axis === 'left' ? rect.width : rect.height;
-    }
+    function blockSize(rect) { return rect.height; }
 
-    /* How far the leading edge has moved past this block's start, along
-     * whichever axis is doing the scrolling. */
+    /* How far the leading edge has moved past this block's start. */
     function scrolledPast(rect, containerRect) {
-      var s = scroller();
-      if (s.axis === 'top') return containerRect.top - rect.top;
-      if (state.mode === 'vertical') return rect.right - containerRect.right;
-      return containerRect.left - rect.left;
+      return containerRect.top - rect.top;
     }
 
     function captureAnchor() {
       /* A destroyed reader must not answer. Its mount is detached, so the
-       * scroll container is either gone (scroll mode: parentNode is null) or
-       * measures zero in every direction (vertical mode), and the anchor it
-       * would produce gets written over the book's real saved position. */
+       * scroll container is gone (parentNode is null) and the anchor it would
+       * produce gets written over the book's real saved position. */
       if (!mount.isConnected) return null;
       var blocks = content.children;
       if (!blocks.length) return null;
-      var containerRect = scroller().el.getBoundingClientRect();
+      var containerRect = scroller().getBoundingClientRect();
       for (var i = 0; i < blocks.length; i++) {
         var rect = blocks[i].getBoundingClientRect();
         var size = blockSize(rect);
@@ -2241,9 +2193,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (!el) el = content.children[anchor.index] || null;
       if (!el) return false;
 
-      /* scrollIntoView understands the writing mode; scrollBy already means
-       * "forward in reading order" whichever way the text runs. */
-      el.scrollIntoView({ block: 'start', inline: 'start' });
+      el.scrollIntoView({ block: 'start' });
       var offset = (anchor.fraction || 0) * blockSize(el.getBoundingClientRect());
       if (offset) scrollBy(offset);
       return true;
@@ -2259,7 +2209,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function persist() {
       store.write({
         index: state.index,
-        mode: state.mode,
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
         lineHeight: state.lineHeight,
@@ -2358,7 +2307,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        modeCss(state.mode) +
+        modeCss() +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
     }
@@ -2412,8 +2361,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return Promise.resolve(null);
     }
 
-    function setMode(mode) { state.mode = mode; return show(state.index); }
-
     function next() { return show(state.index + 1); }
     function prev() { return show(state.index - 1); }
 
@@ -2453,7 +2400,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       goToPath: goToPath,
       next: next,
       prev: prev,
-      setMode: setMode,
       setFontStyle: setFontStyle,
       fontStack: fontStack,
       setFontScale: setFontScale,
@@ -2484,7 +2430,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.reader = App.reader || {};
   App.reader.create = create;
   App.reader.hashKey = hashKey;
-  App.reader.scopeModeCss = modeCss;
 })(window.App = window.App || {});
 
 </script>
@@ -2512,7 +2457,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     ['n  /  ]  /  L', 'Next chapter'],
     ['p  /  [  /  H', 'Previous chapter'],
     ['t', 'Toggle table of contents'],
-    ['v', 'Toggle vertical (直書)'],
     ['o', 'Toggle original / converted'],
     ['m', 'Toggle ambiguity marks'],
     ['+  /  -', 'Font size'],
@@ -2633,7 +2577,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         case 'n': case ']': case 'L': count = ''; r.next(); break;
         case 'p': case '[': case 'H': count = ''; r.prev(); break;
         case 't': count = ''; actions.toggleToc(); break;
-        case 'v': count = ''; actions.toggleVertical(); break;
         case 'o': count = ''; actions.toggleSource(); break;
         case 'm': count = ''; actions.toggleMarks(); break;
         case '+': case '=': count = ''; actions.fontBigger(); break;
@@ -3158,14 +3101,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleMarks.setAttribute('aria-pressed', String(!!on));
   }
 
-  /* The writing mode can come back from storage, so the button is labelled
-   * from the reader's actual state rather than assumed to start horizontal. */
-  function syncVertical() {
-    var vertical = !!(current.reader && current.reader.state.mode === 'vertical');
-    el.toggleVertical.textContent = vertical ? '橫書' : '直書';
-    el.toggleVertical.classList.toggle('active', vertical);
-    el.toggleVertical.setAttribute('aria-pressed', String(vertical));
-  }
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
@@ -3334,7 +3269,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     await reader.resume();
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
-    syncVertical();
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
@@ -3562,7 +3496,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
-    el.toggleVertical = $('toggleVertical');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
     el.backdrop = $('drawerBackdrop');
@@ -3742,14 +3675,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    el.toggleVertical.addEventListener('click', function () {
-      current.reader.setMode(current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical');
-      syncVertical();
-    });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () { el.toggleVertical.click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },

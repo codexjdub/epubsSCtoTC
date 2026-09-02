@@ -72,14 +72,6 @@
     el.toggleMarks.setAttribute('aria-pressed', String(!!on));
   }
 
-  /* The writing mode can come back from storage, so the button is labelled
-   * from the reader's actual state rather than assumed to start horizontal. */
-  function syncVertical() {
-    var vertical = !!(current.reader && current.reader.state.mode === 'vertical');
-    el.toggleVertical.textContent = vertical ? '橫書' : '直書';
-    el.toggleVertical.classList.toggle('active', vertical);
-    el.toggleVertical.setAttribute('aria-pressed', String(vertical));
-  }
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
@@ -248,7 +240,6 @@
     await reader.resume();
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
-    syncVertical();
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
@@ -476,7 +467,6 @@
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
-    el.toggleVertical = $('toggleVertical');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
     el.backdrop = $('drawerBackdrop');
@@ -656,14 +646,9 @@
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    el.toggleVertical.addEventListener('click', function () {
-      current.reader.setMode(current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical');
-      syncVertical();
-    });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () { el.toggleVertical.click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
