@@ -350,6 +350,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 /* ---- saved books ---- */
 .library { width: 100%; max-width: 560px; }
 .library.hidden { display: none !important; }
+/* The 52ch cap on .hint keeps prose readable, but this line sits under a
+   560px list and wrapped, orphaning its last two words on a centred line. */
+#libraryNote { max-width: none; }
 .library h2 {
   font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
   color: var(--muted); margin: 0 0 10px; text-align: center;
