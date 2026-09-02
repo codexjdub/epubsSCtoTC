@@ -646,11 +646,15 @@
     });
     document.addEventListener('click', function () { closeDropdowns(null); });
 
-    /* Acting on a control closes the panel it lives in; a select or a slider
-       stays put so it can be adjusted more than once. */
+    /* A control that changes what you are looking at closes the panel, so you
+       can see what it did. One that is adjusted by degrees -- the font size
+       steps, and any select or slider -- leaves it open: closing after the
+       first press means aiming at the button again for every step. */
     [el.aaPanel, el.convPanel].forEach(function (panel) {
       panel.addEventListener('click', function (ev) {
-        if (ev.target.localName === 'button') closeDropdowns(null);
+        if (ev.target.localName !== 'button') return;
+        if (ev.target.hasAttribute('data-keep-open')) return;
+        closeDropdowns(null);
       });
     });
 

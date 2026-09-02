@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.12.0</p>
+    <p class="hint build">v1.12.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -63,9 +63,11 @@
 
       <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
+        <!-- data-keep-open: these are meant to be pressed repeatedly, so the
+             panel must not close under the cursor after the first press. -->
         <div class="row">
-          <button id="fontSmaller" type="button">A−</button>
-          <button id="fontBigger" type="button">A+</button>
+          <button id="fontSmaller" type="button" data-keep-open>A−</button>
+          <button id="fontBigger" type="button" data-keep-open>A+</button>
         </div>
         <label class="range"><span data-i18n="panel.leading">行距</span>
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>

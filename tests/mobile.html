@@ -168,11 +168,28 @@
       await wait(60);
       /* Only buttons dismiss the menu, so use one whose effect is trivially
          reversible rather than a control that re-renders the chapter. */
+      /* The size steppers are meant to be pressed repeatedly, so they must not
+         close the panel under the cursor after the first press. */
+      setPanelOpen(true);            // the 轉換 checks above left nothing open
+      await wait(60);
       D.getElementById('fontBigger').click();
       await wait(60);
-      t.check('acting on a control closes the panel',
-              W.getComputedStyle(aa).display === 'none', 'stayed open');
+      t.check('the size steppers leave the panel open',
+              W.getComputedStyle(aa).display !== 'none', 'closed after one press');
+      D.getElementById('fontBigger').click();
+      await wait(60);
+      t.check('so they can be pressed again without re-opening it',
+              W.getComputedStyle(aa).display !== 'none', 'closed on the second press');
+      D.getElementById('fontSmaller').click();
       D.getElementById('fontSmaller').click();      // restore the font scale
+      await wait(60);
+
+      /* A control that changes what you are looking at does close it. */
+      D.getElementById('toggleVim').click();
+      await wait(80);
+      t.check('a view-changing control closes the panel',
+              W.getComputedStyle(aa).display === 'none', 'stayed open');
+      D.getElementById('toggleVim').click();        // back off again
 
       setPanelOpen(true);
       await wait(60);
