@@ -229,6 +229,22 @@
       t.check('and the title gets real room',
               px(DD.getElementById('bookTitle')).width > 200,
               Math.round(px(DD.getElementById('bookTitle')).width) + 'px');
+      /* A control sits on the side of the surface it opens. 書架 and 目錄 open
+         left-anchored panels, Aa and 轉換 right-anchored ones; with the title
+         free to take the slack, 目錄 had drifted 734px from its own sidebar. */
+      var dTitle = px(DD.getElementById('bookTitle'));
+      t.check('左: the contents button sits beside the contents',
+              px(DD.getElementById('toggleSidebar')).right <= dTitle.left + 1 &&
+              px(DD.getElementById('toggleShelf')).right <= dTitle.left + 1,
+              'a left control is right of the title');
+      t.check('右: the settings buttons sit with their panels',
+              px(DD.getElementById('aaBtn')).left >= dTitle.right - 1 &&
+              px(DD.getElementById('convBtn')).left >= dTitle.right - 1,
+              'a right control is left of the title');
+      t.check('the contents button overlaps the sidebar it opens',
+              px(DD.getElementById('toggleSidebar')).left < px(dSidebar).right,
+              'button sits past the sidebar');
+
       t.check('the controls that stay on the bar are visible',
               ['toggleShelf', 'toggleSidebar', 'aaBtn', 'convBtn', 'exportBtn']
                 .every(function (id) {
