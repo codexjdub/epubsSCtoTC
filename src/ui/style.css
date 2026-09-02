@@ -299,6 +299,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
 
+  /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
+     chrome in response to the root scroller moving and ignore an overflow
+     container entirely, so this is the only way to get the URL bar out of the
+     way. The shell stops being exactly one viewport tall and the viewer stops
+     scrolling; the bar and the pager are already fixed. */
+  .app { height: auto; min-height: 100dvh; }
+  .main { display: block; }
+  .viewer { overflow: visible; }
+
   /* Out of the flow and tuckable, like the pager: together they held 112px of
      a 812px screen. The panels are absolutely positioned against this bar, so
      they travel with it -- which is why a tuck is suppressed while one is

@@ -206,6 +206,15 @@
          mobile browser collapse its own chrome. */
       var sc = App.reader.elementScroller(document.createElement('div'));
       t.eq('the scroller names its kind', sc.kind, 'element');
+      var dsc = App.reader.documentScroller(function () { return 40; });
+      t.eq('and so does the document one', dsc.kind, 'document');
+      /* inset is NOT viewportRect().top. For an element scroller the rect top
+         is where that element sits in the window, while scrollIntoView already
+         aligns to it -- correcting by it shifted every restored position. */
+      t.eq('an element scroller needs no correction', sc.inset(), 0);
+      t.eq('a document scroller carries the chrome height', dsc.inset(), 40);
+      t.eq('and reports the readable top, not the page top',
+           dsc.viewportRect().top, 40);
       t.check('and offers the whole positional surface',
               ['top', 'setTop', 'extent', 'contentExtent', 'viewportRect',
                'scrollBy', 'listen', 'unlisten'].every(function (m) {

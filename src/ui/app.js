@@ -9,6 +9,27 @@
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
+  function isNarrowScreen() { return window.matchMedia('(max-width: 700px)').matches; }
+
+  /* Which element scrolls is a layout decision, so it is made here rather than
+     in the reader: below the breakpoint the document scrolls, so the browser
+     will collapse its own chrome; above it an inner container does, because
+     the sidebar sits beside a full-height viewer. The inset is the fixed bar,
+     which the anchor measures from -- without it a restored position sits that
+     far underneath it. */
+  function scrollerFor() {
+    if (!isNarrowScreen()) return null;
+    return function () {
+      /* The bar's height whether or not it is currently tucked. Letting the
+         inset follow the tuck made capture and restore disagree by 57px
+         whenever the two happened on opposite sides of a scroll: a constant is
+         slightly conservative while the bar is away, and always consistent. */
+      return App.reader.documentScroller(function () {
+        var bar = document.querySelector('.topbar');
+        return bar ? bar.offsetHeight : 0;
+      });
+    };
+  }
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
@@ -229,7 +250,7 @@
     el.title.textContent = book.metadata.title || filename;
     document.title = (book.metadata.title || filename) + ' — 繁花似錦';
 
-    var reader = App.reader.create(el.viewer, book);
+    var reader = App.reader.create(el.viewer, book, { scroller: scrollerFor() });
     current.reader = reader;
 
     /* Chapter count plus how far through the book, which the index alone does
@@ -746,15 +767,30 @@
       el.topbar.classList.toggle('tucked', tuck);
     }
 
-    el.viewer.addEventListener('scroll', function () {
+    /* Both, because which one moves depends on the breakpoint and the handler
+       is cheap: whichever is not scrolling never fires. */
+    /* Whichever element is doing the scrolling at this width -- the same
+       decision scrollerFor() makes, asked the same way rather than inferred
+       from whichever happens to be non-zero. */
+    function readingScroll() {
+      if (isNarrow()) {
+        var doc = document.scrollingElement || document.documentElement;
+        return { top: doc.scrollTop, visible: window.innerHeight, full: doc.scrollHeight };
+      }
+      return { top: el.viewer.scrollTop, visible: el.viewer.clientHeight,
+               full: el.viewer.scrollHeight };
+    }
+
+    function onReadingScroll() {
       if (!isNarrow()) { tuckPager(false); return; }
-      var top = el.viewer.scrollTop;
-      var delta = top - lastViewerScroll;
+      var at = readingScroll();
+      var delta = at.top - lastViewerScroll;
       if (Math.abs(delta) < 8) return;          /* ignore jitter and bounce */
-      lastViewerScroll = top;
-      var atEnd = top + el.viewer.clientHeight >= el.viewer.scrollHeight - 8;
-      tuckPager(atEnd ? false : delta > 0);
-    }, { passive: true });
+      lastViewerScroll = at.top;
+      tuckPager(at.top + at.visible >= at.full - 8 ? false : delta > 0);
+    }
+    el.viewer.addEventListener('scroll', onReadingScroll, { passive: true });
+    window.addEventListener('scroll', onReadingScroll, { passive: true });
 
     api.tuckPager = tuckPager;
 
@@ -775,6 +811,10 @@
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
+      /* The layout has just changed which element scrolls, so the reader is
+         holding the wrong one. It keeps the place itself: capturing here would
+         be too late, since the stylesheet has already relaid the page. */
+      if (current.reader) current.reader.setScroller(scrollerFor());
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

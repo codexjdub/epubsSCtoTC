@@ -130,10 +130,16 @@
          and since the document never scrolls, its bottom is unreachable. dvh
          tracks what is actually visible. Headless Chromium has no URL bar, so
          this checks the wiring rather than the iOS symptom. */
-      t.check('the shell is sized to the visible viewport',
-              Math.abs(px(D.querySelector('.app')).height - W.innerHeight) < 1,
-              Math.round(px(D.querySelector('.app')).height) + ' vs ' + W.innerHeight);
-      t.check('and the pager is reachable within it',
+      /* The DOCUMENT scrolls on a phone, which is the only thing a browser
+         watches when deciding to collapse its own chrome; an inner overflow
+         container is invisible to it. The shell is therefore as tall as the
+         chapter, and the bar and pager are fixed rather than in the flow. */
+      t.check('the document is what scrolls',
+              D.documentElement.scrollHeight > D.documentElement.clientHeight,
+              D.documentElement.scrollHeight + ' vs ' + D.documentElement.clientHeight);
+      t.eq('the reader scrolls the document too',
+           W.App.ui.current.reader.scrollerKind(), 'document');
+      t.check('and the pager is reachable however far down you are',
               px(pagerEl()).bottom <= W.innerHeight + 1,
               Math.round(px(pagerEl()).bottom) + ' vs ' + W.innerHeight);
       if (W.CSS && W.CSS.supports) {
@@ -167,10 +173,9 @@
         return gap >= 0 && gap < 12;
       })(), 'panel is not anchored to the bar');
 
-      var scrollTo = function (top) {
-        viewer.scrollTop = top;
-        viewer.dispatchEvent(new W.Event('scroll'));
-      };
+      /* Scroll the document, not the viewer: the viewer stopped scrolling
+         when the document took over. */
+      var scrollTo = function (top) { W.scrollTo(0, top); };
       t.check('it starts on screen', !pager.classList.contains('tucked'), 'tucked at rest');
       scrollTo(300);
       await wait(120);
@@ -180,7 +185,7 @@
       scrollTo(120);
       await wait(120);
       t.check('scrolling back brings it out', !pager.classList.contains('tucked'), 'stayed hidden');
-      scrollTo(viewer.scrollHeight);
+      scrollTo(D.documentElement.scrollHeight);
       await wait(120);
       t.check('and the end of a chapter always shows it',
               !pager.classList.contains('tucked'), 'hidden where 下一章 is wanted');

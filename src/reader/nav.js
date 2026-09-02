@@ -91,9 +91,51 @@
       extent: function () { return element.clientHeight; },
       contentExtent: function () { return element.scrollHeight; },
       viewportRect: function () { return element.getBoundingClientRect(); },
+      /* scrollIntoView already aligns to this element's own top, so nothing
+       * needs correcting. Not the same number as viewportRect().top, which is
+       * where the element sits in the window. */
+      inset: function () { return 0; },
       scrollBy: function (delta) { element.scrollBy({ top: delta, behavior: 'auto' }); },
       listen: function (fn) { element.addEventListener('scroll', fn, { passive: true }); },
       unlisten: function (fn) { element.removeEventListener('scroll', fn); }
+    };
+  }
+
+  /* The document as the scroller.
+   *
+   * Only this makes a mobile browser collapse its own chrome: browsers watch
+   * the root scroller, and an inner overflow container is invisible to them.
+   *
+   * `inset` is the height of any fixed chrome across the top. It matters
+   * because the anchor is measured from the top of the READABLE area, not the
+   * top of the window -- get it wrong and every restored position sits that
+   * far under the bar. Capture and restore both read it, so they agree.
+   */
+  function documentScroller(inset) {
+    var doc = document.scrollingElement || document.documentElement;
+    function top() { return inset ? inset() : 0; }
+    return {
+      kind: 'document',
+      element: doc,
+      top: function () { return doc.scrollTop; },
+      setTop: function (value) { doc.scrollTop = value; },
+      extent: function () { return window.innerHeight - top(); },
+      contentExtent: function () { return doc.scrollHeight; },
+      /* The visible window, inset by the chrome -- NOT the element's own rect,
+       * which for the document is the whole page. */
+      viewportRect: function () {
+        return {
+          top: top(), left: 0,
+          right: window.innerWidth, bottom: window.innerHeight,
+          width: window.innerWidth, height: window.innerHeight - top()
+        };
+      },
+      /* Here it is real: scrollIntoView aligns to the window, and the readable
+       * area starts below the fixed chrome. */
+      inset: function () { return top(); },
+      scrollBy: function (delta) { window.scrollBy({ top: delta, behavior: 'auto' }); },
+      listen: function (fn) { window.addEventListener('scroll', fn, { passive: true }); },
+      unlisten: function (fn) { window.removeEventListener('scroll', fn); }
     };
   }
 
@@ -129,6 +171,11 @@
     };
 
     var restoreScroll = null;
+    /* The last anchor that was worth keeping. Capturing on demand is too late
+     * when the breakpoint moves: the stylesheet has already relaid the page,
+     * so the outgoing scroller measures a layout that no longer exists and
+     * reports the top of the book. */
+    var lastAnchor = null;
     var mount = document.createElement('div');
     mount.className = 'reader-mount';
     host.appendChild(mount);
@@ -143,7 +190,10 @@
      * saved positions were always 0 -- so nothing here names an element
      * directly; it all goes through the scroller. Captured once, so teardown
      * can still detach its listener after the mount is gone. */
-    var scroll = elementScroller(mount.parentNode);
+    /* Which one is the caller's decision: app.js knows the breakpoint and the
+     * height of its own chrome. Defaults to the element, so anything creating
+     * a reader without an opinion behaves as it always did. */
+    var scroll = opts.scroller ? opts.scroller(mount) : elementScroller(mount.parentNode);
 
     function scrollPosition() { return scroll.top(); }
 
@@ -183,6 +233,16 @@
       return containerRect.top - rect.top;
     }
 
+    /* scrollIntoView aligns a block to the top of the WINDOW; the anchor is
+     * measured from the top of the READABLE area, which sits below any fixed
+     * chrome. Uncorrected, the two disagree by exactly the height of that
+     * chrome and every restored position lands underneath it. */
+    function alignToReadableTop(el) {
+      el.scrollIntoView({ block: 'start' });
+      var inset = scroll.inset ? scroll.inset() : 0;
+      if (inset) scroll.setTop(scroll.top() - inset);
+    }
+
     function captureAnchor() {
       /* A destroyed reader must not answer. Its mount is detached, so the
        * scroll container is gone (parentNode is null) and the anchor it would
@@ -219,7 +279,7 @@
       if (!el) el = content.children[anchor.index] || null;
       if (!el) return false;
 
-      el.scrollIntoView({ block: 'start' });
+      alignToReadableTop(el);
       var offset = (anchor.fraction || 0) * blockSize(el.getBoundingClientRect());
       if (offset) scrollBy(offset);
       return true;
@@ -243,11 +303,13 @@
 
     function persist() {
       persistPrefs();
+      var here = captureAnchor();
+      if (here) lastAnchor = here;
       store.write({
         index: state.index,
         showMarks: state.showMarks,
         source: state.source,
-        anchor: captureAnchor(),
+        anchor: lastAnchor,
         overrides: state.overrides
       });
     }
@@ -401,7 +463,8 @@
 
       if (fragment) {
         var anchor = content.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(fragment) : fragment));
-        if (anchor && anchor.scrollIntoView) anchor.scrollIntoView();
+        /* A footnote target lands under the bar otherwise, like any anchor. */
+        if (anchor && anchor.scrollIntoView) alignToReadableTop(anchor);
       } else if (restoreScroll) {
         var pending = restoreScroll;
         restoreScroll = null;
@@ -503,6 +566,17 @@
       setShowMarks: setShowMarks,
       setSource: setSource,
       overrides: function () { return state.overrides; },
+      /* Crossing the breakpoint changes which element scrolls, and the reader
+       * picked one when it was built. Swapping it beats rebuilding the reader:
+       * the listener moves across and the caller puts the position back. */
+      setScroller: function (factory) {
+        scroll.unlisten(onScroll);
+        scroll = factory ? factory(mount) : elementScroller(mount.parentNode);
+        scroll.listen(onScroll);
+        if (lastAnchor) restoreAnchor(lastAnchor);
+        return scroll.kind;
+      },
+      scrollerKind: function () { return scroll.kind; },
       progress: progress,
       back: back,
       trailDepth: function () { return trail.length; },
@@ -531,4 +605,5 @@
   App.reader.hashKey = hashKey;
   App.reader.alignCss = alignCss;
   App.reader.elementScroller = elementScroller;
+  App.reader.documentScroller = documentScroller;
 })(window.App = window.App || {});
