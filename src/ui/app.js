@@ -201,9 +201,6 @@
 
     r.warnings.forEach(function (w) { notice(w); });
 
-    if (!App.llm.available()) {
-      notice('LLM disambiguation is off. ' + App.llm.reason(), true);
-    }
   }
 
   /* ---- loading ---- */

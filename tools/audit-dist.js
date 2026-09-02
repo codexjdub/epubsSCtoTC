@@ -61,7 +61,7 @@ check('no unescaped </script> inside payloads', closes === opens,
  ['converter', 'App.convert.convertDocument'], ['fonts', 'App.fonts ='],
  ['punctuation', 'App.punct ='], ['renderer', 'App.reader.renderChapter'],
  ['reader engine', 'App.reader.create'], ['export', 'App.export ='],
- ['llm stub', 'App.llm ='], ['ui', 'App.ui =']
+ ['ui', 'App.ui =']
 ].forEach(([name, needle]) => check('bundled: ' + name, html.includes(needle)));
 
 // localStorage must never throw the app down.

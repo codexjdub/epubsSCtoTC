@@ -21,7 +21,6 @@ const SCRIPTS = [
   'src/reader/nav.js',
   'src/reader/keys.js',
   'src/export/write.js',
-  'src/llm/disambiguate.js',
   'src/ui/strings.js',
   'src/ui/theme.js',
   'src/ui/library.js',
