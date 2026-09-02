@@ -95,7 +95,7 @@
       var W = await loadBook(phone);
       var D = phone.contentDocument;
       var doc = D.documentElement;
-      var bar = D.querySelector('.topbar');
+      var bar = D.getElementById('topbar');
       var sidebar = D.getElementById('sidebar');
       var viewer = D.getElementById('viewer');
       var backdrop = D.getElementById('drawerBackdrop');
@@ -106,6 +106,15 @@
       };
 
       var pagerEl = function () { return D.querySelector('.pager'); };
+      /* The bar is addressed by id like every other piece of chrome. It used
+         to be the one exception, reached by CSS class from JS -- and the
+         anchor inset read it that way, so a rename would have returned null,
+         zeroed the inset and put every restored position a bar height out
+         without anything looking wrong. */
+      t.check('the bar is addressed by id, like everything else',
+              !!D.getElementById('topbar'), 'no #topbar');
+      t.eq('and it is the element the inset measures',
+           D.getElementById('topbar'), D.querySelector('.topbar'));
       t.eq('phone viewport', W.innerWidth, PHONE);
       t.check('no horizontal page overflow', doc.scrollWidth <= doc.clientWidth,
               (doc.scrollWidth - doc.clientWidth) + 'px over');
@@ -331,8 +340,8 @@
       t.eq('reading settings are a panel on desktop too',
            DW.getComputedStyle(dAa).display, 'none');
       t.check('the bar itself is a single row',
-              px(DD.querySelector('.topbar')).height < 70,
-              Math.round(px(DD.querySelector('.topbar')).height) + 'px tall');
+              px(DD.getElementById('topbar')).height < 70,
+              Math.round(px(DD.getElementById('topbar')).height) + 'px tall');
       t.check('and the title gets real room',
               px(DD.getElementById('bookTitle')).width > 200,
               Math.round(px(DD.getElementById('bookTitle')).width) + 'px');
@@ -389,8 +398,8 @@
               dExport.right <= DW.innerWidth + 1 && dExport.left >= 0,
               'right edge at ' + Math.round(dExport.right) + ' of ' + DW.innerWidth);
       t.check('toolbar stays a sensible height',
-              px(DD.querySelector('.topbar')).height <= 110,
-              Math.round(px(DD.querySelector('.topbar')).height) + 'px');
+              px(DD.getElementById('topbar')).height <= 110,
+              Math.round(px(DD.getElementById('topbar')).height) + 'px');
       t.check('desktop reading column is generous',
               px(DD.getElementById('viewer')).width > 700,
               Math.round(px(DD.getElementById('viewer')).width) + 'px');

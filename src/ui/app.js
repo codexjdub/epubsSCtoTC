@@ -24,9 +24,12 @@
          inset follow the tuck made capture and restore disagree by 57px
          whenever the two happened on opposite sides of a scroll: a constant is
          slightly conservative while the bar is away, and always consistent. */
+      /* el.topbar, not a fresh lookup: reaching for the bar by CSS class was
+         the one piece of chrome addressed differently from everything else,
+         and a rename would have returned null here and silently zeroed the
+         inset -- putting every restored position a bar height out. */
       return App.reader.documentScroller(function () {
-        var bar = document.querySelector('.topbar');
-        return bar ? bar.offsetHeight : 0;
+        return el.topbar ? el.topbar.offsetHeight : 0;
       });
     };
   }
@@ -562,7 +565,7 @@
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
-    el.topbar = document.querySelector('.topbar');
+    el.topbar = $('topbar');
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
