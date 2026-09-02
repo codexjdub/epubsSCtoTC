@@ -295,6 +295,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     font-size: 14px;
   }
   .topbar button { padding: 10px; }
+  /* CJK labels are two characters wide; a squeezed button wrapped them onto
+     a second line and took the whole bar to 80px. */
+  .topbar button { white-space: nowrap; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */
@@ -441,7 +444,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
     <div class="options">
       <label>Convert to <select id="preset"></select></label>
-      <label><input type="checkbox" id="punct"/> Convert quotation marks to 「 」</label>
+      <label><input type="checkbox" id="punct"/> Quotation marks to 「 」 on export</label>
       <label>Theme <select id="themeLanding"></select></label>
     </div>
 
@@ -463,24 +466,30 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <button id="toggleShelf" type="button" aria-expanded="false"
               aria-controls="shelfPanel" title="Cached books">書架</button>
       <span class="title" id="bookTitle"></span>
-      <button id="toggleSidebar" type="button">目錄</button>
-      <button id="toggleSource" type="button">原文</button>
-      <button id="toggleVertical" type="button">直書</button>
+      <button id="toggleSidebar" type="button" aria-expanded="true"
+              aria-controls="sidebar">目錄</button>
       <!-- On narrow screens the secondary controls collapse behind this.
            On desktop the group is display:contents, so they lay out inline. -->
       <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
               aria-controls="topbarMore" title="More controls">⋯</button>
       <div class="topbar-more" id="topbarMore">
+        <!-- 原文 and 直書 live in the collapsing group: on a 375px screen the
+             bar could not fit them without squeezing every label into two
+             lines, which made the bar 80px tall. -->
+        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
+        <button id="toggleVertical" type="button" aria-pressed="false">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
         <label><select id="fontStyle" title="Typeface"></select></label>
         <label class="range">行距
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <button id="toggleMarks" type="button">Show marks</button>
-        <button id="toggleVim" type="button" title="Vim navigation (press ? for keys)">Vim</button>
+        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
+        <button id="toggleVim" type="button" aria-pressed="false"
+                title="Vim navigation (press ? for keys)">Vim</button>
         <label><select id="theme"></select></label>
         <label><select id="presetTop"></select></label>
+        <label><input type="checkbox" id="punctTop"/> 「 」 on export</label>
         <button id="toggleReport" type="button">Report</button>
       </div>
       <button id="exportBtn" class="primary" type="button">Export EPUB</button>
@@ -920,7 +929,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (navItem) {
       var navEntry = book.entries.get(navItem.path);
       if (navEntry) {
-        var doc = parseXml(await Z.loadText(navEntry), navItem.path);
+        /* The nav document is an XHTML content document, so it gets the same
+         * repair as a chapter. Parsing it strictly meant one stray & in a
+         * chapter label stopped the whole book from opening. */
+        var doc = parseContentDocument(await Z.loadText(navEntry), navItem.path).doc;
         var tree = tocFromNav(doc, Z.dirname(navItem.path));
         if (tree.length) return { tree: tree, source: 'nav', path: navItem.path };
       }
@@ -935,8 +947,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (ncxItem) {
       var ncxEntry = book.entries.get(ncxItem.path);
       if (ncxEntry) {
-        var ncxDoc = parseXml(await Z.loadText(ncxEntry), ncxItem.path);
-        return { tree: tocFromNcx(ncxDoc, Z.dirname(ncxItem.path)), source: 'ncx', path: ncxItem.path };
+        /* The NCX is a genuine XML format, so it is still parsed strictly --
+         * but a broken one costs the reader its table of contents, not the
+         * book. */
+        try {
+          var ncxDoc = parseXml(await Z.loadText(ncxEntry), ncxItem.path);
+          return { tree: tocFromNcx(ncxDoc, Z.dirname(ncxItem.path)), source: 'ncx', path: ncxItem.path };
+        } catch (e) { /* no usable TOC */ }
       }
     }
 
@@ -1011,7 +1028,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
  */
 (function (App) {
   'use strict';
-  App.ambiguityTable = {"丑":["醜","丑"],"个":["個","箇"],"为":["爲","為"],"么":["麼","麽"],"于":["於","于"],"云":["雲","云"],"产":["產","産"],"仑":["侖","崙"],"众":["衆","眾"],"伪":["僞","偽"],"余":["餘","余"],"佣":["傭","佣"],"冲":["衝","沖"],"净":["淨","凈"],"凄":["悽","淒"],"准":["準","准"],"几":["幾","几"],"凫":["鳧","鳬"],"划":["劃","划"],"别":["別","彆"],"制":["制","製"],"勋":["勳","勛"],"升":["昇","陞"],"卤":["滷","鹵"],"卷":["卷","捲"],"历":["歷","厤","曆"],"厕":["廁","厠"],"参":["參","蔘"],"发":["發","髮"],"只":["只","隻"],"台":["臺","台","檯","颱"],"叹":["嘆","歎"],"后":["後","后"],"向":["嚮","曏"],"启":["啓","啟"],"咸":["鹹","咸"],"哗":["譁","嘩"],"啮":["齧","嚙"],"回":["回","迴"],"团":["團","糰"],"坛":["壇","墰","壜","罈","罎"],"坝":["壩","垻"],"埙":["壎","塤"],"墙":["牆","墻"],"壳":["殼","殻"],"复":["復","複"],"夹":["夾","袷"],"奖":["獎","奬"],"妫":["嬀","媯"],"姜":["姜","薑"],"娴":["嫺","嫻"],"尝":["嘗","嚐"],"尽":["盡","儘"],"岁":["歲","嵗","𡻕"],"布":["佈","布"],"干":["幹","乾","干","榦"],"并":["並","併","幷"],"弥":["彌","瀰"],"当":["當","噹"],"录":["錄","彔","録"],"径":["徑","逕"],"志":["志","誌"],"恶":["惡","噁"],"悫":["愨","慤"],"折":["折","摺"],"拐":["枴","柺"],"捣":["搗","擣"],"摆":["擺","襬"],"斗":["鬥","斗"],"曲":["麯","麴"],"札":["劄","箚"],"术":["術","朮"],"松":["松","鬆"],"板":["板","闆"],"榉":["櫸","欅"],"毁":["毀","燬","譭"],"汇":["匯","彙","滙"],"沩":["潙","溈"],"泛":["氾","汎"],"湿":["溼","濕"],"溯":["泝","遡"],"滟":["灩","灧"],"炼":["煉","鍊"],"烟":["煙","菸"],"牦":["犛","氂"],"画":["畫","畵"],"瘘":["瘻","瘺"],"竖":["豎","竪"],"签":["籤","簽"],"系":["係","系","繫"],"纤":["纖","縴"],"线":["線","綫"],"绕":["繞","遶"],"绝":["絕","絶"],"绣":["繡","綉"],"绦":["絛","縧"],"绱":["鞝","緔"],"绷":["繃","綳"],"绿":["綠","緑"],"缊":["縕","緼"],"缰":["繮","韁"],"胡":["衚","鬍"],"脏":["髒","臟"],"舍":["捨","舍"],"艳":["豔","艷"],"苏":["蘇","囌"],"范":["範","范"],"荡":["蕩","盪"],"荫":["蔭","廕"],"药":["藥","葯"],"获":["獲","穫"],"莼":["蓴","蒓"],"蒙":["懞","濛","矇"],"蕴":["蘊","藴"],"表":["表","錶"],"袅":["嫋","裊"],"裥":["襉","襇"],"证":["證","証"],"说":["說","説"],"谣":["謠","謡"],"谥":["諡","謚"],"谫":["譾","謭"],"谷":["穀","谷"],"赃":["贓","贜"],"赍":["齎","賫"],"赝":["贗","贋"],"赞":["贊","讚"],"辒":["轀","輼"],"迹":["跡","蹟"],"酝":["醞","醖"],"采":["採","埰","寀"],"里":["裏","裡","里"],"鉴":["鑑","鑒"],"针":["針","鍼"],"钟":["鍾","鈡","鐘"],"钥":["鑰","鈅"],"钩":["鉤","鈎"],"钫":["鈁","鍅"],"钵":["鉢","缽"],"钻":["鑽","鉆"],"铲":["鏟","剷"],"铺":["鋪","舖"],"锈":["鏽","銹"],"锐":["銳","鋭"],"锤":["錘","鎚"],"锫":["錇","鉳"],"镇":["鎮","鎭"],"镋":["钂","鎲"],"镌":["鐫","鎸"],"镎":["鎿","錼"],"镢":["钁","鐝"],"镰":["鐮","鎌"],"闲":["閒","閑"],"阅":["閱","閲"],"雕":["彫","琱","鵰"],"面":["面","麪","麫","麵"],"须":["須","鬚"],"颓":["頹","頽"],"颜":["顏","顔"],"饥":["飢","饑"],"馆":["館","舘"],"骂":["罵","駡"],"鲞":["鯗","鮝"],"鳁":["鰮","鰛"],"鳄":["鱷","鰐"],"鸡":["雞","鷄"],"鹇":["鷳","鷴"],"鹚":["鷀","鶿"],"𫇭":["蔿","蒍"]};
+  App.ambiguityTable = {"丑":["醜","丑"],"个":["個","箇"],"为":["爲","為"],"么":["麼","麽"],"于":["於","于"],"云":["雲","云"],"产":["產","産"],"仑":["侖","崙"],"众":["衆","眾"],"伪":["僞","偽"],"余":["餘","余"],"佣":["傭","佣"],"冲":["衝","沖"],"净":["淨","凈"],"凄":["悽","淒"],"准":["準","准"],"几":["幾","几"],"凫":["鳧","鳬"],"划":["劃","划"],"别":["別","彆"],"制":["制","製"],"勋":["勳","勛"],"升":["昇","陞"],"卤":["滷","鹵"],"卷":["卷","捲"],"历":["歷","厤","曆"],"厕":["廁","厠"],"参":["參","蔘"],"发":["發","髮"],"只":["只","隻"],"台":["臺","台","檯","颱"],"叹":["嘆","歎"],"后":["後","后"],"向":["嚮","曏"],"启":["啓","啟"],"咸":["鹹","咸"],"哗":["譁","嘩"],"啮":["齧","嚙"],"回":["回","迴"],"团":["團","糰"],"坛":["壇","墰","壜","罈","罎"],"坝":["壩","垻"],"埙":["壎","塤"],"墙":["牆","墻"],"壳":["殼","殻"],"复":["復","複"],"夹":["夾","袷"],"奖":["獎","奬"],"妫":["嬀","媯"],"姜":["姜","薑"],"娴":["嫺","嫻"],"尝":["嘗","嚐"],"尽":["盡","儘"],"岁":["歲","嵗","𡻕"],"布":["佈","布"],"干":["幹","乾","干","榦"],"并":["並","併","幷"],"弥":["彌","瀰"],"当":["當","噹"],"录":["錄","彔","録"],"径":["徑","逕"],"志":["志","誌"],"恶":["惡","噁"],"悫":["愨","慤"],"折":["折","摺"],"拐":["枴","柺"],"捣":["搗","擣"],"摆":["擺","襬"],"斗":["鬥","斗"],"曲":["麯","麴"],"札":["劄","箚"],"术":["術","朮"],"松":["松","鬆"],"板":["板","闆"],"榉":["櫸","欅"],"毁":["毀","燬","譭"],"汇":["匯","彙","滙"],"沩":["潙","溈"],"泛":["氾","汎"],"湿":["溼","濕"],"溯":["泝","遡"],"滟":["灩","灧"],"炼":["煉","鍊"],"烟":["煙","菸"],"牦":["犛","氂"],"画":["畫","畵"],"瘘":["瘻","瘺"],"竖":["豎","竪"],"签":["籤","簽"],"系":["係","系","繫"],"纤":["纖","縴"],"线":["線","綫"],"绕":["繞","遶"],"绝":["絕","絶"],"绣":["繡","綉"],"绦":["絛","縧"],"绱":["鞝","緔"],"绷":["繃","綳"],"绿":["綠","緑"],"缊":["縕","緼"],"缰":["繮","韁"],"胡":["衚","鬍"],"脏":["髒","臟"],"舍":["捨","舍"],"艳":["豔","艷"],"苏":["蘇","囌"],"范":["範","范"],"荡":["蕩","盪"],"荫":["蔭","廕"],"药":["藥","葯"],"获":["獲","穫"],"莼":["蓴","蒓"],"蒙":["懞","濛","矇"],"蕴":["蘊","藴"],"表":["表","錶"],"袅":["嫋","裊"],"裥":["襉","襇"],"证":["證","証"],"说":["說","説"],"谣":["謠","謡"],"谥":["諡","謚"],"谫":["譾","謭"],"谷":["穀","谷"],"赃":["贓","贜"],"赍":["齎","賫"],"赝":["贗","贋"],"赞":["贊","讚"],"辒":["轀","輼"],"迹":["跡","蹟"],"酝":["醞","醖"],"采":["採","埰","寀"],"里":["裏","裡","里"],"鉴":["鑑","鑒"],"针":["針","鍼"],"钟":["鍾","鈡","鐘"],"钥":["鑰","鈅"],"钩":["鉤","鈎"],"钫":["鈁","鍅"],"钵":["鉢","缽"],"钻":["鑽","鉆"],"铲":["鏟","剷"],"铺":["鋪","舖"],"锈":["鏽","銹"],"锐":["銳","鋭"],"锤":["錘","鎚"],"锫":["錇","鉳"],"镇":["鎮","鎭"],"镋":["钂","鎲"],"镌":["鐫","鎸"],"镎":["鎿","錼"],"镢":["钁","鐝"],"镰":["鐮","鎌"],"闲":["閒","閑"],"阅":["閱","閲"],"雕":["彫","琱","鵰"],"面":["面","麪","麫","麵"],"须":["須","鬚"],"颓":["頹","頽"],"颜":["顏","顔"],"饥":["飢","饑"],"馆":["館","舘"],"骂":["罵","駡"],"鲞":["鯗","鮝"],"鳁":["鰮","鰛"],"鳄":["鱷","鰐"],"鸡":["雞","鷄"],"鹇":["鷳","鷴"],"鹚":["鷀","鶿"]};
 })(window.App = window.App || {});
 
 </script>
@@ -1215,7 +1232,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (!entry) return 0;
 
     var text = await Z.loadText(entry);
-    var doc = P.parseXml(text, book.tocPath);
+    /* The nav document is XHTML and may be as malformed as any chapter, so it
+     * gets the same repair. The NCX is real XML and stays strict. */
+    var doc = book.tocSource === 'ncx'
+      ? P.parseXml(text, book.tocPath)
+      : P.parseContentDocument(text, book.tocPath).doc;
     var count = 0;
 
     var labelTags = book.tocSource === 'ncx' ? ['text'] : ['a', 'span'];
@@ -1284,7 +1305,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       unalignedNodes: 0,
       marks: new Map(),
       markCount: 0,
-      imagesWithText: 0,
       warnings: []
     };
 
@@ -1334,14 +1354,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     await convertOpf(book, converter);
-    await convertTocDocument(book, converter);
+    /* A table of contents that cannot be converted costs the sidebar its
+     * traditional labels. It must not cost the reader the converted book. */
+    try {
+      await convertTocDocument(book, converter);
+    } catch (e) {
+      report.warnings.push(book.tocPath + ': table of contents left unconverted (' +
+                           e.message + ')');
+    }
     convertTocTree(book.toc, converter.convert);
-
-    /* Text baked into images cannot be converted. Say so rather than
-     * silently shipping a half-converted book. */
-    book.manifest.forEach(function (item) {
-      if (/^image\//.test(item.mediaType)) report.imagesWithText++;
-    });
 
     book.converted = true;
     book.report = report;
@@ -2181,6 +2202,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     function captureAnchor() {
+      /* A destroyed reader must not answer. Its mount is detached, so the
+       * scroll container is either gone (scroll mode: parentNode is null) or
+       * measures zero in every direction (vertical mode), and the anchor it
+       * would produce gets written over the book's real saved position. */
+      if (!mount.isConnected) return null;
       var blocks = content.children;
       if (!blocks.length) return null;
       var containerRect = scroller().el.getBoundingClientRect();
@@ -2261,7 +2287,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     function cycleMark(el) {
-      var candidates = (el.getAttribute('data-candidates') || '').split('');
+      /* Array.from, not split(''): some candidate lists contain astral
+       * characters -- 岁 offers 歲 嵗 𡻕 -- and splitting by code unit would
+       * cycle through half a surrogate pair, writing a lone surrogate into
+       * the text, into the saved overrides, and into the exported file. */
+      var candidates = Array.from(el.getAttribute('data-candidates') || '');
       if (candidates.length < 2) return;
       var current = el.textContent;
       var next = candidates[(candidates.indexOf(current) + 1) % candidates.length];
@@ -2283,11 +2313,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       emit('override', { key: key, chosen: next, source: el.getAttribute('data-source') });
     }
 
+    /* The scroll container outlives this reader -- it is the viewer element,
+     * reused for every book -- so the listener has to come back off in
+     * destroy(). Left attached, each replaced reader keeps persisting against
+     * its own store from a detached mount. */
     var scrollTimer = null;
-    mount.parentNode.addEventListener('scroll', function () {
+    var scrollHost = mount.parentNode;
+    function onScroll() {
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
-    }, { passive: true });
+    }
+    scrollHost.addEventListener('scroll', onScroll, { passive: true });
 
     shadow.addEventListener('click', function (ev) {
       var path = ev.composedPath ? ev.composedPath() : [ev.target];
@@ -2433,7 +2469,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       scrollToEnd: scrollToEnd,
       viewportExtent: viewportExtent,
       scrollPosition: scrollPosition,
-      destroy: function () { resources.revokeAll(); mount.remove(); }
+      destroy: function () {
+        scrollHost.removeEventListener('scroll', onScroll);
+        if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+        resources.revokeAll();
+        mount.remove();
+      }
     };
   }
 
@@ -2672,22 +2713,38 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   async function applyPunctuation(book) {
-    var state = App.punct.createState();
     var changed = 0;
-    var paths = [];
+    var paths = new Set();
     book.manifest.forEach(function (item) {
-      if (/xhtml|html/i.test(item.mediaType) && book.entries.has(item.path)) paths.push(item.path);
+      if (/xhtml|html/i.test(item.mediaType) && book.entries.has(item.path)) paths.add(item.path);
     });
+
     /* Spine order, so quotation nesting is tracked in reading order. */
     var ordered = book.spine.items.map(function (s) { return s.item.path; })
-      .filter(function (p) { return paths.indexOf(p) >= 0; });
+      .filter(function (p) { return paths.has(p); });
+    /* Documents outside the spine -- a nav document, a cover page -- carry
+     * prose too, and skipping them left them quoted the mainland way inside
+     * an otherwise converted book. */
+    var extra = [];
+    paths.forEach(function (p) { if (ordered.indexOf(p) < 0) extra.push(p); });
 
-    for (var i = 0; i < ordered.length; i++) {
-      var entry = book.entries.get(ordered[i]);
-      var text = await Z.loadText(entry);
-      var doc = P.parseXml(text, ordered[i]);
-      changed += App.punct.convertDocument(doc, state);
-      entry.text = App.convert.serialize(doc, text);
+    async function pass(list, state) {
+      for (var i = 0; i < list.length; i++) {
+        var entry = book.entries.get(list[i]);
+        var text = await Z.loadText(entry);
+        /* Same repair as everywhere else: a chapter the converter could not
+         * parse must not take the export down with it. */
+        var doc = P.parseContentDocument(text, list[i]).doc;
+        changed += App.punct.convertDocument(doc, state);
+        entry.text = App.convert.serialize(doc, text);
+      }
+    }
+
+    await pass(ordered, App.punct.createState());
+    /* Each of these stands alone, so nesting restarts rather than inheriting
+     * whatever depth the spine happened to end on. */
+    for (var i = 0; i < extra.length; i++) {
+      await pass([extra[i]], App.punct.createState());
     }
     return changed;
   }
@@ -3064,6 +3121,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
           if (window.matchMedia('(max-width: 700px)').matches) {
             el.sidebar.classList.remove('open');
             el.backdrop.classList.add('hidden');
+            el.toggleSidebar.setAttribute('aria-expanded', 'false');
           }
         });
         li.appendChild(a);
@@ -3091,17 +3149,28 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   /* Re-label the chrome for whichever text is on screen. */
   function syncMarksLabel() {
     if (!el.toggleMarks || !current.reader) return;
-    el.toggleMarks.textContent = current.reader.state.showMarks ? 'Hide marks' : 'Show marks';
-    el.toggleMarks.classList.toggle('active', current.reader.state.showMarks);
+    var on = current.reader.state.showMarks;
+    el.toggleMarks.textContent = on ? 'Hide marks' : 'Show marks';
+    el.toggleMarks.classList.toggle('active', on);
+    el.toggleMarks.setAttribute('aria-pressed', String(!!on));
+  }
+
+  /* The writing mode can come back from storage, so the button is labelled
+   * from the reader's actual state rather than assumed to start horizontal. */
+  function syncVertical() {
+    var vertical = !!(current.reader && current.reader.state.mode === 'vertical');
+    el.toggleVertical.textContent = vertical ? '橫書' : '直書';
+    el.toggleVertical.classList.toggle('active', vertical);
+    el.toggleVertical.setAttribute('aria-pressed', String(vertical));
   }
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
     el.toggleSource.textContent = original ? '轉換後' : '原文';
     el.toggleSource.classList.toggle('active', original);
+    el.toggleSource.setAttribute('aria-pressed', String(!!original));
     el.banner.classList.toggle('hidden', !original);
     el.toggleMarks.disabled = original;
-    el.exportBtn.disabled = false;
     if (current.book) {
       el.title.textContent = titleFor(current.book, original);
       buildToc(current.book, current.reader, original);
@@ -3262,6 +3331,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     await reader.resume();
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
+    syncVertical();
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
@@ -3283,63 +3353,88 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return new Date(ts).toLocaleDateString();
   }
 
-  async function openFromLibrary(entry, row) {
+  /* Opening a stored book is just the ordinary open path with bytes from
+   * IndexedDB, so it converts with the currently selected preset and lands at
+   * its own saved position. */
+  async function openStored(entry, row) {
     clearError();
-    row.classList.add('busy');
+    if (row) row.classList.add('busy');
     setStatus('Opening ' + entry.title + '…');
+    var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
       if (!bytes) throw new Error('that book is no longer stored');
       await loadBuffer(bytes, entry.title);
+      ok = true;
     } catch (e) {
       setStatus('');
       showError('Could not open it: ' + e.message);
     }
-    row.classList.remove('busy');
+    if (row) row.classList.remove('busy');
+    return ok;
+  }
+
+  async function storedBooks() {
+    try { return await App.library.list(); } catch (e) { return []; }
+  }
+
+  /* The landing page's library and the reader's shelf are one list in two
+   * sets of clothes: same rows, same removal, different class names, subtitle
+   * and pick action. The class names stay distinct because the two are
+   * styled — and tested — separately. */
+  function renderRows(config, books, currentId) {
+    config.list.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = config.row + (entry.id === currentId ? ' current' : '');
+
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = config.pick;
+      var name = document.createElement('span');
+      name.className = config.name;
+      name.textContent = entry.title || '(untitled)';
+      var meta = document.createElement('span');
+      meta.className = config.meta;
+      meta.textContent = config.subtitle(entry, currentId);
+      pick.appendChild(name);
+      pick.appendChild(meta);
+      pick.addEventListener('click', function () { config.onPick(entry, row); });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = config.drop;
+      drop.textContent = '×';
+      drop.title = 'Remove from this device';
+      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderLibrary();
+        await renderShelf();
+      });
+
+      row.appendChild(pick);
+      row.appendChild(drop);
+      config.list.appendChild(row);
+    });
   }
 
   async function renderLibrary() {
     if (!App.library.available()) { show(el.library, false); return; }
 
-    var books = [];
-    try { books = await App.library.list(); } catch (e) { books = []; }
+    var books = await storedBooks();
     if (!books.length) { show(el.library, false); return; }
 
-    el.libraryList.textContent = '';
-    books.forEach(function (entry) {
-      var row = document.createElement('div');
-      row.className = 'library-row';
-
-      var open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'open';
-      var name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = entry.title || '(untitled)';
-      var meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = formatSize(entry.size) +
-        (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
-      open.appendChild(name);
-      open.appendChild(meta);
-      open.addEventListener('click', function () { openFromLibrary(entry, row); });
-
-      var remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'remove';
-      remove.textContent = '×';
-      remove.title = 'Remove from this device';
-      remove.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
-      remove.addEventListener('click', async function (ev) {
-        ev.stopPropagation();
-        await App.library.remove(entry.id);
-        await renderLibrary();
-      });
-
-      row.appendChild(open);
-      row.appendChild(remove);
-      el.libraryList.appendChild(row);
-    });
+    renderRows({
+      list: el.libraryList,
+      row: 'library-row', pick: 'open', name: 'name', meta: 'meta', drop: 'remove',
+      subtitle: function (entry) {
+        return formatSize(entry.size) +
+          (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
+      },
+      onPick: openStored
+    }, books, null);
 
     var used = await App.library.usage();
     el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
@@ -3351,15 +3446,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   /* ---- the shelf, inside the reader ----
    *
-   * The sidebar carries two panels: the book's table of contents, and the
-   * cached books. Switching between books is just loading stored bytes back
-   * through the ordinary open path, so the target book converts with the
-   * currently selected preset and lands at its own saved position.
-   */
-  /* The shelf opens from its own button on the bar rather than sharing the
+   * The shelf opens from its own button on the bar rather than sharing the
    * sidebar with the table of contents: they answer different questions --
    * "where am I in this book" versus "which book" -- and nesting one inside
-   * the other made the second hard to find. */
+   * the other made the second hard to find.
+   */
   function setShelfOpen(open) {
     el.shelfPanel.classList.toggle('hidden', !open);
     el.toggleShelf.classList.toggle('active', open);
@@ -3374,16 +3465,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       setShelfOpen(false);
       return;
     }
-    setStatus('Opening ' + entry.title + '…');
-    try {
-      var bytes = await App.library.load(entry.id);
-      if (!bytes) throw new Error('that book is no longer stored');
-      await loadBuffer(bytes, entry.title);
-      setShelfOpen(false);
-    } catch (e) {
-      setStatus('');
-      showError('Could not open it: ' + e.message);
-    }
+    if (await openStored(entry)) setShelfOpen(false);
   }
 
   async function renderShelf() {
@@ -3394,46 +3476,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return;
     }
 
-    var books = [];
-    try { books = await App.library.list(); } catch (e) { books = []; }
+    var books = await storedBooks();
     var currentId = current.book ? App.library.idFor(current.book) : null;
 
-    el.shelfList.textContent = '';
-    books.forEach(function (entry) {
-      var row = document.createElement('div');
-      row.className = 'shelf-row' + (entry.id === currentId ? ' current' : '');
-
-      var pick = document.createElement('button');
-      pick.type = 'button';
-      pick.className = 'pick';
-      var t = document.createElement('span');
-      t.className = 't';
-      t.textContent = entry.title || '(untitled)';
-      var sub = document.createElement('span');
-      sub.className = 's';
-      sub.textContent = formatSize(entry.size) +
-        (entry.id === currentId ? ' · reading now' : '');
-      pick.appendChild(t);
-      pick.appendChild(sub);
-      pick.addEventListener('click', function () { switchToBook(entry); });
-
-      var drop = document.createElement('button');
-      drop.type = 'button';
-      drop.className = 'drop';
-      drop.textContent = '×';
-      drop.title = 'Remove from this device';
-      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
-      drop.addEventListener('click', async function (ev) {
-        ev.stopPropagation();
-        await App.library.remove(entry.id);
-        await renderShelf();
-        await renderLibrary();
-      });
-
-      row.appendChild(pick);
-      row.appendChild(drop);
-      el.shelfList.appendChild(row);
-    });
+    renderRows({
+      list: el.shelfList,
+      row: 'shelf-row', pick: 'pick', name: 't', meta: 's', drop: 'drop',
+      subtitle: function (entry, id) {
+        return formatSize(entry.size) + (entry.id === id ? ' · reading now' : '');
+      },
+      onPick: switchToBook
+    }, books, currentId);
 
     el.shelfNote.textContent = books.length
       ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
@@ -3479,6 +3532,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.preset = $('preset');
     el.presetTop = $('presetTop');
     el.punct = $('punct');
+    el.punctTop = $('punctTop');
     el.library = $('library');
     el.libraryList = $('libraryList');
     el.libraryNote = $('libraryNote');
@@ -3505,6 +3559,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
+    el.toggleVertical = $('toggleVertical');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
     el.backdrop = $('drawerBackdrop');
@@ -3578,7 +3633,16 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
-    el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
+    /* One setting with a control in two places -- the landing page and the
+     * reader bar, beside the Export button it actually affects -- kept in
+     * step the same way the preset and theme selectors are. */
+    function onPunctChange(on) {
+      current.punctuation = on;
+      el.punct.checked = on;
+      el.punctTop.checked = on;
+    }
+    el.punct.addEventListener('change', function () { onPunctChange(this.checked); });
+    el.punctTop.addEventListener('change', function () { onPunctChange(this.checked); });
 
     /* Changing the target re-converts from the ORIGINAL bytes: conversion
      * rewrites entries in place, so re-running it on an already-converted
@@ -3613,6 +3677,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         el.sidebar.classList.toggle('hidden', !open);
         el.backdrop.classList.add('hidden');
       }
+      el.toggleSidebar.setAttribute('aria-expanded', String(open));
     }
 
     function drawerOpen() {
@@ -3626,7 +3691,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       el.moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
-    $('toggleSidebar').addEventListener('click', function () {
+    el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
+    el.toggleSidebar.addEventListener('click', function () {
       setDrawer(!drawerOpen());
       setMore(false);
       setShelfOpen(false);
@@ -3657,6 +3723,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');
+      el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
     }
     if (narrowQuery.addEventListener) narrowQuery.addEventListener('change', settleForWidth);
     else if (narrowQuery.addListener) narrowQuery.addListener(settleForWidth);
@@ -3672,15 +3739,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    $('toggleVertical').addEventListener('click', function () {
-      var next = current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical';
-      this.textContent = next === 'vertical' ? '橫書' : '直書';
-      current.reader.setMode(next);
+    el.toggleVertical.addEventListener('click', function () {
+      current.reader.setMode(current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical');
+      syncVertical();
     });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () { $('toggleVertical').click(); },
+      toggleVertical: function () { el.toggleVertical.click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
@@ -3691,6 +3757,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var on = current.keys.isEnabled();
       el.toggleVim.classList.toggle('active', on);
       el.toggleVim.textContent = on ? 'Vim ?' : 'Vim';
+      el.toggleVim.setAttribute('aria-pressed', String(on));
     }
     el.toggleVim.addEventListener('click', function () {
       current.keys.toggle();

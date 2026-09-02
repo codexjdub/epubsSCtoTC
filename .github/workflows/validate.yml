@@ -35,6 +35,16 @@ jobs:
       - name: Audit the build
         run: node tools/audit-dist.js
 
+      # dist/index.html is committed because the README tells people to open
+      # it straight from a clone. That only holds if it matches the source.
+      - name: Check the committed build is current
+        run: git diff --exit-code -- dist/index.html
+
+      # The test pages are the suite. They were only ever opened by hand, so
+      # nothing stopped a regression from reaching main.
+      - name: Run the browser test suite
+        run: node tools/validate/run-tests.js
+
       # Drives dist/index.html over file://, so this also exercises the
       # double-click path the app is designed around.
       - name: Convert a fixture in a real browser

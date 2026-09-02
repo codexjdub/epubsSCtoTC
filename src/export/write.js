@@ -50,22 +50,38 @@
   }
 
   async function applyPunctuation(book) {
-    var state = App.punct.createState();
     var changed = 0;
-    var paths = [];
+    var paths = new Set();
     book.manifest.forEach(function (item) {
-      if (/xhtml|html/i.test(item.mediaType) && book.entries.has(item.path)) paths.push(item.path);
+      if (/xhtml|html/i.test(item.mediaType) && book.entries.has(item.path)) paths.add(item.path);
     });
+
     /* Spine order, so quotation nesting is tracked in reading order. */
     var ordered = book.spine.items.map(function (s) { return s.item.path; })
-      .filter(function (p) { return paths.indexOf(p) >= 0; });
+      .filter(function (p) { return paths.has(p); });
+    /* Documents outside the spine -- a nav document, a cover page -- carry
+     * prose too, and skipping them left them quoted the mainland way inside
+     * an otherwise converted book. */
+    var extra = [];
+    paths.forEach(function (p) { if (ordered.indexOf(p) < 0) extra.push(p); });
 
-    for (var i = 0; i < ordered.length; i++) {
-      var entry = book.entries.get(ordered[i]);
-      var text = await Z.loadText(entry);
-      var doc = P.parseXml(text, ordered[i]);
-      changed += App.punct.convertDocument(doc, state);
-      entry.text = App.convert.serialize(doc, text);
+    async function pass(list, state) {
+      for (var i = 0; i < list.length; i++) {
+        var entry = book.entries.get(list[i]);
+        var text = await Z.loadText(entry);
+        /* Same repair as everywhere else: a chapter the converter could not
+         * parse must not take the export down with it. */
+        var doc = P.parseContentDocument(text, list[i]).doc;
+        changed += App.punct.convertDocument(doc, state);
+        entry.text = App.convert.serialize(doc, text);
+      }
+    }
+
+    await pass(ordered, App.punct.createState());
+    /* Each of these stands alone, so nesting restarts rather than inheriting
+     * whatever depth the spine happened to end on. */
+    for (var i = 0; i < extra.length; i++) {
+      await pass([extra[i]], App.punct.createState());
     }
     return changed;
   }

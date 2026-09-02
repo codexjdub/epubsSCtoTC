@@ -188,7 +188,10 @@
     if (navItem) {
       var navEntry = book.entries.get(navItem.path);
       if (navEntry) {
-        var doc = parseXml(await Z.loadText(navEntry), navItem.path);
+        /* The nav document is an XHTML content document, so it gets the same
+         * repair as a chapter. Parsing it strictly meant one stray & in a
+         * chapter label stopped the whole book from opening. */
+        var doc = parseContentDocument(await Z.loadText(navEntry), navItem.path).doc;
         var tree = tocFromNav(doc, Z.dirname(navItem.path));
         if (tree.length) return { tree: tree, source: 'nav', path: navItem.path };
       }
@@ -203,8 +206,13 @@
     if (ncxItem) {
       var ncxEntry = book.entries.get(ncxItem.path);
       if (ncxEntry) {
-        var ncxDoc = parseXml(await Z.loadText(ncxEntry), ncxItem.path);
-        return { tree: tocFromNcx(ncxDoc, Z.dirname(ncxItem.path)), source: 'ncx', path: ncxItem.path };
+        /* The NCX is a genuine XML format, so it is still parsed strictly --
+         * but a broken one costs the reader its table of contents, not the
+         * book. */
+        try {
+          var ncxDoc = parseXml(await Z.loadText(ncxEntry), ncxItem.path);
+          return { tree: tocFromNcx(ncxDoc, Z.dirname(ncxItem.path)), source: 'ncx', path: ncxItem.path };
+        } catch (e) { /* no usable TOC */ }
       }
     }
 

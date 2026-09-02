@@ -40,7 +40,11 @@
     if (!entry) return 0;
 
     var text = await Z.loadText(entry);
-    var doc = P.parseXml(text, book.tocPath);
+    /* The nav document is XHTML and may be as malformed as any chapter, so it
+     * gets the same repair. The NCX is real XML and stays strict. */
+    var doc = book.tocSource === 'ncx'
+      ? P.parseXml(text, book.tocPath)
+      : P.parseContentDocument(text, book.tocPath).doc;
     var count = 0;
 
     var labelTags = book.tocSource === 'ncx' ? ['text'] : ['a', 'span'];
@@ -109,7 +113,6 @@
       unalignedNodes: 0,
       marks: new Map(),
       markCount: 0,
-      imagesWithText: 0,
       warnings: []
     };
 
@@ -159,14 +162,15 @@
     }
 
     await convertOpf(book, converter);
-    await convertTocDocument(book, converter);
+    /* A table of contents that cannot be converted costs the sidebar its
+     * traditional labels. It must not cost the reader the converted book. */
+    try {
+      await convertTocDocument(book, converter);
+    } catch (e) {
+      report.warnings.push(book.tocPath + ': table of contents left unconverted (' +
+                           e.message + ')');
+    }
     convertTocTree(book.toc, converter.convert);
-
-    /* Text baked into images cannot be converted. Say so rather than
-     * silently shipping a half-converted book. */
-    book.manifest.forEach(function (item) {
-      if (/^image\//.test(item.mediaType)) report.imagesWithText++;
-    });
 
     book.converted = true;
     book.report = report;

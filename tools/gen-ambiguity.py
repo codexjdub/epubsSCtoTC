@@ -93,6 +93,12 @@ for trad, simps in ts:
 
 table = {}
 for simp, preimages in inverse.items():
+    # A simplified character outside the BMP can never be looked up. The
+    # conversion pass addresses text by UTF-16 code unit (charAt), so an
+    # astral key is only ever half-matched and the entry is dead weight.
+    # Candidates may still be astral: the reader cycles them by code point.
+    if len(simp) != 1 or ord(simp) > 0xFFFF:
+        continue
     candidates = set(preimages)
     if simp in SHARED_GLYPHS:
         candidates.add(simp)

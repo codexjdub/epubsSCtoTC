@@ -154,6 +154,14 @@
       oebps.file('content.opf', opf3());
       oebps.folder('text').file('nav.xhtml', navDoc());
       addCommon(oebps, 'zh-Hans');
+    } else if (kind === 'badnav') {
+      /* EPUB 3 whose nav document is not well-formed XML -- a raw & in a
+       * chapter label. Parsed strictly, this used to stop the whole book
+       * from opening. */
+      oebps.file('content.opf', opf3());
+      oebps.folder('text').file('nav.xhtml',
+        navDoc().replace('第一章 干净的头发', '第一章 干净 & 头发'));
+      addCommon(oebps, 'zh-Hans');
     } else {
       oebps.file('content.opf', opf2());
       oebps.file('toc.ncx', ncx());
@@ -333,7 +341,30 @@
     return zip.generateAsync({ type: 'arraybuffer' });
   }
 
-  App.fixtures = { build: build, buildBroken: buildBroken, buildLong: buildLong, buildHostile: buildHostile,
+  /* One quoted spine chapter and one quoted document that is in the manifest
+   * but NOT in the spine -- a cover page, an afterword, a nav document. The
+   * punctuation pass walked the spine only, so the second kept its mainland
+   * quotation marks inside an otherwise converted book. */
+  async function buildQuotes() {
+    var zip = new JSZip();
+    zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+    zip.folder('META-INF').file('container.xml', container('OEBPS/content.opf'));
+    var oebps = zip.folder('OEBPS');
+    oebps.file('content.opf',
+      '<?xml version="1.0" encoding="utf-8"?>\n' +
+      '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">\n' +
+      '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>引号</dc:title>\n' +
+      '<dc:language>zh-CN</dc:language><dc:identifier id="bookid">urn:uuid:quotes-fixture</dc:identifier>\n' +
+      '</metadata><manifest>\n' +
+      '<item id="c1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>\n' +
+      '<item id="extra" href="extra.xhtml" media-type="application/xhtml+xml"/>\n' +
+      '</manifest><spine><itemref idref="c1"/></spine></package>\n');
+    oebps.file('chapter1.xhtml', xhtml('第一章', '<p>他说：“你好。”</p>', 'zh-CN'));
+    oebps.file('extra.xhtml', xhtml('附录', '<p>她说：“再见。”</p>', 'zh-CN'));
+    return zip.generateAsync({ type: 'arraybuffer' });
+  }
+
+  App.fixtures = { build: build, buildBroken: buildBroken, buildQuotes: buildQuotes, buildLong: buildLong, buildHostile: buildHostile,
                    buildWithFont: buildWithFont,
                    subsetFont: subsetFont, SIMPLIFIED_COVERAGE: SIMPLIFIED_COVERAGE,
                    PNG_B64: PNG_B64 };

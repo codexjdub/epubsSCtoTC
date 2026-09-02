@@ -288,6 +288,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     font-size: 14px;
   }
   .topbar button { padding: 10px; }
+  /* CJK labels are two characters wide; a squeezed button wrapped them onto
+     a second line and took the whole bar to 80px. */
+  .topbar button { white-space: nowrap; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */

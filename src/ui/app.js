@@ -38,6 +38,7 @@
           if (window.matchMedia('(max-width: 700px)').matches) {
             el.sidebar.classList.remove('open');
             el.backdrop.classList.add('hidden');
+            el.toggleSidebar.setAttribute('aria-expanded', 'false');
           }
         });
         li.appendChild(a);
@@ -65,17 +66,28 @@
   /* Re-label the chrome for whichever text is on screen. */
   function syncMarksLabel() {
     if (!el.toggleMarks || !current.reader) return;
-    el.toggleMarks.textContent = current.reader.state.showMarks ? 'Hide marks' : 'Show marks';
-    el.toggleMarks.classList.toggle('active', current.reader.state.showMarks);
+    var on = current.reader.state.showMarks;
+    el.toggleMarks.textContent = on ? 'Hide marks' : 'Show marks';
+    el.toggleMarks.classList.toggle('active', on);
+    el.toggleMarks.setAttribute('aria-pressed', String(!!on));
+  }
+
+  /* The writing mode can come back from storage, so the button is labelled
+   * from the reader's actual state rather than assumed to start horizontal. */
+  function syncVertical() {
+    var vertical = !!(current.reader && current.reader.state.mode === 'vertical');
+    el.toggleVertical.textContent = vertical ? '橫書' : '直書';
+    el.toggleVertical.classList.toggle('active', vertical);
+    el.toggleVertical.setAttribute('aria-pressed', String(vertical));
   }
 
   function syncSource() {
     var original = current.reader && current.reader.state.source === 'original';
     el.toggleSource.textContent = original ? '轉換後' : '原文';
     el.toggleSource.classList.toggle('active', original);
+    el.toggleSource.setAttribute('aria-pressed', String(!!original));
     el.banner.classList.toggle('hidden', !original);
     el.toggleMarks.disabled = original;
-    el.exportBtn.disabled = false;
     if (current.book) {
       el.title.textContent = titleFor(current.book, original);
       buildToc(current.book, current.reader, original);
@@ -236,6 +248,7 @@
     await reader.resume();
     el.fontStyle.value = reader.state.fontStyle;
     syncMarksLabel();
+    syncVertical();
     el.lineHeight.value = reader.state.lineHeight;
     syncSource();
   }
@@ -257,63 +270,88 @@
     return new Date(ts).toLocaleDateString();
   }
 
-  async function openFromLibrary(entry, row) {
+  /* Opening a stored book is just the ordinary open path with bytes from
+   * IndexedDB, so it converts with the currently selected preset and lands at
+   * its own saved position. */
+  async function openStored(entry, row) {
     clearError();
-    row.classList.add('busy');
+    if (row) row.classList.add('busy');
     setStatus('Opening ' + entry.title + '…');
+    var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
       if (!bytes) throw new Error('that book is no longer stored');
       await loadBuffer(bytes, entry.title);
+      ok = true;
     } catch (e) {
       setStatus('');
       showError('Could not open it: ' + e.message);
     }
-    row.classList.remove('busy');
+    if (row) row.classList.remove('busy');
+    return ok;
+  }
+
+  async function storedBooks() {
+    try { return await App.library.list(); } catch (e) { return []; }
+  }
+
+  /* The landing page's library and the reader's shelf are one list in two
+   * sets of clothes: same rows, same removal, different class names, subtitle
+   * and pick action. The class names stay distinct because the two are
+   * styled — and tested — separately. */
+  function renderRows(config, books, currentId) {
+    config.list.textContent = '';
+    books.forEach(function (entry) {
+      var row = document.createElement('div');
+      row.className = config.row + (entry.id === currentId ? ' current' : '');
+
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = config.pick;
+      var name = document.createElement('span');
+      name.className = config.name;
+      name.textContent = entry.title || '(untitled)';
+      var meta = document.createElement('span');
+      meta.className = config.meta;
+      meta.textContent = config.subtitle(entry, currentId);
+      pick.appendChild(name);
+      pick.appendChild(meta);
+      pick.addEventListener('click', function () { config.onPick(entry, row); });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = config.drop;
+      drop.textContent = '×';
+      drop.title = 'Remove from this device';
+      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.addEventListener('click', async function (ev) {
+        ev.stopPropagation();
+        await App.library.remove(entry.id);
+        await renderLibrary();
+        await renderShelf();
+      });
+
+      row.appendChild(pick);
+      row.appendChild(drop);
+      config.list.appendChild(row);
+    });
   }
 
   async function renderLibrary() {
     if (!App.library.available()) { show(el.library, false); return; }
 
-    var books = [];
-    try { books = await App.library.list(); } catch (e) { books = []; }
+    var books = await storedBooks();
     if (!books.length) { show(el.library, false); return; }
 
-    el.libraryList.textContent = '';
-    books.forEach(function (entry) {
-      var row = document.createElement('div');
-      row.className = 'library-row';
-
-      var open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'open';
-      var name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = entry.title || '(untitled)';
-      var meta = document.createElement('span');
-      meta.className = 'meta';
-      meta.textContent = formatSize(entry.size) +
-        (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
-      open.appendChild(name);
-      open.appendChild(meta);
-      open.addEventListener('click', function () { openFromLibrary(entry, row); });
-
-      var remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'remove';
-      remove.textContent = '×';
-      remove.title = 'Remove from this device';
-      remove.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
-      remove.addEventListener('click', async function (ev) {
-        ev.stopPropagation();
-        await App.library.remove(entry.id);
-        await renderLibrary();
-      });
-
-      row.appendChild(open);
-      row.appendChild(remove);
-      el.libraryList.appendChild(row);
-    });
+    renderRows({
+      list: el.libraryList,
+      row: 'library-row', pick: 'open', name: 'name', meta: 'meta', drop: 'remove',
+      subtitle: function (entry) {
+        return formatSize(entry.size) +
+          (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
+      },
+      onPick: openStored
+    }, books, null);
 
     var used = await App.library.usage();
     el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
@@ -325,15 +363,11 @@
 
   /* ---- the shelf, inside the reader ----
    *
-   * The sidebar carries two panels: the book's table of contents, and the
-   * cached books. Switching between books is just loading stored bytes back
-   * through the ordinary open path, so the target book converts with the
-   * currently selected preset and lands at its own saved position.
-   */
-  /* The shelf opens from its own button on the bar rather than sharing the
+   * The shelf opens from its own button on the bar rather than sharing the
    * sidebar with the table of contents: they answer different questions --
    * "where am I in this book" versus "which book" -- and nesting one inside
-   * the other made the second hard to find. */
+   * the other made the second hard to find.
+   */
   function setShelfOpen(open) {
     el.shelfPanel.classList.toggle('hidden', !open);
     el.toggleShelf.classList.toggle('active', open);
@@ -348,16 +382,7 @@
       setShelfOpen(false);
       return;
     }
-    setStatus('Opening ' + entry.title + '…');
-    try {
-      var bytes = await App.library.load(entry.id);
-      if (!bytes) throw new Error('that book is no longer stored');
-      await loadBuffer(bytes, entry.title);
-      setShelfOpen(false);
-    } catch (e) {
-      setStatus('');
-      showError('Could not open it: ' + e.message);
-    }
+    if (await openStored(entry)) setShelfOpen(false);
   }
 
   async function renderShelf() {
@@ -368,46 +393,17 @@
       return;
     }
 
-    var books = [];
-    try { books = await App.library.list(); } catch (e) { books = []; }
+    var books = await storedBooks();
     var currentId = current.book ? App.library.idFor(current.book) : null;
 
-    el.shelfList.textContent = '';
-    books.forEach(function (entry) {
-      var row = document.createElement('div');
-      row.className = 'shelf-row' + (entry.id === currentId ? ' current' : '');
-
-      var pick = document.createElement('button');
-      pick.type = 'button';
-      pick.className = 'pick';
-      var t = document.createElement('span');
-      t.className = 't';
-      t.textContent = entry.title || '(untitled)';
-      var sub = document.createElement('span');
-      sub.className = 's';
-      sub.textContent = formatSize(entry.size) +
-        (entry.id === currentId ? ' · reading now' : '');
-      pick.appendChild(t);
-      pick.appendChild(sub);
-      pick.addEventListener('click', function () { switchToBook(entry); });
-
-      var drop = document.createElement('button');
-      drop.type = 'button';
-      drop.className = 'drop';
-      drop.textContent = '×';
-      drop.title = 'Remove from this device';
-      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
-      drop.addEventListener('click', async function (ev) {
-        ev.stopPropagation();
-        await App.library.remove(entry.id);
-        await renderShelf();
-        await renderLibrary();
-      });
-
-      row.appendChild(pick);
-      row.appendChild(drop);
-      el.shelfList.appendChild(row);
-    });
+    renderRows({
+      list: el.shelfList,
+      row: 'shelf-row', pick: 'pick', name: 't', meta: 's', drop: 'drop',
+      subtitle: function (entry, id) {
+        return formatSize(entry.size) + (entry.id === id ? ' · reading now' : '');
+      },
+      onPick: switchToBook
+    }, books, currentId);
 
     el.shelfNote.textContent = books.length
       ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
@@ -453,6 +449,7 @@
     el.preset = $('preset');
     el.presetTop = $('presetTop');
     el.punct = $('punct');
+    el.punctTop = $('punctTop');
     el.library = $('library');
     el.libraryList = $('libraryList');
     el.libraryNote = $('libraryNote');
@@ -479,6 +476,7 @@
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.toggleSidebar = $('toggleSidebar');
+    el.toggleVertical = $('toggleVertical');
     el.moreBtn = $('moreBtn');
     el.topbarMore = $('topbarMore');
     el.backdrop = $('drawerBackdrop');
@@ -552,7 +550,16 @@
     });
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
-    el.punct.addEventListener('change', function () { current.punctuation = el.punct.checked; });
+    /* One setting with a control in two places -- the landing page and the
+     * reader bar, beside the Export button it actually affects -- kept in
+     * step the same way the preset and theme selectors are. */
+    function onPunctChange(on) {
+      current.punctuation = on;
+      el.punct.checked = on;
+      el.punctTop.checked = on;
+    }
+    el.punct.addEventListener('change', function () { onPunctChange(this.checked); });
+    el.punctTop.addEventListener('change', function () { onPunctChange(this.checked); });
 
     /* Changing the target re-converts from the ORIGINAL bytes: conversion
      * rewrites entries in place, so re-running it on an already-converted
@@ -587,6 +594,7 @@
         el.sidebar.classList.toggle('hidden', !open);
         el.backdrop.classList.add('hidden');
       }
+      el.toggleSidebar.setAttribute('aria-expanded', String(open));
     }
 
     function drawerOpen() {
@@ -600,7 +608,8 @@
       el.moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
-    $('toggleSidebar').addEventListener('click', function () {
+    el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
+    el.toggleSidebar.addEventListener('click', function () {
       setDrawer(!drawerOpen());
       setMore(false);
       setShelfOpen(false);
@@ -631,6 +640,7 @@
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');
+      el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
     }
     if (narrowQuery.addEventListener) narrowQuery.addEventListener('change', settleForWidth);
     else if (narrowQuery.addListener) narrowQuery.addListener(settleForWidth);
@@ -646,15 +656,14 @@
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
-    $('toggleVertical').addEventListener('click', function () {
-      var next = current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical';
-      this.textContent = next === 'vertical' ? '橫書' : '直書';
-      current.reader.setMode(next);
+    el.toggleVertical.addEventListener('click', function () {
+      current.reader.setMode(current.reader.state.mode === 'vertical' ? 'scroll' : 'vertical');
+      syncVertical();
     });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
-      toggleVertical: function () { $('toggleVertical').click(); },
+      toggleVertical: function () { el.toggleVertical.click(); },
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
@@ -665,6 +674,7 @@
       var on = current.keys.isEnabled();
       el.toggleVim.classList.toggle('active', on);
       el.toggleVim.textContent = on ? 'Vim ?' : 'Vim';
+      el.toggleVim.setAttribute('aria-pressed', String(on));
     }
     el.toggleVim.addEventListener('click', function () {
       current.keys.toggle();

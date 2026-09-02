@@ -174,6 +174,11 @@
     }
 
     function captureAnchor() {
+      /* A destroyed reader must not answer. Its mount is detached, so the
+       * scroll container is either gone (scroll mode: parentNode is null) or
+       * measures zero in every direction (vertical mode), and the anchor it
+       * would produce gets written over the book's real saved position. */
+      if (!mount.isConnected) return null;
       var blocks = content.children;
       if (!blocks.length) return null;
       var containerRect = scroller().el.getBoundingClientRect();
@@ -254,7 +259,11 @@
     }
 
     function cycleMark(el) {
-      var candidates = (el.getAttribute('data-candidates') || '').split('');
+      /* Array.from, not split(''): some candidate lists contain astral
+       * characters -- 岁 offers 歲 嵗 𡻕 -- and splitting by code unit would
+       * cycle through half a surrogate pair, writing a lone surrogate into
+       * the text, into the saved overrides, and into the exported file. */
+      var candidates = Array.from(el.getAttribute('data-candidates') || '');
       if (candidates.length < 2) return;
       var current = el.textContent;
       var next = candidates[(candidates.indexOf(current) + 1) % candidates.length];
@@ -276,11 +285,17 @@
       emit('override', { key: key, chosen: next, source: el.getAttribute('data-source') });
     }
 
+    /* The scroll container outlives this reader -- it is the viewer element,
+     * reused for every book -- so the listener has to come back off in
+     * destroy(). Left attached, each replaced reader keeps persisting against
+     * its own store from a detached mount. */
     var scrollTimer = null;
-    mount.parentNode.addEventListener('scroll', function () {
+    var scrollHost = mount.parentNode;
+    function onScroll() {
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
-    }, { passive: true });
+    }
+    scrollHost.addEventListener('scroll', onScroll, { passive: true });
 
     shadow.addEventListener('click', function (ev) {
       var path = ev.composedPath ? ev.composedPath() : [ev.target];
@@ -426,7 +441,12 @@
       scrollToEnd: scrollToEnd,
       viewportExtent: viewportExtent,
       scrollPosition: scrollPosition,
-      destroy: function () { resources.revokeAll(); mount.remove(); }
+      destroy: function () {
+        scrollHost.removeEventListener('scroll', onScroll);
+        if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+        resources.revokeAll();
+        mount.remove();
+      }
     };
   }
 

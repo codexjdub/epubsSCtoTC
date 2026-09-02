@@ -249,6 +249,27 @@
       has(nav, '第一章 乾淨的頭髮', 'nav label converted');
       has(nav, 'href="chapter1.xhtml#p3"', 'nav href untouched');
 
+      // ---- a malformed nav document must not cost the reader the book ----
+      /* The nav document is XHTML like any chapter, so it gets the same
+         HTML-parser repair. Parsed strictly, one raw & in a chapter label
+         stopped the entire book from opening. */
+      var bookBad = await App.parse.load(await App.fixtures.build('badnav'));
+      check('a malformed nav document still opens the book',
+            !!bookBad && bookBad.spine.items.length === 2,
+            'spine: ' + (bookBad ? bookBad.spine.items.length : 'none'));
+      check('and its table of contents is recovered',
+            bookBad.tocSource === 'nav' && bookBad.toc.length === 2,
+            bookBad.tocSource + ' / ' + bookBad.toc.length);
+      var badReport = await App.convert.book(bookBad, 'hk');
+      /* Repaired, not skipped, and said out loud: the nav document goes
+         through the manifest pass like any other content document. */
+      check('and the repair is reported rather than silent',
+            badReport.warnings.some(function (w) {
+              return w.indexOf('nav.xhtml') >= 0 && w.indexOf('repaired') >= 0;
+            }), badReport.warnings.join(' | '));
+      has(textOf(bookBad, 'OEBPS/text/nav.xhtml'), '第二章 老闆與皇后',
+          'labels in a repaired nav document still convert');
+
     } catch (e) {
       check('unexpected exception', false, e && (e.stack || e.message));
     }

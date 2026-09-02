@@ -209,6 +209,17 @@
       t.check('export produced a blob', punctSummary.blob && punctSummary.blob.size > 0,
               'empty blob');
 
+      /* ---- punctuation must reach documents outside the spine ---- */
+      var bookQ = await App.parse.load(await App.fixtures.buildQuotes());
+      await App.convert.book(bookQ, 'tw');
+      var changedQ = await App.export.applyPunctuation(bookQ);
+      var spineText = bookQ.entries.get('OEBPS/chapter1.xhtml').text;
+      var extraText = bookQ.entries.get('OEBPS/extra.xhtml').text;
+      t.check('a spine chapter gets 「 」', spineText.indexOf('「你好。」') >= 0, spineText);
+      t.check('and so does a document outside the spine',
+              extraText.indexOf('「再見。」') >= 0, extraText);
+      t.check('both documents are counted', changedQ === 2, String(changedQ));
+
       var filename = App.export.filenameFor(book3);
       t.check('filename derives from converted title', filename.indexOf('頭髮') >= 0, filename);
 

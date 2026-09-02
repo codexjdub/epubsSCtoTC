@@ -130,6 +130,37 @@
                 hou.getAttribute('data-overridden') === '1', 'flag not set');
       }
 
+      /* ---- astral candidates ----
+         岁 offers 歲 嵗 𡻕, and 𡻕 is a surrogate pair. Cycling by code unit
+         walked through half of it, putting a lone surrogate into the text,
+         into the saved overrides and into the exported file. */
+      var astral = document.createElement('span');
+      astral.className = 'amb-mark';
+      astral.setAttribute('data-source', '岁');
+      astral.setAttribute('data-candidates', (App.ambiguityTable['岁'] || []).join(''));
+      astral.setAttribute('data-chosen', '歲');
+      astral.setAttribute('data-key', '|岁|月');
+      astral.textContent = '歲';
+      reader.content.appendChild(astral);
+      var cycled = [astral.textContent];
+      for (var ai = 0; ai < 3; ai++) { astral.click(); await wait(0); cycled.push(astral.textContent); }
+      t.check('cycling never yields a lone surrogate',
+              cycled.every(function (c) {
+                var code = c.charCodeAt(0);
+                return !(c.length === 1 && code >= 0xD800 && code <= 0xDFFF);
+              }), JSON.stringify(cycled));
+      t.check('cycling 岁 reaches 𡻕 intact', cycled.indexOf('𡻕') >= 0, JSON.stringify(cycled));
+      t.check('the saved override is a whole character',
+              Array.from(reader.overrides()['|岁|月'] || '').length === 1,
+              JSON.stringify(reader.overrides()['|岁|月']));
+      /* charAt can never match an astral key, so the generator must not emit
+         one: it would be an entry the conversion pass can never look up. */
+      t.check('no astral keys in the ambiguity table',
+              Object.keys(App.ambiguityTable).every(function (k) { return k.length === 1; }),
+              Object.keys(App.ambiguityTable).filter(function (k) { return k.length !== 1; }).join(' '));
+      astral.remove();
+      delete reader.overrides()['|岁|月'];
+
       // ---- context-scoped propagation, not blanket per-character ----
       /* 干净, 干部 and 干了 give three different readings of one character in
        * one paragraph -- the sharpest test that overrides are scoped to the
@@ -380,6 +411,38 @@
               'default stack not applied');
       fresh.destroy(); freshHost.remove();
       if (savedTheme) localStorage.setItem('epub-tc:theme', savedTheme);
+
+      /* ---- a destroyed reader lets go of the viewer ----
+         The scroll container outlives the reader -- it is the viewer element,
+         reused for every book -- so a listener left on it kept firing against
+         a detached mount: a TypeError per scroll in scroll mode, and in
+         vertical mode a bogus end-of-chapter anchor written over the previous
+         book's saved position.
+
+         A DIFFERENT book on purpose: identity comes from the file's bytes, so
+         two readers on the same fixture share one record and this would be
+         reading the other one's writes. */
+      var deadHost = document.createElement('div');
+      document.body.appendChild(deadHost);
+      var deadBook = await App.parse.load(await App.fixtures.buildQuotes());
+      await App.convert.book(deadBook, 'tw');
+      var deadReader = App.reader.create(deadHost, deadBook);
+      await deadReader.show(0);
+      var deadKey = App.reader.hashKey(deadBook);
+      deadReader.destroy();
+      var afterDestroy = localStorage.getItem(deadKey);
+      t.check('a destroyed reader captures no anchor', deadReader.captureAnchor() === null,
+              JSON.stringify(deadReader.captureAnchor()));
+      deadReader.state.mode = 'vertical';
+      t.check('nor in vertical mode, where it used to invent one',
+              deadReader.captureAnchor() === null, JSON.stringify(deadReader.captureAnchor()));
+      /* A leaked listener would fire here and persist against the dead
+         reader's own store, so an unchanged record is the proof it is gone. */
+      deadHost.dispatchEvent(new Event('scroll'));
+      await wait(600);
+      t.eq('and its scroll listener no longer writes',
+           localStorage.getItem(deadKey), afterDestroy);
+      deadHost.remove();
 
       await reader.setFontStyle('sans');
       await reader.setFontStyle('kai');

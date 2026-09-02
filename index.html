@@ -22,7 +22,7 @@
 
     <div class="options">
       <label>Convert to <select id="preset"></select></label>
-      <label><input type="checkbox" id="punct"/> Convert quotation marks to 「 」</label>
+      <label><input type="checkbox" id="punct"/> Quotation marks to 「 」 on export</label>
       <label>Theme <select id="themeLanding"></select></label>
     </div>
 
@@ -44,24 +44,30 @@
       <button id="toggleShelf" type="button" aria-expanded="false"
               aria-controls="shelfPanel" title="Cached books">書架</button>
       <span class="title" id="bookTitle"></span>
-      <button id="toggleSidebar" type="button">目錄</button>
-      <button id="toggleSource" type="button">原文</button>
-      <button id="toggleVertical" type="button">直書</button>
+      <button id="toggleSidebar" type="button" aria-expanded="true"
+              aria-controls="sidebar">目錄</button>
       <!-- On narrow screens the secondary controls collapse behind this.
            On desktop the group is display:contents, so they lay out inline. -->
       <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
               aria-controls="topbarMore" title="More controls">⋯</button>
       <div class="topbar-more" id="topbarMore">
+        <!-- 原文 and 直書 live in the collapsing group: on a 375px screen the
+             bar could not fit them without squeezing every label into two
+             lines, which made the bar 80px tall. -->
+        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
+        <button id="toggleVertical" type="button" aria-pressed="false">直書</button>
         <button id="fontSmaller" type="button">A−</button>
         <button id="fontBigger" type="button">A+</button>
         <label><select id="fontStyle" title="Typeface"></select></label>
         <label class="range">行距
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <button id="toggleMarks" type="button">Show marks</button>
-        <button id="toggleVim" type="button" title="Vim navigation (press ? for keys)">Vim</button>
+        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
+        <button id="toggleVim" type="button" aria-pressed="false"
+                title="Vim navigation (press ? for keys)">Vim</button>
         <label><select id="theme"></select></label>
         <label><select id="presetTop"></select></label>
+        <label><input type="checkbox" id="punctTop"/> 「 」 on export</label>
         <button id="toggleReport" type="button">Report</button>
       </div>
       <button id="exportBtn" class="primary" type="button">Export EPUB</button>
