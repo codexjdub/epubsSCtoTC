@@ -135,11 +135,16 @@ body {
 .landing h1 { font-size: 26px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .landing p { margin: 0; color: var(--muted); max-width: 46ch; text-align: center; }
 
+/* A real <button>, not a div with a click handler: the file input beside it is
+   hidden, so this was the only way in and the keyboard could not reach it.
+   Overrides the shared select/button rule, which sets its own font and box. */
 .dropzone {
   border: 2px dashed var(--line); border-radius: 14px;
   padding: 44px 56px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
+  font: inherit; color: inherit; display: block;
 }
+.dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .dropzone:hover, .dropzone.over { border-color: var(--accent); }
 .dropzone strong { display: block; margin-bottom: 6px; }
 .dropzone span { color: var(--muted); font-size: 14px; }
@@ -441,10 +446,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p>Convert a simplified Chinese EPUB to traditional and read it right here.
        Your book never leaves this browser — nothing is uploaded.</p>
 
-    <div id="dropzone" class="dropzone">
+    <button type="button" id="dropzone" class="dropzone">
       <strong>Drop an EPUB here</strong>
       <span>or click to choose a file</span>
-    </div>
+    </button>
     <input type="file" id="fileInput" accept=".epub,application/epub+zip" hidden/>
 
     <div class="options">
@@ -462,7 +467,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.2.0</p>
+    <p class="hint build">v1.3.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3447,9 +3452,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.exportBtn.disabled = true;
     setStatus('Building EPUB…');
     try {
+      /* Covers the archive write, which is the slow part on a large book.
+         The passes before it are fast enough not to need their own reporting. */
       var summary = await App.export.buildFile(current.book, {
         overrides: current.reader ? current.reader.overrides() : {},
         punctuation: current.punctuation
+      }, function (fraction) {
+        setStatus('Building EPUB… ' + Math.round(fraction * 100) + '%');
       });
       App.export.download(summary.blob, App.export.filenameFor(current.book));
       setStatus('Exported ' + App.export.filenameFor(current.book) +

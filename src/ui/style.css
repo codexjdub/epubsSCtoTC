@@ -128,11 +128,16 @@ body {
 .landing h1 { font-size: 26px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .landing p { margin: 0; color: var(--muted); max-width: 46ch; text-align: center; }
 
+/* A real <button>, not a div with a click handler: the file input beside it is
+   hidden, so this was the only way in and the keyboard could not reach it.
+   Overrides the shared select/button rule, which sets its own font and box. */
 .dropzone {
   border: 2px dashed var(--line); border-radius: 14px;
   padding: 44px 56px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
+  font: inherit; color: inherit; display: block;
 }
+.dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .dropzone:hover, .dropzone.over { border-color: var(--accent); }
 .dropzone strong { display: block; margin-bottom: 6px; }
 .dropzone span { color: var(--muted); font-size: 14px; }

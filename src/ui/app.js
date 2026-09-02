@@ -415,9 +415,13 @@
     el.exportBtn.disabled = true;
     setStatus('Building EPUB…');
     try {
+      /* Covers the archive write, which is the slow part on a large book.
+         The passes before it are fast enough not to need their own reporting. */
       var summary = await App.export.buildFile(current.book, {
         overrides: current.reader ? current.reader.overrides() : {},
         punctuation: current.punctuation
+      }, function (fraction) {
+        setStatus('Building EPUB… ' + Math.round(fraction * 100) + '%');
       });
       App.export.download(summary.blob, App.export.filenameFor(current.book));
       setStatus('Exported ' + App.export.filenameFor(current.book) +
