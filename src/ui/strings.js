@@ -29,7 +29,15 @@
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
     'bar.export': '匯出 EPUB',
+    'bar.export.format': '匯出 {format}',
     'bar.export.short': '匯出',
+    'panel.format.title': '匯出格式',
+    'format.epub': 'EPUB',
+    'format.html': 'HTML',
+    'format.md': 'Markdown',
+    /* A format name, like the others: '匯出 {format}' puts a space before it,
+       which reads wrongly between two Chinese words. */
+    'format.txt': 'TXT',
 
     /* ---- reading settings ---- */
     'panel.typeface.title': '字體',

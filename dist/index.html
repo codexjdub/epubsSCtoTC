@@ -566,7 +566,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.17.3</p>
+    <p class="hint build">v1.18.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -614,6 +614,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
       <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
+        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
         <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
@@ -3257,6 +3258,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (options.punctuation) {
       summary.punctuation = await applyPunctuation(book);
     }
+    /* Only an EPUB carries the book's own fonts, so only an EPUB cares whether
+       they can still render the converted text. */
+    summary.format = options.format || 'epub';
+    if (summary.format !== 'epub') {
+      summary.blob = await App.formats.build(book, summary.format);
+      return summary;
+    }
+
     if (options.handleFonts !== false) {
       summary.fontReport = await App.fonts.analyze(book, { threshold: options.fontThreshold });
       summary.fontsStripped = await App.fonts.stripInsufficient(book, summary.fontReport);
@@ -3266,9 +3275,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return summary;
   }
 
-  function filenameFor(book) {
+  function filenameFor(book, format) {
     var base = (book.metadata.title || 'converted').replace(/[\\/:*?"<>|]/g, '').trim() || 'converted';
-    return base + '.epub';
+    var spec = App.formats.FORMATS[format || 'epub'];
+    return base + '.' + (spec ? spec.extension : 'epub');
   }
 
   /* At file:// the File System Access API is unavailable -- it requires a
@@ -3290,6 +3300,367 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     applyPunctuation: applyPunctuation,
     filenameFor: filenameFor,
     download: download
+  };
+})(window.App = window.App || {});
+
+</script>
+<script>/* src/export/formats.js */
+/* Exporting the converted book as something other than an EPUB.
+ *
+ * All three read the same source: the spine, in reading order, with the
+ * converted text already in entry.text. What differs is how much of the
+ * structure survives.
+ *
+ *   html      everything, in one self-contained file that opens anywhere and
+ *             is the honest route to PDF -- the browser's own print dialogue
+ *             breaks CJK lines properly, which no library small enough to ship
+ *             here would.
+ *   markdown  headings, emphasis, quotes and lists; the rest is dropped.
+ *   text      the words alone. Roughly half a converted book by character
+ *             count is markup, so this is for feeding somewhere else rather
+ *             than for reading.
+ *
+ * The book's own stylesheet is deliberately not carried into the HTML: it
+ * references fonts that the export may have stripped and images by paths that
+ * no longer exist outside the archive. A clean stylesheet renders everywhere,
+ * which is the whole point of the format.
+ */
+(function (App) {
+  'use strict';
+
+  var Z = App.zip;
+  var P = App.parse;
+
+  function spineDocs(book) {
+    var seen = {};
+    var out = [];
+    book.spine.items.forEach(function (s) {
+      if (s.linear === false || seen[s.item.path]) return;
+      if (!book.entries.has(s.item.path)) return;
+      seen[s.item.path] = true;
+      out.push(s.item.path);
+    });
+    return out;
+  }
+
+  async function documentFor(book, path) {
+    var entry = book.entries.get(path);
+    var text = await Z.loadText(entry);
+    return P.parseContentDocument(text, path).doc;
+  }
+
+  function bodyOf(doc) {
+    return P.tags(doc, 'body')[0] || doc.documentElement;
+  }
+
+  /* ---- plain text --------------------------------------------------------- */
+
+  var BLOCK = { p: 1, div: 1, h1: 1, h2: 1, h3: 1, h4: 1, h5: 1, h6: 1,
+                li: 1, blockquote: 1, tr: 1, br: 1, section: 1, article: 1 };
+
+  function textFrom(node, out) {
+    for (var child = node.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType === 3) {
+        out.push(child.nodeValue.replace(/\s+/g, ' '));
+      } else if (child.nodeType === 1) {
+        if (App.convert.SKIP_TAGS[child.localName]) continue;
+        textFrom(child, out);
+        if (BLOCK[child.localName]) out.push('\n');
+      }
+    }
+    return out;
+  }
+
+  async function toText(book) {
+    var paths = spineDocs(book);
+    var parts = [];
+    for (var i = 0; i < paths.length; i++) {
+      var doc = await documentFor(book, paths[i]);
+      var raw = textFrom(bodyOf(doc), []).join('');
+      var tidy = raw.split('\n').map(function (l) { return l.trim(); })
+        .filter(Boolean).join('\n\n');
+      if (tidy) parts.push(tidy);
+    }
+    var head = [book.metadata.title, book.metadata.creator].filter(Boolean).join('\n');
+    return (head ? head + '\n\n' : '') + parts.join('\n\n\n');
+  }
+
+  /* ---- markdown ----------------------------------------------------------- */
+
+  /* Escaped sparingly. Chinese prose almost never contains these, and a text
+   * peppered with backslashes is worse than a stray asterisk. */
+  function mdEscape(s) {
+    return s.replace(/([\\`*_[\]])/g, '\\$1');
+  }
+
+  var EMPHASIS = { em: '*', i: '*', strong: '**', b: '**', code: '`' };
+
+  function mdInline(node) {
+    var out = '';
+    for (var child = node.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType === 3) {
+        out += mdEscape(child.nodeValue.replace(/\s+/g, ' '));
+        continue;
+      }
+      if (child.nodeType !== 1) continue;
+      var name = child.localName;
+      if (App.convert.SKIP_TAGS[name] && name !== 'code') continue;
+      if (name === 'br') { out += '  \n'; continue; }
+      if (name === 'img') {
+        out += '![' + (child.getAttribute('alt') || '') + '](' +
+               (child.getAttribute('src') || '') + ')';
+        continue;
+      }
+      if (name === 'a') {
+        var href = child.getAttribute('href');
+        /* Only links that still lead somewhere. A chapter-relative href is
+         * meaningless in a single markdown file, so the text stays and the
+         * link goes rather than shipping one that cannot be followed. */
+        out += /^(https?:|mailto:)/i.test(href || '')
+          ? '[' + mdInline(child) + '](' + href + ')'
+          : mdInline(child);
+        continue;
+      }
+      var mark = EMPHASIS[name];
+      var inner = mdInline(child);
+      out += mark && inner.trim() ? mark + inner + mark : inner;
+    }
+    return out;
+  }
+
+  function mdBlocks(node, out, depth) {
+    for (var child = node.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType === 3) {
+        var loose = child.nodeValue.trim();
+        if (loose) out.push(mdEscape(loose));
+        continue;
+      }
+      if (child.nodeType !== 1) continue;
+      var name = child.localName;
+      if (App.convert.SKIP_TAGS[name]) continue;
+
+      if (/^h[1-6]$/.test(name)) {
+        var text = mdInline(child).trim();
+        if (text) out.push(new Array(+name.charAt(1) + 1).join('#') + ' ' + text);
+      } else if (name === 'p') {
+        var para = mdInline(child).trim();
+        if (para) out.push(para);
+      } else if (name === 'blockquote') {
+        var quoted = [];
+        mdBlocks(child, quoted, depth);
+        if (quoted.length) out.push(quoted.join('\n\n').split('\n')
+          .map(function (l) { return '> ' + l; }).join('\n'));
+      } else if (name === 'ul' || name === 'ol') {
+        var n = 0;
+        var items = [];
+        for (var li = child.firstChild; li; li = li.nextSibling) {
+          if (li.nodeType !== 1 || li.localName !== 'li') continue;
+          n++;
+          var bullet = name === 'ol' ? n + '. ' : '- ';
+          items.push(bullet + mdInline(li).trim());
+        }
+        if (items.length) out.push(items.join('\n'));
+      } else if (name === 'hr') {
+        out.push('---');
+      } else if (name === 'img') {
+        out.push('![' + (child.getAttribute('alt') || '') + '](' +
+                 (child.getAttribute('src') || '') + ')');
+      } else {
+        mdBlocks(child, out, depth + 1);
+      }
+    }
+    return out;
+  }
+
+  async function toMarkdown(book) {
+    var paths = spineDocs(book);
+    var parts = [];
+    if (book.metadata.title) parts.push('# ' + mdEscape(book.metadata.title));
+    if (book.metadata.creator) parts.push('*' + mdEscape(book.metadata.creator) + '*');
+    for (var i = 0; i < paths.length; i++) {
+      var doc = await documentFor(book, paths[i]);
+      var blocks = mdBlocks(bodyOf(doc), [], 0);
+      if (blocks.length) parts.push(blocks.join('\n\n'));
+    }
+    return parts.join('\n\n') + '\n';
+  }
+
+  /* ---- single-file html --------------------------------------------------- */
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function base64(bytes) {
+    var chunk = 0x8000;
+    var parts = [];
+    for (var i = 0; i < bytes.length; i += chunk) {
+      parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)));
+    }
+    return btoa(parts.join(''));
+  }
+
+  var XLINK = 'http://www.w3.org/1999/xlink';
+
+  async function dataUri(book, basePath, ref) {
+    if (!ref || /^(data:|https?:)/i.test(ref)) return '';
+    var entry = book.entries.get(Z.resolve(Z.dirname(basePath), ref));
+    if (!entry) return '';
+    var bytes = await Z.loadBytes(entry);
+    return 'data:' + (entry.mediaType || 'image/jpeg') + ';base64,' + base64(bytes);
+  }
+
+  /* Images come with the file or not at all: a relative reference means nothing
+   * once the document is out of the archive.
+   *
+   * Both spellings, because covers are usually the second one -- an <image>
+   * inside an <svg>, addressed by xlink:href. Handling only <img> shipped a
+   * cover pointing at a path that no longer existed, and it showed as nothing.
+   */
+  async function inlineImages(doc, basePath, book) {
+    var images = P.tags(doc, 'img');
+    for (var i = 0; i < images.length; i++) {
+      var uri = await dataUri(book, basePath, images[i].getAttribute('src'));
+      if (uri) images[i].setAttribute('src', uri);
+      else if (images[i].getAttribute('src')) images[i].removeAttribute('src');
+    }
+
+    var svgImages = P.tags(doc, 'image');
+    for (var j = 0; j < svgImages.length; j++) {
+      var ref = svgImages[j].getAttribute('href') ||
+                svgImages[j].getAttributeNS(XLINK, 'href');
+      var svgUri = await dataUri(book, basePath, ref);
+      if (!svgUri) continue;
+      svgImages[j].setAttribute('href', svgUri);
+      svgImages[j].setAttributeNS(XLINK, 'xlink:href', svgUri);
+    }
+  }
+
+  var HTML_CSS =
+    'html { color-scheme: light dark; }\n' +
+    'body { margin: 0 auto; padding: 2.5rem 1.25rem 4rem; max-width: 34em;\n' +
+    '  font-family: "Songti TC", "Songti SC", "PMingLiU", serif;\n' +
+    '  font-size: 18px; line-height: 1.9; }\n' +
+    'h1, h2, h3, h4, h5, h6 { line-height: 1.4; margin: 2.2em 0 .8em; }\n' +
+    'p { margin: 0 0 1em; }\n' +
+    'img { max-width: 100%; height: auto; }\n' +
+    'blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid currentColor;\n' +
+    '  opacity: .8; }\n' +
+    'hr.chapter { border: 0; border-top: 1px solid currentColor; opacity: .25;\n' +
+    '  margin: 3em 0; }\n' +
+    /* Printing is what this format is for as much as reading: a chapter should
+       start on its own page, and a heading should not sit alone at the foot. */
+    '@media print {\n' +
+    '  body { max-width: none; font-size: 11pt; }\n' +
+    '  hr.chapter { display: none; }\n' +
+    '  section { break-before: page; }\n' +
+    '  h1, h2, h3 { break-after: avoid; }\n' +
+    '}\n';
+
+  /* Every chapter link points at a file that will not exist once the book is
+   * one document, so they are turned into fragments into it -- a link with a
+   * fragment keeps its own target, one without lands on the chapter's section.
+   * Left alone they were 157 dead hrefs in a file whose whole promise is that
+   * it stands on its own. */
+  function rewriteLinks(doc, basePath, sectionFor, ids) {
+    var anchors = P.tags(doc, 'a');
+    for (var i = 0; i < anchors.length; i++) {
+      var href = anchors[i].getAttribute('href');
+      if (!href || /^(https?:|mailto:)/i.test(href)) continue;
+      var fragment = Z.fragmentOf(href);
+      var target = href.charAt(0) === '#' ? basePath : Z.resolve(Z.dirname(basePath), href);
+      if (fragment && ids[fragment]) anchors[i].setAttribute('href', '#' + fragment);
+      else if (sectionFor[target]) anchors[i].setAttribute('href', '#' + sectionFor[target]);
+      else anchors[i].removeAttribute('href');
+    }
+  }
+
+  function collectIds(doc, into) {
+    var all = doc.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) {
+      var id = all[i].getAttribute && all[i].getAttribute('id');
+      if (id) into[id] = true;
+    }
+    return into;
+  }
+
+  async function toHtml(book) {
+    var paths = spineDocs(book);
+    var sectionFor = {};
+    paths.forEach(function (path, i) { sectionFor[path] = 'chapter-' + (i + 1); });
+
+    /* Two passes: a link can point into a chapter that has not been read yet,
+       so every id in the book has to be known before any href is rewritten.
+       Otherwise a fragment is kept on faith and lands nowhere. */
+    var docs = [];
+    var ids = {};
+    for (var d = 0; d < paths.length; d++) {
+      var parsed = await documentFor(book, paths[d]);
+      collectIds(parsed, ids);
+      docs.push(parsed);
+    }
+    Object.keys(sectionFor).forEach(function (path) { ids[sectionFor[path]] = true; });
+
+    var sections = [];
+    var claimed = {};
+    for (var i = 0; i < paths.length; i++) {
+      var doc = docs[i];
+      await inlineImages(doc, paths[i], book);
+      rewriteLinks(doc, paths[i], sectionFor, ids);
+      var body = bodyOf(doc);
+      var inner = '';
+      for (var child = body.firstChild; child; child = child.nextSibling) {
+        inner += new XMLSerializer().serializeToString(child);
+      }
+      if (!inner.trim()) continue;
+
+      /* An id on <body> is a real link target -- ten of them in the sample --
+       * and serialising only the body's children throws it away. It becomes an
+       * empty anchor inside the section, because the section already carries
+       * its own id, and only once: a book split by Calibre repeats the same
+       * body id across every piece of the original chapter. */
+      var bodyId = body.getAttribute && body.getAttribute('id');
+      var anchor = '';
+      if (bodyId && !claimed[bodyId]) {
+        claimed[bodyId] = true;
+        anchor = '<span id="' + escapeHtml(bodyId) + '"></span>\n';
+      }
+      sections.push('<section id="' + sectionFor[paths[i]] + '">\n' +
+                    anchor + inner + '\n</section>');
+    }
+    var lang = book.metadata.language || 'zh-Hant';
+    var title = escapeHtml(book.metadata.title || 'book');
+    return '<!DOCTYPE html>\n<html lang="' + escapeHtml(lang) + '">\n<head>\n' +
+      '<meta charset="utf-8"/>\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n' +
+      '<title>' + title + '</title>\n<style>\n' + HTML_CSS + '</style>\n</head>\n<body>\n' +
+      '<h1>' + title + '</h1>\n' +
+      (book.metadata.creator ? '<p><em>' + escapeHtml(book.metadata.creator) + '</em></p>\n' : '') +
+      sections.join('\n<hr class="chapter"/>\n') +
+      '\n</body>\n</html>\n';
+  }
+
+  var FORMATS = {
+    epub: { extension: 'epub', mediaType: 'application/epub+zip' },
+    html: { extension: 'html', mediaType: 'text/html;charset=utf-8', build: toHtml },
+    md:   { extension: 'md',   mediaType: 'text/markdown;charset=utf-8', build: toMarkdown },
+    txt:  { extension: 'txt',  mediaType: 'text/plain;charset=utf-8', build: toText }
+  };
+
+  async function build(book, format) {
+    var spec = FORMATS[format];
+    if (!spec || !spec.build) throw new Error('Unknown export format: ' + format);
+    var content = await spec.build(book);
+    return new Blob([content], { type: spec.mediaType });
+  }
+
+  App.formats = {
+    FORMATS: FORMATS,
+    build: build,
+    toText: toText,
+    toMarkdown: toMarkdown,
+    toHtml: toHtml,
+    spineDocs: spineDocs
   };
 })(window.App = window.App || {});
 
@@ -3326,7 +3697,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'bar.convert': '轉換',
     'bar.convert.title': '轉換設定',
     'bar.export': '匯出 EPUB',
+    'bar.export.format': '匯出 {format}',
     'bar.export.short': '匯出',
+    'panel.format.title': '匯出格式',
+    'format.epub': 'EPUB',
+    'format.html': 'HTML',
+    'format.md': 'Markdown',
+    /* A format name, like the others: '匯出 {format}' puts a space before it,
+       which reads wrongly between two Chinese words. */
+    'format.txt': 'TXT',
 
     /* ---- reading settings ---- */
     'panel.typeface.title': '字體',
@@ -3698,7 +4077,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   var el = {};
   var api = {};      // internals exposed for tests
   var lastViewerScroll = 0;
-  var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
+  var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk',
+                  punctuation: false, format: 'epub' };
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
@@ -4214,12 +4594,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          The passes before it are fast enough not to need their own reporting. */
       var summary = await App.export.buildFile(current.book, {
         overrides: current.reader ? current.reader.overrides() : {},
-        punctuation: current.punctuation
+        punctuation: current.punctuation,
+        format: current.format
       }, function (fraction) {
         setStatus(S('status.exporting.pct', { pct: Math.round(fraction * 100) }));
       });
-      App.export.download(summary.blob, App.export.filenameFor(current.book));
-      setStatus(S('status.exported', { name: App.export.filenameFor(current.book) }) +
+      App.export.download(summary.blob, App.export.filenameFor(current.book, current.format));
+      setStatus(S('status.exported', { name: App.export.filenameFor(current.book, current.format) }) +
                 (summary.overrides ? S('status.exported.corrections', { n: summary.overrides }) : '') +
                 (summary.fontsStripped.length
                   ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''));
@@ -4272,6 +4653,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.align = $('align');
+    el.exportFormat = $('exportFormat');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
@@ -4511,7 +4893,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* "EPUB" is redundant where the app exports nothing else, and dropping it
        on a phone is what buys the title enough room to be worth showing. */
     function syncExportLabel() {
-      el.exportBtn.textContent = S(isNarrow() ? 'bar.export.short' : 'bar.export');
+      el.exportBtn.textContent = isNarrow()
+        ? S('bar.export.short')
+        : S('bar.export.format', { format: S('format.' + current.format) });
     }
 
     function settleForWidth() {
@@ -4583,6 +4967,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
     el.align.addEventListener('change', function () {
       if (current.reader) current.reader.setAlign(this.value);
+    });
+
+    /* EPUB first: it is what puts the book on a reader, and the rest are for
+       getting the text somewhere else. */
+    ['epub', 'html', 'md', 'txt'].forEach(function (id) {
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = S('format.' + id);
+      el.exportFormat.appendChild(opt);
+    });
+    el.exportFormat.value = current.format;
+    el.exportFormat.addEventListener('change', function () {
+      current.format = this.value;
+      syncExportLabel();
     });
 
     el.toggleSource.addEventListener('click', async function () {

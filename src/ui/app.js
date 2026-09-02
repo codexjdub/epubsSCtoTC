@@ -5,7 +5,8 @@
   var el = {};
   var api = {};      // internals exposed for tests
   var lastViewerScroll = 0;
-  var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk', punctuation: false };
+  var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk',
+                  punctuation: false, format: 'epub' };
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
@@ -521,12 +522,13 @@
          The passes before it are fast enough not to need their own reporting. */
       var summary = await App.export.buildFile(current.book, {
         overrides: current.reader ? current.reader.overrides() : {},
-        punctuation: current.punctuation
+        punctuation: current.punctuation,
+        format: current.format
       }, function (fraction) {
         setStatus(S('status.exporting.pct', { pct: Math.round(fraction * 100) }));
       });
-      App.export.download(summary.blob, App.export.filenameFor(current.book));
-      setStatus(S('status.exported', { name: App.export.filenameFor(current.book) }) +
+      App.export.download(summary.blob, App.export.filenameFor(current.book, current.format));
+      setStatus(S('status.exported', { name: App.export.filenameFor(current.book, current.format) }) +
                 (summary.overrides ? S('status.exported.corrections', { n: summary.overrides }) : '') +
                 (summary.fontsStripped.length
                   ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''));
@@ -579,6 +581,7 @@
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.align = $('align');
+    el.exportFormat = $('exportFormat');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
@@ -818,7 +821,9 @@
     /* "EPUB" is redundant where the app exports nothing else, and dropping it
        on a phone is what buys the title enough room to be worth showing. */
     function syncExportLabel() {
-      el.exportBtn.textContent = S(isNarrow() ? 'bar.export.short' : 'bar.export');
+      el.exportBtn.textContent = isNarrow()
+        ? S('bar.export.short')
+        : S('bar.export.format', { format: S('format.' + current.format) });
     }
 
     function settleForWidth() {
@@ -890,6 +895,20 @@
     });
     el.align.addEventListener('change', function () {
       if (current.reader) current.reader.setAlign(this.value);
+    });
+
+    /* EPUB first: it is what puts the book on a reader, and the rest are for
+       getting the text somewhere else. */
+    ['epub', 'html', 'md', 'txt'].forEach(function (id) {
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = S('format.' + id);
+      el.exportFormat.appendChild(opt);
+    });
+    el.exportFormat.value = current.format;
+    el.exportFormat.addEventListener('change', function () {
+      current.format = this.value;
+      syncExportLabel();
     });
 
     el.toggleSource.addEventListener('click', async function () {

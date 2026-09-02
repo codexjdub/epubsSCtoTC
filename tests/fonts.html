@@ -28,6 +28,7 @@
 <script src="../src/convert/fonts.js"></script>
 <script src="../src/convert/punct.js"></script>
 <script src="../src/export/write.js"></script>
+<script src="../src/export/formats.js"></script>
 <script src="harness.js"></script>
 <script src="fixtures.js"></script>
 <script>
@@ -220,6 +221,41 @@
       t.check('and so does a document outside the spine',
               extraText.indexOf('「再見。」') >= 0, extraText);
       t.check('both documents are counted', changedQ === 2, String(changedQ));
+
+      /* ---- the other export formats ---- */
+      var fBook = await App.parse.load(await App.fixtures.build('epub2'));
+      await App.convert.book(fBook, 'hk');
+
+      var asText = await App.formats.toText(fBook);
+      t.check('text carries the converted prose', asText.indexOf('頭髮') >= 0, asText.slice(0, 40));
+      t.check('and no markup', asText.indexOf('<') < 0, 'tags survived');
+
+      var asMd = await App.formats.toMarkdown(fBook);
+      t.check('markdown keeps the headings', /^# /m.test(asMd), asMd.slice(0, 60));
+      t.check('and drops links that lead nowhere in one file',
+              !/\]\([^)]*\.xhtml/.test(asMd), 'a chapter-relative link survived');
+
+      var asHtml = await App.formats.toHtml(fBook);
+      t.check('html is one document', /<!DOCTYPE html>/.test(asHtml) &&
+              (asHtml.match(/<section/g) || []).length >= 2, 'not assembled');
+      t.check('with the image carried inside it',
+              asHtml.indexOf('data:image/') >= 0, 'image not inlined');
+      t.check('and nothing pointing back into the archive',
+              !/(href|src)="[^"#][^"]*\.(x?html|png|jpe?g|css)"/i.test(asHtml),
+              'a path into the archive survived');
+      var fragments = (asHtml.match(/href="#([^"]+)"/g) || [])
+        .map(function (m) { return m.slice(7, -1); });
+      t.check('every internal link lands somewhere',
+              fragments.every(function (f) { return asHtml.indexOf('id="' + f + '"') >= 0; }),
+              fragments.filter(function (f) { return asHtml.indexOf('id="' + f + '"') < 0; }).join(','));
+
+      t.eq('each format names its file', ['epub', 'html', 'md', 'txt']
+             .map(function (f) { return App.export.filenameFor(fBook, f).split('.').pop(); })
+             .join(','), 'epub,html,md,txt');
+      var htmlSummary = await App.export.buildFile(fBook, { format: 'html' });
+      t.check('and buildFile hands back that format',
+              htmlSummary.format === 'html' && htmlSummary.blob.size > 0,
+              htmlSummary.format + ' ' + (htmlSummary.blob && htmlSummary.blob.size));
 
       var filename = App.export.filenameFor(book3);
       t.check('filename derives from converted title', filename.indexOf('頭髮') >= 0, filename);

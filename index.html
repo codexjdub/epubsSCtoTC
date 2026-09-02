@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.17.3</p>
+    <p class="hint build">v1.18.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -83,6 +83,7 @@
 
       <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
+        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
         <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
@@ -155,6 +156,7 @@
 <script src="src/reader/nav.js"></script>
 <script src="src/reader/keys.js"></script>
 <script src="src/export/write.js"></script>
+<script src="src/export/formats.js"></script>
 <script src="src/ui/strings.js"></script>
 <script src="src/ui/theme.js"></script>
 <script src="src/ui/library.js"></script>

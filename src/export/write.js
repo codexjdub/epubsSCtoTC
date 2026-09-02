@@ -96,6 +96,14 @@
     if (options.punctuation) {
       summary.punctuation = await applyPunctuation(book);
     }
+    /* Only an EPUB carries the book's own fonts, so only an EPUB cares whether
+       they can still render the converted text. */
+    summary.format = options.format || 'epub';
+    if (summary.format !== 'epub') {
+      summary.blob = await App.formats.build(book, summary.format);
+      return summary;
+    }
+
     if (options.handleFonts !== false) {
       summary.fontReport = await App.fonts.analyze(book, { threshold: options.fontThreshold });
       summary.fontsStripped = await App.fonts.stripInsufficient(book, summary.fontReport);
@@ -105,9 +113,10 @@
     return summary;
   }
 
-  function filenameFor(book) {
+  function filenameFor(book, format) {
     var base = (book.metadata.title || 'converted').replace(/[\\/:*?"<>|]/g, '').trim() || 'converted';
-    return base + '.epub';
+    var spec = App.formats.FORMATS[format || 'epub'];
+    return base + '.' + (spec ? spec.extension : 'epub');
   }
 
   /* At file:// the File System Access API is unavailable -- it requires a
