@@ -56,18 +56,31 @@
     return { read: read, write: write };
   }
 
+  /* Typography is about the reader's eyes, not about the book, so it lives in
+   * one global record the way the theme and the vim setting already do.
+   * Keeping it per book meant every new book reset the font size. */
+  var PREFS_KEY = 'epub-tc:reading';
+
   function create(host, book, opts) {
     opts = opts || {};
     var resources = App.reader.createResourceMap(book);
     var store = createStore(hashKey(book));
+    var prefs = createStore(PREFS_KEY);
     var saved = store.read();
+    /* Falls back to whatever this book had stored, so a reader who already set
+     * a size keeps it the first time they open a book after this change. */
+    var savedPrefs = prefs.read();
+    function pref(name, fallback) {
+      return savedPrefs[name] !== undefined ? savedPrefs[name]
+           : saved[name] !== undefined ? saved[name] : fallback;
+    }
 
     var state = {
       index: 0,
-      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle)
-        ? saved.fontStyle : App.readingFonts.DEFAULT,
-      fontScale: saved.fontScale || 1,
-      lineHeight: saved.lineHeight || 1.9,
+      fontStyle: App.readingFonts.isValidStyle(pref('fontStyle'))
+        ? pref('fontStyle') : App.readingFonts.DEFAULT,
+      fontScale: pref('fontScale', 1),
+      lineHeight: pref('lineHeight', 1.9),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
        * doubt about, so underlining them all obscures the text rather than
@@ -176,12 +189,18 @@
       (state.listeners[name] = state.listeners[name] || []).push(fn);
     }
 
-    function persist() {
-      store.write({
-        index: state.index,
+    function persistPrefs() {
+      prefs.write({
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
-        lineHeight: state.lineHeight,
+        lineHeight: state.lineHeight
+      });
+    }
+
+    function persist() {
+      persistPrefs();
+      store.write({
+        index: state.index,
         showMarks: state.showMarks,
         source: state.source,
         anchor: captureAnchor(),
@@ -305,6 +324,7 @@
           } else {
             var current = spineItems()[state.index];
             var target = Z.resolve(Z.dirname(current.item.path), href);
+            pushTrail();
             goToPath(target, Z.fragmentOf(href));
           }
           return;
@@ -357,6 +377,25 @@
         progress: progress()
       });
       return rendered;
+    }
+
+    /* Following a link inside the text -- a footnote, a cross-reference --
+     * used to be one-way: you landed there with nothing to bring you back.
+     * The position is captured before the jump, not after. */
+    var trail = [];
+
+    function pushTrail() {
+      trail.push({ index: state.index, anchor: captureAnchor() });
+      if (trail.length > 50) trail.shift();
+      emit('trail', { depth: trail.length });
+    }
+
+    function back() {
+      var previous = trail.pop();
+      emit('trail', { depth: trail.length });
+      if (!previous) return Promise.resolve(null);
+      restoreScroll = previous.anchor;
+      return show(previous.index);
     }
 
     function goToPath(path, fragment) {
@@ -417,6 +456,8 @@
       setSource: setSource,
       overrides: function () { return state.overrides; },
       progress: progress,
+      back: back,
+      trailDepth: function () { return trail.length; },
       resume: function () {
         restoreScroll = saved.anchor || null;
         return show(saved.index || 0);

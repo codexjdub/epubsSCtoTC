@@ -179,6 +179,27 @@
     return list ? walkList(list) : [];
   }
 
+  /* EPUB 3 marks the cover with properties="cover-image"; EPUB 2 points at it
+   * with <meta name="cover" content="<manifest id>">. Both turn up in the
+   * wild, including in EPUB 3 files that kept the old meta for compatibility,
+   * so both are tried. */
+  function findCoverPath(pkg, manifest) {
+    var found = null;
+    manifest.forEach(function (item) {
+      if (!found && item.properties.indexOf('cover-image') >= 0) found = item;
+    });
+    if (!found) {
+      var md = tags(pkg, 'metadata')[0];
+      var metas = md ? tags(md, 'meta') : [];
+      for (var i = 0; i < metas.length; i++) {
+        if ((metas[i].getAttribute('name') || '').toLowerCase() !== 'cover') continue;
+        var ref = metas[i].getAttribute('content');
+        if (ref && manifest.get(ref)) { found = manifest.get(ref); break; }
+      }
+    }
+    return found && /^image\//.test(found.mediaType) ? found.path : '';
+  }
+
   async function readToc(book) {
     var navItem = null;
     book.manifest.forEach(function (item) {
@@ -250,7 +271,8 @@
       version: pkg.getAttribute('version') || '2.0',
       metadata: readMetadata(pkg),
       manifest: manifest,
-      spine: readSpine(pkg, manifest)
+      spine: readSpine(pkg, manifest),
+      coverPath: findCoverPath(pkg, manifest)
     };
 
     /* Tag entries with their declared media type so the converter and the
@@ -270,5 +292,6 @@
     return book;
   }
 
-  App.parse = { load: load, parseXml: parseXml, parseContentDocument: parseContentDocument, tags: tags, findOpfPath: findOpfPath };
+  App.parse = { load: load, parseXml: parseXml, parseContentDocument: parseContentDocument,
+                tags: tags, findOpfPath: findOpfPath, findCoverPath: findCoverPath };
 })(window.App = window.App || {});

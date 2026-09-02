@@ -224,6 +224,9 @@
       highlightToc(e.path);
     });
     reader.on('progress', renderPosition);
+    /* Only offered once a link has actually been followed -- a button that is
+       usually inert is worse than no button. */
+    reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
       setStatus('External link not opened: ' + e.href);
     });
@@ -303,6 +306,10 @@
    * and pick action. The class names stay distinct because the two are
    * styled — and tested — separately. */
   function renderRows(config, books, currentId) {
+    /* Blob URLs are per render, so the previous batch for THIS list is
+       released first -- the two lists render independently. */
+    (config.list.__covers || []).forEach(URL.revokeObjectURL);
+    config.list.__covers = [];
     config.list.textContent = '';
     books.forEach(function (entry) {
       var row = document.createElement('div');
@@ -311,6 +318,19 @@
       var pick = document.createElement('button');
       pick.type = 'button';
       pick.className = config.pick;
+
+      if (entry.cover) {
+        var img = document.createElement('img');
+        img.className = 'cover';
+        img.alt = '';
+        img.loading = 'lazy';
+        var url = URL.createObjectURL(
+          new Blob([entry.cover], { type: entry.coverType || 'image/jpeg' }));
+        config.list.__covers.push(url);
+        img.src = url;
+        pick.appendChild(img);
+      }
+
       var name = document.createElement('span');
       name.className = config.name;
       name.textContent = entry.title || '(untitled)';
@@ -471,6 +491,7 @@
     el.toggleShelf = $('toggleShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
+    el.back = $('back');
     el.next = $('next');
     el.position = $('position');
     el.exportBtn = $('exportBtn');
@@ -576,6 +597,7 @@
       if (current.buffer) loadBuffer(current.buffer, current.filename);
     });
 
+    el.back.addEventListener('click', function () { current.reader.back(); });
     el.prev.addEventListener('click', function () { current.reader.prev(); });
     el.next.addEventListener('click', function () { current.reader.next(); });
     el.exportBtn.addEventListener('click', doExport);

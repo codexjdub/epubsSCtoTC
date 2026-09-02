@@ -428,3 +428,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 
 .hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
+
+/* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
+   the background shows while a large JPEG decodes. */
+.library-row .cover, .shelf-row .cover {
+  flex: 0 0 auto; object-fit: cover; border-radius: 3px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.library-row .cover { width: 36px; height: 52px; }
+.shelf-row .cover { width: 26px; height: 38px; }

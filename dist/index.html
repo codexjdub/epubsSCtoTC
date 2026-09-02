@@ -436,6 +436,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
 .hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
 
+/* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
+   the background shows while a large JPEG decodes. */
+.library-row .cover, .shelf-row .cover {
+  flex: 0 0 auto; object-fit: cover; border-radius: 3px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.library-row .cover { width: 36px; height: 52px; }
+.shelf-row .cover { width: 26px; height: 38px; }
+
 </style>
 </head>
 <body>
@@ -467,7 +476,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.4.0</p>
+    <p class="hint build">v1.5.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -525,6 +534,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     </div>
 
     <div class="pager">
+      <button id="back" type="button" hidden>↩ 返回</button>
       <button id="prev" type="button">← 上一章</button>
       <span class="pos" id="position"></span>
       <button id="next" type="button">下一章 →</button>
@@ -930,6 +940,27 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return list ? walkList(list) : [];
   }
 
+  /* EPUB 3 marks the cover with properties="cover-image"; EPUB 2 points at it
+   * with <meta name="cover" content="<manifest id>">. Both turn up in the
+   * wild, including in EPUB 3 files that kept the old meta for compatibility,
+   * so both are tried. */
+  function findCoverPath(pkg, manifest) {
+    var found = null;
+    manifest.forEach(function (item) {
+      if (!found && item.properties.indexOf('cover-image') >= 0) found = item;
+    });
+    if (!found) {
+      var md = tags(pkg, 'metadata')[0];
+      var metas = md ? tags(md, 'meta') : [];
+      for (var i = 0; i < metas.length; i++) {
+        if ((metas[i].getAttribute('name') || '').toLowerCase() !== 'cover') continue;
+        var ref = metas[i].getAttribute('content');
+        if (ref && manifest.get(ref)) { found = manifest.get(ref); break; }
+      }
+    }
+    return found && /^image\//.test(found.mediaType) ? found.path : '';
+  }
+
   async function readToc(book) {
     var navItem = null;
     book.manifest.forEach(function (item) {
@@ -1001,7 +1032,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       version: pkg.getAttribute('version') || '2.0',
       metadata: readMetadata(pkg),
       manifest: manifest,
-      spine: readSpine(pkg, manifest)
+      spine: readSpine(pkg, manifest),
+      coverPath: findCoverPath(pkg, manifest)
     };
 
     /* Tag entries with their declared media type so the converter and the
@@ -1021,7 +1053,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return book;
   }
 
-  App.parse = { load: load, parseXml: parseXml, parseContentDocument: parseContentDocument, tags: tags, findOpfPath: findOpfPath };
+  App.parse = { load: load, parseXml: parseXml, parseContentDocument: parseContentDocument,
+                tags: tags, findOpfPath: findOpfPath, findCoverPath: findCoverPath };
 })(window.App = window.App || {});
 
 </script>
@@ -2094,18 +2127,31 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return { read: read, write: write };
   }
 
+  /* Typography is about the reader's eyes, not about the book, so it lives in
+   * one global record the way the theme and the vim setting already do.
+   * Keeping it per book meant every new book reset the font size. */
+  var PREFS_KEY = 'epub-tc:reading';
+
   function create(host, book, opts) {
     opts = opts || {};
     var resources = App.reader.createResourceMap(book);
     var store = createStore(hashKey(book));
+    var prefs = createStore(PREFS_KEY);
     var saved = store.read();
+    /* Falls back to whatever this book had stored, so a reader who already set
+     * a size keeps it the first time they open a book after this change. */
+    var savedPrefs = prefs.read();
+    function pref(name, fallback) {
+      return savedPrefs[name] !== undefined ? savedPrefs[name]
+           : saved[name] !== undefined ? saved[name] : fallback;
+    }
 
     var state = {
       index: 0,
-      fontStyle: App.readingFonts.isValidStyle(saved.fontStyle)
-        ? saved.fontStyle : App.readingFonts.DEFAULT,
-      fontScale: saved.fontScale || 1,
-      lineHeight: saved.lineHeight || 1.9,
+      fontStyle: App.readingFonts.isValidStyle(pref('fontStyle'))
+        ? pref('fontStyle') : App.readingFonts.DEFAULT,
+      fontScale: pref('fontScale', 1),
+      lineHeight: pref('lineHeight', 1.9),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
        * doubt about, so underlining them all obscures the text rather than
@@ -2214,12 +2260,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       (state.listeners[name] = state.listeners[name] || []).push(fn);
     }
 
-    function persist() {
-      store.write({
-        index: state.index,
+    function persistPrefs() {
+      prefs.write({
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
-        lineHeight: state.lineHeight,
+        lineHeight: state.lineHeight
+      });
+    }
+
+    function persist() {
+      persistPrefs();
+      store.write({
+        index: state.index,
         showMarks: state.showMarks,
         source: state.source,
         anchor: captureAnchor(),
@@ -2343,6 +2395,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
           } else {
             var current = spineItems()[state.index];
             var target = Z.resolve(Z.dirname(current.item.path), href);
+            pushTrail();
             goToPath(target, Z.fragmentOf(href));
           }
           return;
@@ -2395,6 +2448,25 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         progress: progress()
       });
       return rendered;
+    }
+
+    /* Following a link inside the text -- a footnote, a cross-reference --
+     * used to be one-way: you landed there with nothing to bring you back.
+     * The position is captured before the jump, not after. */
+    var trail = [];
+
+    function pushTrail() {
+      trail.push({ index: state.index, anchor: captureAnchor() });
+      if (trail.length > 50) trail.shift();
+      emit('trail', { depth: trail.length });
+    }
+
+    function back() {
+      var previous = trail.pop();
+      emit('trail', { depth: trail.length });
+      if (!previous) return Promise.resolve(null);
+      restoreScroll = previous.anchor;
+      return show(previous.index);
     }
 
     function goToPath(path, fragment) {
@@ -2455,6 +2527,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       setSource: setSource,
       overrides: function () { return state.overrides; },
       progress: progress,
+      back: back,
+      trailDepth: function () { return trail.length; },
       resume: function () {
         restoreScroll = saved.anchor || null;
         return show(saved.index || 0);
@@ -2992,7 +3066,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     db.close();
     return (rows || []).map(function (r) {
       return { id: r.id, title: r.title, creator: r.creator, language: r.language,
-               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt };
+               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt,
+               cover: r.cover || null, coverType: r.coverType || '' };
     }).sort(function (a, b) { return (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0); });
   }
 
@@ -3002,8 +3077,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return { saved: false, reason: 'Too large to save (' +
         Math.round(bytes.byteLength / 1048576) + ' MB); it will still open normally.' };
     }
+    /* Stored with the book so the shelf can show it without reopening the
+     * archive. A missing or unreadable cover is not worth failing a save. */
+    var cover = null, coverType = '';
+    if (book.coverPath && book.entries.has(book.coverPath)) {
+      try {
+        var ce = book.entries.get(book.coverPath);
+        cover = await App.zip.loadBytes(ce);
+        coverType = ce.mediaType || 'image/jpeg';
+      } catch (e) { cover = null; coverType = ''; }
+    }
+
     var record = {
       id: idFor(book),
+      cover: cover,
+      coverType: coverType,
       title: book.metadata.original ? book.metadata.original.title : book.metadata.title,
       creator: book.metadata.creator || '',
       language: book.metadata.language || '',
@@ -3301,6 +3389,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       highlightToc(e.path);
     });
     reader.on('progress', renderPosition);
+    /* Only offered once a link has actually been followed -- a button that is
+       usually inert is worse than no button. */
+    reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
       setStatus('External link not opened: ' + e.href);
     });
@@ -3380,6 +3471,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * and pick action. The class names stay distinct because the two are
    * styled — and tested — separately. */
   function renderRows(config, books, currentId) {
+    /* Blob URLs are per render, so the previous batch for THIS list is
+       released first -- the two lists render independently. */
+    (config.list.__covers || []).forEach(URL.revokeObjectURL);
+    config.list.__covers = [];
     config.list.textContent = '';
     books.forEach(function (entry) {
       var row = document.createElement('div');
@@ -3388,6 +3483,19 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var pick = document.createElement('button');
       pick.type = 'button';
       pick.className = config.pick;
+
+      if (entry.cover) {
+        var img = document.createElement('img');
+        img.className = 'cover';
+        img.alt = '';
+        img.loading = 'lazy';
+        var url = URL.createObjectURL(
+          new Blob([entry.cover], { type: entry.coverType || 'image/jpeg' }));
+        config.list.__covers.push(url);
+        img.src = url;
+        pick.appendChild(img);
+      }
+
       var name = document.createElement('span');
       name.className = config.name;
       name.textContent = entry.title || '(untitled)';
@@ -3548,6 +3656,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleShelf = $('toggleShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
+    el.back = $('back');
     el.next = $('next');
     el.position = $('position');
     el.exportBtn = $('exportBtn');
@@ -3653,6 +3762,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (current.buffer) loadBuffer(current.buffer, current.filename);
     });
 
+    el.back.addEventListener('click', function () { current.reader.back(); });
     el.prev.addEventListener('click', function () { current.reader.prev(); });
     el.next.addEventListener('click', function () { current.reader.next(); });
     el.exportBtn.addEventListener('click', doExport);

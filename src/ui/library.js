@@ -76,7 +76,8 @@
     db.close();
     return (rows || []).map(function (r) {
       return { id: r.id, title: r.title, creator: r.creator, language: r.language,
-               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt };
+               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt,
+               cover: r.cover || null, coverType: r.coverType || '' };
     }).sort(function (a, b) { return (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0); });
   }
 
@@ -86,8 +87,21 @@
       return { saved: false, reason: 'Too large to save (' +
         Math.round(bytes.byteLength / 1048576) + ' MB); it will still open normally.' };
     }
+    /* Stored with the book so the shelf can show it without reopening the
+     * archive. A missing or unreadable cover is not worth failing a save. */
+    var cover = null, coverType = '';
+    if (book.coverPath && book.entries.has(book.coverPath)) {
+      try {
+        var ce = book.entries.get(book.coverPath);
+        cover = await App.zip.loadBytes(ce);
+        coverType = ce.mediaType || 'image/jpeg';
+      } catch (e) { cover = null; coverType = ''; }
+    }
+
     var record = {
       id: idFor(book),
+      cover: cover,
+      coverType: coverType,
       title: book.metadata.original ? book.metadata.original.title : book.metadata.title,
       creator: book.metadata.creator || '',
       language: book.metadata.language || '',
