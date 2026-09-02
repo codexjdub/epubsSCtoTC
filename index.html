@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.8.0</p>
+    <p class="hint build">v1.9.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -47,31 +47,41 @@
       <span class="title" id="bookTitle"></span>
       <button id="toggleSidebar" type="button" aria-expanded="true"
               aria-controls="sidebar">目錄</button>
-      <!-- On narrow screens the secondary controls collapse behind this.
-           On desktop the group is display:contents, so they lay out inline. -->
-      <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
-              aria-controls="topbarMore" title="More controls">⋯</button>
-      <div class="topbar-more" id="topbarMore">
-        <!-- 原文 lives in the collapsing group: on a 375px screen the bar
-             could not fit it without squeezing every label into two lines,
-             which made the bar 80px tall. -->
-        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="fontSmaller" type="button">A−</button>
-        <button id="fontBigger" type="button">A+</button>
+
+      <!-- Two groups rather than fifteen controls in a row: how the page looks,
+           and what the conversion did. At 1280px the flat bar wrapped to two
+           rows and left the title 77px. -->
+      <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="aaPanel" title="Reading settings">Aa</button>
+      <button id="convBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="convPanel" title="Conversion settings">轉換</button>
+      <button id="exportBtn" class="primary" type="button">Export EPUB</button>
+
+      <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" title="Typeface"></select></label>
-        <label><select id="align" title="Text alignment"></select></label>
+        <div class="row">
+          <button id="fontSmaller" type="button">A−</button>
+          <button id="fontBigger" type="button">A+</button>
+        </div>
         <label class="range">行距
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
+        <label><select id="align" title="Text alignment"></select></label>
+        <label><select id="theme"></select></label>
+        <!-- Kept here rather than moved to the ? overlay: that overlay only
+             answers ? once vim is already on, so a button is still the only
+             way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
                 title="Vim navigation (press ? for keys)">Vim</button>
-        <label><select id="theme"></select></label>
+      </div>
+
+      <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
         <label><input type="checkbox" id="punctTop"/> 「 」 on export</label>
+        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
+        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
         <button id="toggleReport" type="button">Report</button>
       </div>
-      <button id="exportBtn" class="primary" type="button">Export EPUB</button>
 
       <div class="shelf-panel hidden" id="shelfPanel">
         <div id="shelfList"></div>

@@ -86,7 +86,7 @@
 
   function px(el) { return el.getBoundingClientRect(); }
 
-  var setMoreOpen;   // bound once the phone frame exists
+  var setPanelOpen;   // bound once the phone frame exists
 
   async function run() {
     try {
@@ -99,10 +99,10 @@
       var sidebar = D.getElementById('sidebar');
       var viewer = D.getElementById('viewer');
       var backdrop = D.getElementById('drawerBackdrop');
-      var moreBtn = D.getElementById('moreBtn');
-      var more = D.getElementById('topbarMore');
-      setMoreOpen = function (open) {
-        if (more.classList.contains('open') !== open) moreBtn.click();
+      var aaBtn = D.getElementById('aaBtn');
+      var aa = D.getElementById('aaPanel');
+      setPanelOpen = function (open) {
+        if (aa.classList.contains('hidden') === open) aaBtn.click();
       };
 
       t.eq('phone viewport', W.innerWidth, PHONE);
@@ -150,33 +150,38 @@
       t.check('choosing a chapter dismisses the drawer',
               !W.App.ui.drawerOpen(), 'drawer stayed open');
 
-      // overflow menu
-      t.check('more button is shown on a phone',
-              W.getComputedStyle(moreBtn).display !== 'none', 'hidden');
-      t.check('secondary controls start collapsed',
-              W.getComputedStyle(more).display === 'none', 'menu open at load');
-      moreBtn.click();
+      // the reading-settings panel
+      t.check('reading settings start collapsed',
+              W.getComputedStyle(aa).display === 'none', 'panel open at load');
+      aaBtn.click();
       await wait(60);
-      t.check('more button opens the menu',
-              W.getComputedStyle(more).display !== 'none', 'did not open');
-      t.check('menu stays on screen', px(more).right <= W.innerWidth + 1,
-              'overflows by ' + Math.round(px(more).right - W.innerWidth));
+      t.check('Aa opens the reading settings',
+              W.getComputedStyle(aa).display !== 'none', 'did not open');
+      t.check('panel stays on screen', px(aa).right <= W.innerWidth + 1,
+              'overflows by ' + Math.round(px(aa).right - W.innerWidth));
+      /* One at a time: opening one panel closes whatever else was open. */
+      D.getElementById('convBtn').click();
+      await wait(60);
+      t.check('opening 轉換 closes Aa',
+              W.getComputedStyle(aa).display === 'none', 'both open at once');
+      D.getElementById('convBtn').click();
+      await wait(60);
       /* Only buttons dismiss the menu, so use one whose effect is trivially
          reversible rather than a control that re-renders the chapter. */
       D.getElementById('fontBigger').click();
       await wait(60);
-      t.check('acting on a control closes the menu',
-              W.getComputedStyle(more).display === 'none', 'stayed open');
+      t.check('acting on a control closes the panel',
+              W.getComputedStyle(aa).display === 'none', 'stayed open');
       D.getElementById('fontSmaller').click();      // restore the font scale
 
-      setMoreOpen(true);
+      setPanelOpen(true);
       await wait(60);
-      t.check('the collapsed controls are reachable on a phone',
-              ['fontStyle', 'theme', 'presetTop'].every(function (id) {
+      t.check('the reading controls are reachable on a phone',
+              ['fontStyle', 'theme', 'align', 'lineHeight'].every(function (id) {
                 var e = D.getElementById(id);
                 return e && e.getClientRects().length > 0;
-              }), 'a control is unreachable in the menu');
-      setMoreOpen(false);
+              }), 'a control is unreachable in the panel');
+      setPanelOpen(false);
 
       // touch targets
       function rendered(el) { return el.getClientRects().length > 0; }
@@ -186,26 +191,26 @@
           .map(function (b) { return (b.id || b.textContent.trim()) + '=' + Math.round(px(b).height); });
       }
 
-      setMoreOpen(false);
+      setPanelOpen(false);
       var barSmall = undersized(D.querySelectorAll('.topbar > button, .pager button'));
       t.check('visible toolbar and pager controls meet the 44px target',
               barSmall.length === 0, barSmall.join(', '));
 
       /* The collapsed controls need checking too -- once opened they are what
        * the thumb actually lands on. */
-      setMoreOpen(true);
+      setPanelOpen(true);
       await wait(60);
-      var menuSmall = undersized(D.querySelectorAll('#topbarMore button, #topbarMore select'));
+      var menuSmall = undersized(D.querySelectorAll('#aaPanel button, #aaPanel select'));
       t.check('controls inside the menu meet the 44px target',
               menuSmall.length === 0, menuSmall.join(', '));
-      setMoreOpen(false);
+      setPanelOpen(false);
 
       // ================= desktop, unchanged =================
       var desk = await mount(DESKTOP, 800);
       var DW = await loadBook(desk);
       var DD = desk.contentDocument;
       var dSidebar = DD.getElementById('sidebar');
-      var dMore = DD.getElementById('topbarMore');
+      var dAa = DD.getElementById('aaPanel');
 
       t.eq('desktop viewport', DW.innerWidth, DESKTOP);
       t.eq('sidebar returns to the flow',
@@ -213,19 +218,31 @@
       t.check('sidebar visible by default on desktop', DW.App.ui.drawerOpen(), 'collapsed');
       t.check('desktop sidebar occupies real width', px(dSidebar).width > 200,
               Math.round(px(dSidebar).width) + 'px');
-      /* On desktop every control is inline and visible; the ⋯ menu is for
-         narrow screens only. */
-      t.eq('secondary controls lay out inline on desktop',
-           DW.getComputedStyle(dMore).display, 'contents');
-      t.eq('more button hidden on desktop',
-           DW.getComputedStyle(DD.getElementById('moreBtn')).display, 'none');
-      t.check('the controls people reach for are actually on the bar',
-              ['toggleSidebar', 'toggleSource', 'fontSmaller',
-               'fontBigger', 'fontStyle', 'theme', 'presetTop', 'exportBtn']
+      /* The panels behave the same at every width now. Fifteen inline controls
+         wrapped the bar to two rows at 1280px and left the title 77px, so the
+         grouping is not a phone concession. */
+      t.eq('reading settings are a panel on desktop too',
+           DW.getComputedStyle(dAa).display, 'none');
+      t.check('the bar itself is a single row',
+              px(DD.querySelector('.topbar')).height < 70,
+              Math.round(px(DD.querySelector('.topbar')).height) + 'px tall');
+      t.check('and the title gets real room',
+              px(DD.getElementById('bookTitle')).width > 200,
+              Math.round(px(DD.getElementById('bookTitle')).width) + 'px');
+      t.check('the controls that stay on the bar are visible',
+              ['toggleShelf', 'toggleSidebar', 'aaBtn', 'convBtn', 'exportBtn']
                 .every(function (id) {
                   var e = DD.getElementById(id);
                   return e && e.getClientRects().length > 0;
-                }), 'a control is hidden on desktop');
+                }), 'a bar control is hidden on desktop');
+      DD.getElementById('aaBtn').click();
+      await wait(60);
+      t.check('and the rest are one click away',
+              ['fontStyle', 'theme', 'align'].every(function (id) {
+                var e = DD.getElementById(id);
+                return e && e.getClientRects().length > 0;
+              }), 'a control is unreachable on desktop');
+      DD.getElementById('aaBtn').click();
       /* Wrapping is acceptable; losing a control off the right edge is not --
          that was the actual bug when the bar was set to nowrap. */
       var dExport = px(DD.getElementById('exportBtn'));

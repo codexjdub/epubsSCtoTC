@@ -263,8 +263,26 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    narrower window; that is fine, and better than hiding the controls behind a
    menu. Below the breakpoint the same group becomes the ⋯ dropdown, where
    there genuinely is not room for them. */
-.topbar-more { display: contents; }
-.more-btn { display: none; }
+/* Dropdowns at every width. The group used to be display:contents on desktop,
+   which put all fifteen controls inline and wrapped the bar to two rows at
+   1280px; a panel that behaves the same everywhere is one rule instead of two
+   layouts, and the phone case was already the panel. */
+.bar-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+  flex-direction: column; align-items: stretch; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; min-width: 220px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+}
+.bar-panel:not(.hidden) { display: flex; }
+.bar-panel select { width: 100%; }
+.bar-panel label { justify-content: space-between; }
+.bar-panel .row { display: flex; gap: 8px; }
+.bar-panel .row button { flex: 1; }
+.topbar .grouped[aria-expanded="true"] {
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+}
 .drawer-backdrop { display: none; }
 
 @media (max-width: 700px) {
@@ -277,23 +295,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
 
-  .more-btn { display: inline-flex; align-items: center; justify-content: center; }
-
-  .topbar-more {
-    display: none;
-    position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
-    flex-direction: column; align-items: stretch; gap: 8px;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px; min-width: 210px;
-    box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
-  }
-  .topbar-more.open { display: flex; }
-  .topbar-more label { width: 100%; }
-  .topbar-more select { width: 100%; }
+  .bar-panel { left: 4px; right: 4px; min-width: 0; }
 
   /* Touch targets: iOS wants 44, Android 48. */
   .topbar button, .topbar select,
-  .topbar-more button, .topbar-more select,
+  .bar-panel button, .bar-panel select,
   .pager button {
     min-height: 44px;
     padding: 10px 12px;
@@ -353,10 +359,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 
 /* ---- typeface + leading controls ---- */
-.topbar-more label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.topbar-more input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
 @media (max-width: 700px) {
-  .topbar-more input[type="range"] { min-height: 44px; }
+  .bar-panel input[type="range"] { min-height: 44px; }
 }
 
 /* ---- saved books ---- */
@@ -482,7 +488,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.8.0</p>
+    <p class="hint build">v1.9.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -494,31 +500,41 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <span class="title" id="bookTitle"></span>
       <button id="toggleSidebar" type="button" aria-expanded="true"
               aria-controls="sidebar">目錄</button>
-      <!-- On narrow screens the secondary controls collapse behind this.
-           On desktop the group is display:contents, so they lay out inline. -->
-      <button id="moreBtn" class="more-btn" type="button" aria-expanded="false"
-              aria-controls="topbarMore" title="More controls">⋯</button>
-      <div class="topbar-more" id="topbarMore">
-        <!-- 原文 lives in the collapsing group: on a 375px screen the bar
-             could not fit it without squeezing every label into two lines,
-             which made the bar 80px tall. -->
-        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
-        <button id="fontSmaller" type="button">A−</button>
-        <button id="fontBigger" type="button">A+</button>
+
+      <!-- Two groups rather than fifteen controls in a row: how the page looks,
+           and what the conversion did. At 1280px the flat bar wrapped to two
+           rows and left the title 77px. -->
+      <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="aaPanel" title="Reading settings">Aa</button>
+      <button id="convBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="convPanel" title="Conversion settings">轉換</button>
+      <button id="exportBtn" class="primary" type="button">Export EPUB</button>
+
+      <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" title="Typeface"></select></label>
-        <label><select id="align" title="Text alignment"></select></label>
+        <div class="row">
+          <button id="fontSmaller" type="button">A−</button>
+          <button id="fontBigger" type="button">A+</button>
+        </div>
         <label class="range">行距
           <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
         </label>
-        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
+        <label><select id="align" title="Text alignment"></select></label>
+        <label><select id="theme"></select></label>
+        <!-- Kept here rather than moved to the ? overlay: that overlay only
+             answers ? once vim is already on, so a button is still the only
+             way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
                 title="Vim navigation (press ? for keys)">Vim</button>
-        <label><select id="theme"></select></label>
+      </div>
+
+      <div class="bar-panel hidden" id="convPanel">
         <label><select id="presetTop"></select></label>
         <label><input type="checkbox" id="punctTop"/> 「 」 on export</label>
+        <button id="toggleSource" type="button" aria-pressed="false">原文</button>
+        <button id="toggleMarks" type="button" aria-pressed="false">Show marks</button>
         <button id="toggleReport" type="button">Report</button>
       </div>
-      <button id="exportBtn" class="primary" type="button">Export EPUB</button>
 
       <div class="shelf-panel hidden" id="shelfPanel">
         <div id="shelfList"></div>
@@ -3889,8 +3905,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.lineHeight = $('lineHeight');
     el.align = $('align');
     el.toggleSidebar = $('toggleSidebar');
-    el.moreBtn = $('moreBtn');
-    el.topbarMore = $('topbarMore');
+    el.aaBtn = $('aaBtn');
+    el.aaPanel = $('aaPanel');
+    el.convBtn = $('convBtn');
+    el.convPanel = $('convPanel');
     el.backdrop = $('drawerBackdrop');
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
@@ -3951,15 +3969,46 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     renderLibrary();
-    el.toggleShelf.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      setMore(false);
-      setShelfOpen(!shelfOpen());
+
+    /* Three dropdowns on one bar, so they share the rules: one open at a time,
+       any outside click closes them, and a click inside keeps them open. */
+    var dropdowns = [
+      { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
+      { btn: el.aaBtn, panel: el.aaPanel },
+      { btn: el.convBtn, panel: el.convPanel }
+    ];
+
+    function setDropdown(entry, open) {
+      entry.panel.classList.toggle('hidden', !open);
+      entry.btn.classList.toggle('active', open);
+      entry.btn.setAttribute('aria-expanded', String(open));
+      if (open && entry.onOpen) entry.onOpen();
+    }
+
+    function closeDropdowns(except) {
+      dropdowns.forEach(function (d) { if (d !== except) setDropdown(d, false); });
+    }
+
+    dropdowns.forEach(function (entry) {
+      entry.btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var open = entry.panel.classList.contains('hidden');
+        closeDropdowns(entry);
+        setDropdown(entry, open);
+      });
+      entry.panel.addEventListener('click', function (ev) { ev.stopPropagation(); });
     });
-    el.shelfPanel.addEventListener('click', function (ev) { ev.stopPropagation(); });
-    document.addEventListener('click', function (ev) {
-      if (ev.target !== el.toggleShelf && !el.shelfPanel.contains(ev.target)) setShelfOpen(false);
+    document.addEventListener('click', function () { closeDropdowns(null); });
+
+    /* Acting on a control closes the panel it lives in; a select or a slider
+       stays put so it can be adjusted more than once. */
+    [el.aaPanel, el.convPanel].forEach(function (panel) {
+      panel.addEventListener('click', function (ev) {
+        if (ev.target.localName === 'button') closeDropdowns(null);
+      });
     });
+
+    api.closeDropdowns = closeDropdowns;
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     /* One setting with a control in two places -- the landing page and the
@@ -4016,31 +4065,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         : !el.sidebar.classList.contains('hidden');
     }
 
-    function setMore(open) {
-      el.topbarMore.classList.toggle('open', open);
-      el.moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-
     el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
     el.toggleSidebar.addEventListener('click', function () {
       setDrawer(!drawerOpen());
-      setMore(false);
-      setShelfOpen(false);
+      closeDropdowns(null);
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
-
-    el.moreBtn.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      setShelfOpen(false);
-      setMore(!el.topbarMore.classList.contains('open'));
-    });
-    /* Any action inside the menu closes it, as does a tap anywhere outside. */
-    el.topbarMore.addEventListener('click', function (ev) {
-      if (ev.target.localName === 'button') setMore(false);
-    });
-    document.addEventListener('click', function (ev) {
-      if (!el.topbarMore.contains(ev.target) && ev.target !== el.moreBtn) setMore(false);
-    });
 
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
@@ -4049,7 +4079,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
     function settleForWidth() {
-      setMore(false);
+      closeDropdowns(null);
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

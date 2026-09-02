@@ -77,7 +77,12 @@
       // ---- content identity ----
       var a = await make('書甲', 3);
       var b = await make('書乙', 40);          // same identifier, different content
-      var aCopy = await make('書甲', 3);       // byte-identical to `a`
+      /* The same BYTES, not a rebuild. contentKey hashes bytes, and JSZip
+         stamps every entry -- files and directories alike -- with the current
+         time at DOS's two-second resolution, so two builds of the same fixture
+         either side of a bucket boundary genuinely differ. Re-dropping a file
+         is the case this models, and that is the same bytes. */
+      var aCopy = a.slice(0);
 
       t.check('a book carries a content id', !!(await App.parse.load(a)).contentId, 'missing');
       t.eq('identical bytes hash identically',

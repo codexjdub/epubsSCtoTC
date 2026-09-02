@@ -531,8 +531,10 @@
     el.lineHeight = $('lineHeight');
     el.align = $('align');
     el.toggleSidebar = $('toggleSidebar');
-    el.moreBtn = $('moreBtn');
-    el.topbarMore = $('topbarMore');
+    el.aaBtn = $('aaBtn');
+    el.aaPanel = $('aaPanel');
+    el.convBtn = $('convBtn');
+    el.convPanel = $('convPanel');
     el.backdrop = $('drawerBackdrop');
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
@@ -593,15 +595,46 @@
     });
 
     renderLibrary();
-    el.toggleShelf.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      setMore(false);
-      setShelfOpen(!shelfOpen());
+
+    /* Three dropdowns on one bar, so they share the rules: one open at a time,
+       any outside click closes them, and a click inside keeps them open. */
+    var dropdowns = [
+      { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
+      { btn: el.aaBtn, panel: el.aaPanel },
+      { btn: el.convBtn, panel: el.convPanel }
+    ];
+
+    function setDropdown(entry, open) {
+      entry.panel.classList.toggle('hidden', !open);
+      entry.btn.classList.toggle('active', open);
+      entry.btn.setAttribute('aria-expanded', String(open));
+      if (open && entry.onOpen) entry.onOpen();
+    }
+
+    function closeDropdowns(except) {
+      dropdowns.forEach(function (d) { if (d !== except) setDropdown(d, false); });
+    }
+
+    dropdowns.forEach(function (entry) {
+      entry.btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var open = entry.panel.classList.contains('hidden');
+        closeDropdowns(entry);
+        setDropdown(entry, open);
+      });
+      entry.panel.addEventListener('click', function (ev) { ev.stopPropagation(); });
     });
-    el.shelfPanel.addEventListener('click', function (ev) { ev.stopPropagation(); });
-    document.addEventListener('click', function (ev) {
-      if (ev.target !== el.toggleShelf && !el.shelfPanel.contains(ev.target)) setShelfOpen(false);
+    document.addEventListener('click', function () { closeDropdowns(null); });
+
+    /* Acting on a control closes the panel it lives in; a select or a slider
+       stays put so it can be adjusted more than once. */
+    [el.aaPanel, el.convPanel].forEach(function (panel) {
+      panel.addEventListener('click', function (ev) {
+        if (ev.target.localName === 'button') closeDropdowns(null);
+      });
     });
+
+    api.closeDropdowns = closeDropdowns;
 
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     /* One setting with a control in two places -- the landing page and the
@@ -658,31 +691,12 @@
         : !el.sidebar.classList.contains('hidden');
     }
 
-    function setMore(open) {
-      el.topbarMore.classList.toggle('open', open);
-      el.moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-
     el.toggleSidebar.setAttribute('aria-expanded', String(drawerOpen()));
     el.toggleSidebar.addEventListener('click', function () {
       setDrawer(!drawerOpen());
-      setMore(false);
-      setShelfOpen(false);
+      closeDropdowns(null);
     });
     el.backdrop.addEventListener('click', function () { setDrawer(false); });
-
-    el.moreBtn.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      setShelfOpen(false);
-      setMore(!el.topbarMore.classList.contains('open'));
-    });
-    /* Any action inside the menu closes it, as does a tap anywhere outside. */
-    el.topbarMore.addEventListener('click', function (ev) {
-      if (ev.target.localName === 'button') setMore(false);
-    });
-    document.addEventListener('click', function (ev) {
-      if (!el.topbarMore.contains(ev.target) && ev.target !== el.moreBtn) setMore(false);
-    });
 
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
@@ -691,7 +705,7 @@
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
     function settleForWidth() {
-      setMore(false);
+      closeDropdowns(null);
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

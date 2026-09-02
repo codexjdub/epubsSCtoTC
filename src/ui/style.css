@@ -256,8 +256,26 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    narrower window; that is fine, and better than hiding the controls behind a
    menu. Below the breakpoint the same group becomes the ⋯ dropdown, where
    there genuinely is not room for them. */
-.topbar-more { display: contents; }
-.more-btn { display: none; }
+/* Dropdowns at every width. The group used to be display:contents on desktop,
+   which put all fifteen controls inline and wrapped the bar to two rows at
+   1280px; a panel that behaves the same everywhere is one rule instead of two
+   layouts, and the phone case was already the panel. */
+.bar-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+  flex-direction: column; align-items: stretch; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; min-width: 220px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+}
+.bar-panel:not(.hidden) { display: flex; }
+.bar-panel select { width: 100%; }
+.bar-panel label { justify-content: space-between; }
+.bar-panel .row { display: flex; gap: 8px; }
+.bar-panel .row button { flex: 1; }
+.topbar .grouped[aria-expanded="true"] {
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+}
 .drawer-backdrop { display: none; }
 
 @media (max-width: 700px) {
@@ -270,23 +288,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
 
-  .more-btn { display: inline-flex; align-items: center; justify-content: center; }
-
-  .topbar-more {
-    display: none;
-    position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
-    flex-direction: column; align-items: stretch; gap: 8px;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px; min-width: 210px;
-    box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
-  }
-  .topbar-more.open { display: flex; }
-  .topbar-more label { width: 100%; }
-  .topbar-more select { width: 100%; }
+  .bar-panel { left: 4px; right: 4px; min-width: 0; }
 
   /* Touch targets: iOS wants 44, Android 48. */
   .topbar button, .topbar select,
-  .topbar-more button, .topbar-more select,
+  .bar-panel button, .bar-panel select,
   .pager button {
     min-height: 44px;
     padding: 10px 12px;
@@ -346,10 +352,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 
 /* ---- typeface + leading controls ---- */
-.topbar-more label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.topbar-more input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
 @media (max-width: 700px) {
-  .topbar-more input[type="range"] { min-height: 44px; }
+  .bar-panel input[type="range"] { min-height: 44px; }
 }
 
 /* ---- saved books ---- */
