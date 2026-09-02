@@ -35,7 +35,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.10.0</p>
+    <p class="hint build">v1.11.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -88,6 +88,12 @@
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
+        <!-- The only click or keyboard route to the file picker once a book is
+             open: the landing page holds the dropzone, and it is hidden while
+             reading. Dropping a file on the window has always worked, but
+             nothing said so. -->
+        <button id="openNew" type="button" class="open-new">開啟新書…</button>
+        <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
         <div id="shelfList"></div>
         <p class="hint" id="shelfNote"></p>
       </div>

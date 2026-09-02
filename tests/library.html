@@ -199,8 +199,33 @@
       t.eq('the open book can be removed too', rows().length, 0);
       t.check('and the reader carries on',
               !!W.App.ui.current.reader.content.querySelector('p'), 'reader broke');
+      /* The landing page holds the dropzone and is hidden while reading, so the
+         shelf carries the only click or keyboard route to the file picker.
+         Opening it programmatically dispatches a click on the input, which
+         bubbles -- and used to close the shelf out from under the button. */
+      /* Toggling blind depends on whatever the previous assertion left open. */
+      var setShelf = function (open) {
+        if (panel().classList.contains('hidden') === open) {
+          D.getElementById('toggleShelf').click();
+        }
+      };
+      setShelf(true);
+      await wait(150);
+      var openNew = D.getElementById('openNew');
+      var picks = 0;
+      D.getElementById('fileInput').addEventListener('click', function () { picks++; });
+      t.check('the shelf offers a way to open a file',
+              !!openNew && openNew.getClientRects().length > 0, 'missing or hidden');
+      openNew.click();
+      await wait(150);
+      t.eq('it opens the picker', picks, 1);
+      t.check('and the shelf stays open behind it',
+              !panel().classList.contains('hidden'), 'shelf closed itself');
+
+      setShelf(true);
+      await wait(120);
       t.check('the empty shelf explains itself',
-              /No books cached/.test(D.getElementById('shelfNote').textContent),
+              /還沒有存書/.test(D.getElementById('shelfNote').textContent),
               D.getElementById('shelfNote').textContent);
 
       frame.remove();

@@ -461,8 +461,8 @@
     }, books, currentId);
 
     el.shelfNote.textContent = books.length
-      ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
-      : 'No books cached yet. Books you open are kept here.';
+      ? '這部裝置存了 ' + books.length + ' 本書。'
+      : '還沒有存書。開過的書會留在這裡。';
   }
 
   function readFile(file) {
@@ -522,6 +522,7 @@
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
+    el.openNew = $('openNew');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.back = $('back');
@@ -578,6 +579,13 @@
     el.presetTop.value = current.presetId;
 
     el.dropzone.addEventListener('click', function () { el.fileInput.click(); });
+    /* The shelf answers "which book", and opening a file is the same question.
+       The panel stays open behind the picker; loadBuffer closes it. */
+    el.openNew.addEventListener('click', function () { el.fileInput.click(); });
+    /* Opening the picker programmatically dispatches a click on the input,
+       which bubbles to the document handler and closed the shelf underneath.
+       Nothing needs this event beyond the input itself. */
+    el.fileInput.addEventListener('click', function (ev) { ev.stopPropagation(); });
     el.fileInput.addEventListener('change', function () {
       if (el.fileInput.files[0]) readFile(el.fileInput.files[0]);
     });

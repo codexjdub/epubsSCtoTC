@@ -461,6 +461,18 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    reserve space or shift the pager when it fills. */
 .pager .status-line { font-size: 12px; color: var(--muted); }
 
+/* Opening a file from the shelf: the primary action in that panel, so it reads
+   as one rather than sitting among the book rows. */
+.shelf-panel .open-new {
+  width: 100%; justify-content: center; text-align: center;
+  border-style: dashed; font-weight: 600;
+}
+.shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
+.shelf-panel .drag-hint {
+  margin: 6px 2px 10px; text-align: center; font-size: 11px;
+  border-bottom: 1px solid var(--line); padding-bottom: 10px;
+}
+
 </style>
 </head>
 <body>
@@ -492,7 +504,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.10.0</p>
+    <p class="hint build">v1.11.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -545,6 +557,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
+        <!-- The only click or keyboard route to the file picker once a book is
+             open: the landing page holds the dropzone, and it is hidden while
+             reading. Dropping a file on the window has always worked, but
+             nothing said so. -->
+        <button id="openNew" type="button" class="open-new">開啟新書…</button>
+        <p class="hint drag-hint">也可以把 EPUB 拖進視窗</p>
         <div id="shelfList"></div>
         <p class="hint" id="shelfNote"></p>
       </div>
@@ -3850,8 +3868,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }, books, currentId);
 
     el.shelfNote.textContent = books.length
-      ? books.length + ' book' + (books.length === 1 ? '' : 's') + ' cached on this device.'
-      : 'No books cached yet. Books you open are kept here.';
+      ? '這部裝置存了 ' + books.length + ' 本書。'
+      : '還沒有存書。開過的書會留在這裡。';
   }
 
   function readFile(file) {
@@ -3911,6 +3929,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
+    el.openNew = $('openNew');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.back = $('back');
@@ -3967,6 +3986,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.presetTop.value = current.presetId;
 
     el.dropzone.addEventListener('click', function () { el.fileInput.click(); });
+    /* The shelf answers "which book", and opening a file is the same question.
+       The panel stays open behind the picker; loadBuffer closes it. */
+    el.openNew.addEventListener('click', function () { el.fileInput.click(); });
+    /* Opening the picker programmatically dispatches a click on the input,
+       which bubbles to the document handler and closed the shelf underneath.
+       Nothing needs this event beyond the input itself. */
+    el.fileInput.addEventListener('click', function (ev) { ev.stopPropagation(); });
     el.fileInput.addEventListener('change', function () {
       if (el.fileInput.files[0]) readFile(el.fileInput.files[0]);
     });
