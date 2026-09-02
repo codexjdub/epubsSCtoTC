@@ -376,7 +376,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .library-row .open {
   flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
-  padding: 11px 13px; display: flex; align-items: baseline; gap: 10px;
+  padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+}
+.library-row .text {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px;
 }
 .library-row .name {
   flex: 1 1 auto; min-width: 0; font-weight: 600;
@@ -415,7 +418,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .shelf-row .pick {
   flex: 1 1 auto; min-width: 0; text-align: left;
   border: 0; background: none; padding: 8px; font-size: 14px;
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.shelf-row .pick .text {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
 }
 .shelf-row .pick .t {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
@@ -476,7 +482,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.5.0</p>
+    <p class="hint build">v1.5.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3496,14 +3502,19 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         pick.appendChild(img);
       }
 
+      /* Title and subtitle share a column so the cover can sit beside them
+         rather than above: the shelf's button stacks its children. */
+      var text = document.createElement('span');
+      text.className = 'text';
       var name = document.createElement('span');
       name.className = config.name;
       name.textContent = entry.title || '(untitled)';
       var meta = document.createElement('span');
       meta.className = config.meta;
       meta.textContent = config.subtitle(entry, currentId);
-      pick.appendChild(name);
-      pick.appendChild(meta);
+      text.appendChild(name);
+      text.appendChild(meta);
+      pick.appendChild(text);
       pick.addEventListener('click', function () { config.onPick(entry, row); });
 
       var drop = document.createElement('button');

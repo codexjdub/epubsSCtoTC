@@ -331,14 +331,19 @@
         pick.appendChild(img);
       }
 
+      /* Title and subtitle share a column so the cover can sit beside them
+         rather than above: the shelf's button stacks its children. */
+      var text = document.createElement('span');
+      text.className = 'text';
       var name = document.createElement('span');
       name.className = config.name;
       name.textContent = entry.title || '(untitled)';
       var meta = document.createElement('span');
       meta.className = config.meta;
       meta.textContent = config.subtitle(entry, currentId);
-      pick.appendChild(name);
-      pick.appendChild(meta);
+      text.appendChild(name);
+      text.appendChild(meta);
+      pick.appendChild(text);
       pick.addEventListener('click', function () { config.onPick(entry, row); });
 
       var drop = document.createElement('button');
