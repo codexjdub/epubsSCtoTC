@@ -71,6 +71,9 @@
     'pager.back': '↩ 返回',
     'pager.prev': '← 上一章',
     'pager.next': '下一章 →',
+    /* Focus mode paginates, so the same two buttons turn pages there. */
+    'pager.prevPage': '← 上一頁',
+    'pager.nextPage': '下一頁 →',
 
     /* ---- what the app is doing ---- */
     'status.opening': '開啟《{title}》…',

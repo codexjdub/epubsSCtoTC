@@ -679,6 +679,122 @@
       t.check('scrollToEnd reaches the bottom', reader.scrollPosition() > 0,
               String(reader.scrollPosition()));
 
+      // ---- paged layout ----
+      /* The engine-level tests, because this is where the risk is: a block that
+         straddles a column break reports ONE bounding box spanning both columns
+         and the gutter, so the anchor cannot be measured from a bounding box at
+         all here. */
+      reader.scrollToStart();
+      await reader.setPaged(true);
+      t.eq('the scroller changes with the layout', reader.scrollerKind(), 'paged');
+
+      var host = reader.mount;
+      t.check('the text flows into pages wider than the view',
+              host.scrollWidth > host.clientWidth,
+              host.scrollWidth + ' vs ' + host.clientWidth);
+      t.eq('a chapter opens on its first page', reader.scrollPosition(), 0);
+
+      /* Multi-column stretches its columns to fill the box, so a page is the
+         VIEW plus the gutter -- not the column width the stylesheet asked for.
+         Getting this wrong put every page after the first out by one gutter. */
+      var pitch = reader.viewportExtent();
+      t.eq('a page is the view plus the gutter', pitch, host.clientWidth + 48);
+      var pages = Math.floor((host.scrollWidth - host.clientWidth) / pitch);
+      t.check('the fixture is more than one page long', pages >= 1,
+              pages + ' turnable pages');
+
+      /* Every page must sit exactly on a column boundary, the last one
+         included: land between two and the page shows halves of both. */
+      reader.scrollToEnd();
+      t.eq('the last page sits on a column boundary', reader.scrollPosition() % pitch, 0);
+      t.check('and it is the furthest page there is',
+              reader.scrollPosition() === pages * pitch,
+              reader.scrollPosition() + ' vs ' + (pages * pitch));
+      reader.scrollToStart();
+
+      await reader.nextPage();
+      t.eq('a page turn advances exactly one page', reader.scrollPosition(), pitch);
+      await reader.prevPage();
+      t.eq('and back again', reader.scrollPosition(), 0);
+
+      /* Whole pages only. A vim j asks for 64px, which must neither round down
+         to standing still nor leave the view between two columns showing half
+         of each. */
+      reader.scrollBy(64);
+      t.eq('a small motion still turns a whole page', reader.scrollPosition(), pitch);
+      reader.scrollBy(-64);
+      t.eq('and a small motion back returns exactly', reader.scrollPosition(), 0);
+
+      /* If nothing straddled a break the fragment handling would be untested,
+         so this is asserted rather than assumed. */
+      var straddling = 0;
+      for (var bi = 0; bi < reader.content.children.length; bi++) {
+        if (reader.content.children[bi].getClientRects().length > 1) straddling++;
+      }
+      t.check('the fixture has a block straddling a page break', straddling > 0,
+              'nothing spans two columns; the fragment path is not exercised');
+
+      /* The anchor must name a block that is genuinely on the current page. An
+         indented paragraph broke this: measured in raw pixels rather than in
+         columns, a block whose page had already been turned still looked as
+         though it were on screen. */
+      reader.scrollBy(pitch);
+      var here = Math.round(reader.scrollPosition() / pitch);
+      var named = reader.captureAnchor().index;
+      var namedRects = reader.content.children[named].getClientRects();
+      var hostX = reader.mount.getBoundingClientRect().left;
+      var cols = [];
+      for (var fr = 0; fr < namedRects.length; fr++) {
+        cols.push(Math.round((namedRects[fr].left - hostX + reader.scrollPosition()) / pitch));
+      }
+      t.check('the anchor names a block that is on this page',
+              cols.indexOf(here) >= 0,
+              'page ' + here + ', but block ' + named + ' occupies column(s) ' + cols.join(','));
+
+      var pagedAt = reader.scrollPosition();
+      var pagedAnchor = reader.captureAnchor();
+      t.check('an anchor taken while paged names a real block',
+              !!pagedAnchor && pagedAnchor.index >= 0, JSON.stringify(pagedAnchor));
+      reader.scrollToStart();
+      t.eq('moved away first', reader.scrollPosition(), 0);
+      reader.restoreAnchor(pagedAnchor);
+      t.eq('and it restores to the same page', reader.scrollPosition(), pagedAt);
+
+      await reader.setPaged(false);
+      t.eq('leaving pages restores the scroller', reader.scrollerKind(), 'element');
+      t.check('and the position crosses between the two layouts',
+              reader.captureAnchor().index === pagedAnchor.index,
+              'was block ' + pagedAnchor.index + ', now ' + reader.captureAnchor().index);
+
+      /* A caller that resizes the reading column on its way out must be able to
+         hand over the position it read BEFORE resizing. Focus mode does exactly
+         that -- it reopens the sidebar and puts two strips back in the flow --
+         and the columns re-break against the new box the instant it happens, so
+         an anchor taken afterwards describes pages nobody ever saw. */
+      await reader.setPaged(true);
+      reader.scrollBy(reader.viewportExtent());
+      var handOver = reader.captureAnchor();
+      stage.style.height = '260px';            // the resize, before the handover
+      await reader.setPaged(false, handOver);
+      t.eq('an anchor handed in is the one that is restored',
+           reader.captureAnchor().index, handOver.index);
+      stage.style.height = '400px';
+
+      /* Leaving pages must come back to the scroller the CURRENT width calls
+         for. A book opened narrow and then widened used to be handed back the
+         phone's document scroller on a desktop layout, because the choice made
+         when the reader was built was the only one remembered. */
+      reader.setScroller(function () { return App.reader.documentScroller(function () { return 0; }); });
+      t.eq('a swapped-in scroller takes effect', reader.scrollerKind(), 'document');
+      await reader.setPaged(true);
+      t.eq('pages win over it while they are on', reader.scrollerKind(), 'paged');
+      await reader.setPaged(false);
+      t.eq('and leaving them returns the swapped-in one, not the original',
+           reader.scrollerKind(), 'document');
+      reader.setScroller(null);
+      t.eq('and clearing it goes back to the element', reader.scrollerKind(), 'element');
+      reader.scrollToStart();
+
       // ---- vim keys ----
       var calls = [];
       var vim = App.keys.create({

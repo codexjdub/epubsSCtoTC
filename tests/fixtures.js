@@ -226,11 +226,23 @@
 
   /* A chapter long enough to overflow a test viewport, so scrolling and the
    * vim motions have something real to act on. */
+  /* Paragraph lengths vary on purpose. Sixty identical paragraphs tile a
+   * column exactly, so no block ever straddled a page break and the reader's
+   * column-fragment handling -- the part that cannot use a bounding box --
+   * went entirely untested. One paragraph is deliberately taller than a whole
+   * page, so it must span more than one. */
   function longProse(n) {
+    var sentence = '她的头发很长，房间很干净，里面有人在吃面条，' +
+                   '老板和皇后都在松树下面放松。';
     var out = [];
     for (var i = 1; i <= n; i++) {
-      out.push('<p id="lp' + i + '">第' + i + '段：她的头发很长，房间很干净，' +
-               '里面有人在吃面条，老板和皇后都在松树下面放松。</p>');
+      var repeat = i === 7 ? 14 : 1 + (i % 4);
+      /* Every fifth paragraph is indented, the way real books indent block
+         quotations. The reader's page anchor has to measure in columns rather
+         than pixels to survive it. */
+      var indent = i % 5 === 0 ? ' style="margin-left:32px"' : '';
+      out.push('<p id="lp' + i + '"' + indent + '>第' + i + '段：' +
+               new Array(repeat + 1).join(sentence) + '</p>');
     }
     return out.join('\n');
   }

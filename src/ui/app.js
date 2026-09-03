@@ -278,12 +278,19 @@
       reader.state.path = e.path;
       pos.index = e.index;
       pos.total = e.total;
-      /* A new chapter starts at the top, so the pager belongs on screen. */
-      if (api.tuckPager) api.tuckPager(false);
+      /* A new chapter starts at the top, so the pager belongs on screen --
+         unless focus mode has deliberately put it away. Switching into that
+         mode re-renders the chapter, which is how the strip it had just tucked
+         came straight back. */
+      var paged = !!(api.focusOn && api.focusOn());
+      if (api.tuckPager && !paged) api.tuckPager(false);
       lastViewerScroll = 0;
       renderPosition();
-      el.prev.disabled = e.index === 0;
-      el.next.disabled = e.index === e.total - 1;
+      /* Those buttons turn PAGES while paginating, so a chapter boundary is no
+         longer the end of what they can do. The reader stops itself at the two
+         ends of the book. */
+      el.prev.disabled = !paged && e.index === 0;
+      el.next.disabled = !paged && e.index === e.total - 1;
       highlightToc(e.path);
     });
     reader.on('progress', renderPosition);
@@ -726,8 +733,10 @@
     });
 
     el.back.addEventListener('click', function () { current.reader.back(); });
-    el.prev.addEventListener('click', function () { current.reader.prev(); });
-    el.next.addEventListener('click', function () { current.reader.next(); });
+    /* Pages while paginating, chapters otherwise -- the reader decides, so
+       nothing here has to know which mode is in force. */
+    el.prev.addEventListener('click', function () { current.reader.prevPage(); });
+    el.next.addEventListener('click', function () { current.reader.nextPage(); });
 
 
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
@@ -858,8 +867,12 @@
       if (on === focusMode.on) return;
       if (on && isNarrow()) return;
 
-      var reader = current.reader;
-      var anchor = reader ? reader.captureAnchor() : null;
+      /* FIRST, before a single class changes. Everything below resizes the
+         reading column -- the sidebar returns, the two strips rejoin the flow
+         -- and a paged column re-breaks the moment its width or height moves.
+         Captured afterwards, the position would be read off a set of pages
+         that were never on screen, and leaving focus mode landed a page early. */
+      var anchor = current.reader ? current.reader.captureAnchor() : null;
 
       if (on) {
         closeDropdowns(null);
@@ -871,7 +884,7 @@
       tuckPager(on);
       if (!on) setDrawer(focusMode.sidebarWas);
 
-      if (anchor && reader) reader.restoreAnchor(anchor);
+      if (current.reader) current.reader.setPaged(on, anchor);
       if (on) goFullscreen(); else leaveFullscreen();
       syncFocus();
     }
@@ -879,7 +892,22 @@
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
+      /* The buttons turn pages in focus mode, so they have to say so. They are
+         tucked away most of the time, but a revealed pager offering 下一章 that
+         advances one page would be lying. */
+      el.prev.textContent = S(focusMode.on ? 'pager.prevPage' : 'pager.prev');
+      el.next.textContent = S(focusMode.on ? 'pager.nextPage' : 'pager.next');
     }
+
+    /* The empty margins either side of the page turn it: the only control a
+       paged view needs, and the only one it shows. A click inside the column
+       falls through to the reader, where the marks and links live. */
+    el.viewer.addEventListener('click', function (ev) {
+      if (!focusMode.on || !current.reader) return;
+      var box = current.reader.mount.getBoundingClientRect();
+      if (ev.clientX < box.left) current.reader.prevPage();
+      else if (ev.clientX > box.right) current.reader.nextPage();
+    });
 
     /* The way back to the chrome without leaving the mode: approach the edge it
        lives on, as a video player does it. Toggling a class to the value it
@@ -942,8 +970,16 @@
      * event is missed the sidebar stays collapsed on a wide window. Only acts
      * when the breakpoint side actually changed, so it stays cheap. */
     var wasNarrow = isNarrow();
+    /* Column geometry is in pixels, so a resized window has to re-derive it.
+       Debounced because a drag fires this continuously and each one re-renders
+       the chapter; the reader ignores the call unless it is paginating. */
+    var repaginateTimer = null;
     window.addEventListener('resize', function () {
       if (isNarrow() !== wasNarrow) { wasNarrow = isNarrow(); settleForWidth(); }
+      if (repaginateTimer) clearTimeout(repaginateTimer);
+      repaginateTimer = setTimeout(function () {
+        if (current.reader) current.reader.repaginate();
+      }, 150);
     });
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
@@ -1030,8 +1066,8 @@
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
       if (ev.key === 'Escape' && focusMode.on) { setFocus(false); return; }
-      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.next();
-      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prev();
+      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.nextPage();
+      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prevPage();
     });
   }
 

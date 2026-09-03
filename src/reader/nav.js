@@ -36,6 +36,43 @@
     return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
   }
 
+  var PAGE_GAP = 48;          // gutter between one page and the next, in px
+
+  /* Paged layout.
+   *
+   * The text flows into CSS columns exactly one page wide, so turning a page is
+   * a horizontal scroll of one column plus its gutter. There is no declarative
+   * way to say "one column exactly this wide", so the geometry is computed in
+   * pixels here and recomputed on every render -- which is what makes a resize
+   * or a font-size change re-paginate rather than smear.
+   *
+   * The frame is !important because the book's own `body` rule is scoped to
+   * :host and lands after this one. That is not hypothetical: this book's cover
+   * sets `body { margin: 0; padding: 0 }`, which in scroll mode merely pushes
+   * the cover to the left edge and here would take the page geometry apart.
+   *
+   * Horizontal padding is zero on purpose: with none, the border box and the
+   * content box are the same width, so the column pitch is exactly
+   * clientWidth -- one number, read the same way by the CSS and by the
+   * scroller. The gutter provides the breathing room instead.
+   */
+  function pagedCss(mount, scale) {
+    var parent = mount.parentNode;
+    var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
+    var avail = parent.clientWidth || 600;
+    var width = Math.max(240, Math.min(38 * base * scale, avail));
+    var col = Math.max(160, width - PAGE_GAP);
+    return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
+           'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
+           'height: 100% !important; overflow: hidden !important; ' +
+           'padding: 1em 0 !important; ' +
+           'column-width: ' + Math.round(col) + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
+           'column-fill: auto; }\n' +
+           /* A figure taller than the page would otherwise open a column
+              nothing can scroll to the bottom of. */
+           ':host img, :host svg { max-height: 88%; }\n';
+  }
+
   function hashKey(book) {
     /* Content identity when we have it. The metadata seed is only a fallback
      * for books assembled without going through parse.load, and carries the
@@ -82,6 +119,15 @@
    * element scroller they are the same box; for a document scroller they are
    * not, and reading the element's rect there returns the whole page.
    */
+  /* Where a block sits relative to the leading edge, down the page. Shared by
+   * both scrolling implementations; the paged one measures across instead, and
+   * cannot use a bounding box at all. */
+  function verticalMeasure(el, box) {
+    var rect = el.getBoundingClientRect();
+    if (rect.height <= 0) return null;
+    return { size: rect.height, past: box.top - rect.top };
+  }
+
   function elementScroller(element) {
     return {
       kind: 'element',
@@ -96,6 +142,14 @@
        * where the element sits in the window. */
       inset: function () { return 0; },
       scrollBy: function (delta) { element.scrollBy({ top: delta, behavior: 'auto' }); },
+      measure: verticalMeasure,
+      alignStart: function (el, fraction) {
+        el.scrollIntoView({ block: 'start' });
+        if (fraction) {
+          var rect = el.getBoundingClientRect();
+          if (rect.height) element.scrollBy({ top: fraction * rect.height, behavior: 'auto' });
+        }
+      },
       listen: function (fn) { element.addEventListener('scroll', fn, { passive: true }); },
       unlisten: function (fn) { element.removeEventListener('scroll', fn); }
     };
@@ -134,9 +188,105 @@
        * area starts below the fixed chrome. */
       inset: function () { return top(); },
       scrollBy: function (delta) { window.scrollBy({ top: delta, behavior: 'auto' }); },
+      measure: verticalMeasure,
+      /* scrollIntoView aligns a block to the top of the WINDOW; the anchor is
+       * measured from the top of the READABLE area, which sits below the fixed
+       * chrome. Uncorrected, the two disagree by exactly the height of that
+       * chrome and every restored position lands underneath it. */
+      alignStart: function (el, fraction) {
+        el.scrollIntoView({ block: 'start' });
+        var chrome = top();
+        if (chrome) doc.scrollTop = doc.scrollTop - chrome;
+        if (fraction) {
+          var rect = el.getBoundingClientRect();
+          if (rect.height) window.scrollBy({ top: fraction * rect.height, behavior: 'auto' });
+        }
+      },
       listen: function (fn) { window.addEventListener('scroll', fn, { passive: true }); },
       unlisten: function (fn) { window.removeEventListener('scroll', fn); }
     };
+  }
+
+  /* Pages instead of a scroll.
+   *
+   * The same interface, reading across instead of down: `top` is the horizontal
+   * offset, `extent` is one page, and the content runs sideways. Everything
+   * positional assumes the view sits exactly on a column boundary, so every
+   * move through here is quantised to whole pages -- land between two and the
+   * page shows halves of both.
+   */
+  function pagedScroller(host) {
+    /* The column plus its gutter, and NOT the width asked for in the CSS.
+     * Multi-column stretches its columns to fill the box: ask for 560px inside
+     * 608 and you get one column of 608, so the distance from one page to the
+     * next is the view plus the gutter. Measured on a real chapter, the columns
+     * sat at 0, 656, 1312, 1968 in a 608px view -- and the maximum scroll,
+     * 1968, is exactly three of those. Using the view width alone put every
+     * page after the first out by 48px and left the last one showing halves of
+     * two columns. */
+    function pitch() { return (host.clientWidth || 1) + PAGE_GAP; }
+    function maxLeft() { return Math.max(0, host.scrollWidth - host.clientWidth); }
+    /* Floor rather than clamp: the boundary at or below the furthest scroll is
+     * always a whole page, where the raw maximum need not be. */
+    function lastPage() {
+      var p = pitch();
+      return Math.floor(maxLeft() / p) * p;
+    }
+    function snap(value) {
+      var p = pitch();
+      return Math.max(0, Math.min(lastPage(), Math.round(value / p) * p));
+    }
+    var api = {
+      kind: 'paged',
+      element: host,
+      top: function () { return host.scrollLeft; },
+      setTop: function (value) { host.scrollLeft = snap(value); },
+      extent: pitch,
+      /* Read the same way as a vertical scroller's: the furthest the leading
+         edge can travel, plus the one page still visible from there. Taken raw,
+         scrollWidth counts the view rather than the pitch and the progress
+         figure runs past 100% on the last page. */
+      contentExtent: function () { return lastPage() + pitch(); },
+      viewportRect: function () { return host.getBoundingClientRect(); },
+      inset: function () { return 0; },
+      /* Whole pages, and never none: a vim `j` asks for 64px, which would round
+         to no movement at all rather than to the next page. */
+      scrollBy: function (delta) {
+        if (!delta) return;
+        var p = pitch();
+        var pages = delta > 0 ? Math.max(1, Math.round(delta / p))
+                              : Math.min(-1, Math.round(delta / p));
+        host.scrollLeft = snap(snap(host.scrollLeft) + pages * p);
+      },
+      /* A block straddling a column break has ONE bounding box spanning both
+         columns and the gutter -- measured at 1248px across a 600px page -- so
+         the fragments have to be read one by one. Each is a page's worth of
+         this block, which makes the block's extent its fragment count.
+         
+         Counted in COLUMNS rather than pixels, because a book is free to indent
+         a paragraph: this one indents some by 32px, and measured raw that made
+         a block whose page had already been turned look as though it were still
+         on screen -- so the anchor named a block two pages back. Rounding to
+         the nearest column absorbs any indent smaller than half a page. */
+      measure: function (el, box) {
+        var rects = el.getClientRects();
+        if (!rects.length) return null;
+        var offset = Math.round((rects[0].left - box.left) / pitch());
+        return { size: rects.length, past: -offset };
+      },
+      /* The fraction picks which fragment, so a position captured mid-scroll in
+         a long block does not throw the reader back to that block's first page
+         when the same anchor is restored here. */
+      alignStart: function (el, fraction) {
+        var rects = el.getClientRects();
+        if (!rects.length) return;
+        var i = fraction ? Math.min(rects.length - 1, Math.floor(fraction * rects.length)) : 0;
+        host.scrollLeft = snap(host.scrollLeft + (rects[i].left - api.viewportRect().left));
+      },
+      listen: function (fn) { host.addEventListener('scroll', fn, { passive: true }); },
+      unlisten: function (fn) { host.removeEventListener('scroll', fn); }
+    };
+    return api;
   }
 
   function create(host, book, opts) {
@@ -166,6 +316,9 @@
        * helping. The toggle turns them on when someone wants to review. */
       showMarks: saved.showMarks === true,
       source: saved.source === 'original' ? 'original' : 'converted',
+      /* Pagination is a property of focus mode, which is deliberately not
+         remembered, so this is not persisted either. */
+      paged: false,
       overrides: saved.overrides || {},
       listeners: {}
     };
@@ -193,7 +346,13 @@
     /* Which one is the caller's decision: app.js knows the breakpoint and the
      * height of its own chrome. Defaults to the element, so anything creating
      * a reader without an opinion behaves as it always did. */
-    var scroll = opts.scroller ? opts.scroller(mount) : elementScroller(mount.parentNode);
+    /* The CURRENT choice, not the one made when the reader was built. Leaving
+     * paged mode has to come back to whichever scroller the width calls for
+     * now, and the breakpoint may well have moved since -- open a book narrow,
+     * widen the window, use focus mode, and the old code handed back the phone's
+     * document scroller on a desktop layout. */
+    var scrollerFactory = opts.scroller || null;
+    var scroll = baseScroller();
 
     function scrollPosition() { return scroll.top(); }
 
@@ -226,23 +385,12 @@
      * Instead: remember which block was at the leading edge and how far into
      * it we had read. Both survive reflow.
      */
-    function blockSize(rect) { return rect.height; }
-
-    /* How far the leading edge has moved past this block's start. */
-    function scrolledPast(rect, containerRect) {
-      return containerRect.top - rect.top;
-    }
-
-    /* scrollIntoView aligns a block to the top of the WINDOW; the anchor is
-     * measured from the top of the READABLE area, which sits below any fixed
-     * chrome. Uncorrected, the two disagree by exactly the height of that
-     * chrome and every restored position lands underneath it. */
-    function alignToReadableTop(el) {
-      el.scrollIntoView({ block: 'start' });
-      var inset = scroll.inset ? scroll.inset() : 0;
-      if (inset) scroll.setTop(scroll.top() - inset);
-    }
-
+    /* Which block, and how far into it -- asked of the scroller, because the
+     * answer depends on which way the text flows. Down the page it is a matter
+     * of heights and one bounding box; across pages it is a matter of column
+     * fragments, and a bounding box is actively wrong there. The anchor SHAPE
+     * is the same either way, which is what lets a position survive the move
+     * between the two. */
     function captureAnchor() {
       /* A destroyed reader must not answer. Its mount is detached, so the
        * scroll container is gone (parentNode is null) and the anchor it would
@@ -252,15 +400,13 @@
       if (!blocks.length) return null;
       var containerRect = scroll.viewportRect();
       for (var i = 0; i < blocks.length; i++) {
-        var rect = blocks[i].getBoundingClientRect();
-        var size = blockSize(rect);
-        if (size <= 0) continue;
-        var past = scrolledPast(rect, containerRect);
-        if (past < size) {
+        var m = scroll.measure(blocks[i], containerRect);
+        if (!m || m.size <= 0) continue;
+        if (m.past < m.size) {
           return {
             index: i,
             id: blocks[i].id || '',
-            fraction: Math.max(0, Math.min(1, past / size))
+            fraction: Math.max(0, Math.min(1, m.past / m.size))
           };
         }
       }
@@ -279,9 +425,7 @@
       if (!el) el = content.children[anchor.index] || null;
       if (!el) return false;
 
-      alignToReadableTop(el);
-      var offset = (anchor.fraction || 0) * blockSize(el.getBoundingClientRect());
-      if (offset) scrollBy(offset);
+      scroll.alignStart(el, anchor.fraction || 0);
       return true;
     }
 
@@ -438,7 +582,7 @@
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        modeCss() +
+        (state.paged ? pagedCss(mount, state.fontScale) : modeCss()) +
         alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
@@ -464,7 +608,7 @@
       if (fragment) {
         var anchor = content.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(fragment) : fragment));
         /* A footnote target lands under the bar otherwise, like any anchor. */
-        if (anchor && anchor.scrollIntoView) alignToReadableTop(anchor);
+        if (anchor && anchor.scrollIntoView) scroll.alignStart(anchor, 0);
       } else if (restoreScroll) {
         var pending = restoreScroll;
         restoreScroll = null;
@@ -517,6 +661,72 @@
     function next() { return show(state.index + 1); }
     function prev() { return show(state.index - 1); }
 
+    /* Page turns run off the end of a chapter into the next one, so the book
+     * reads as one sequence of pages rather than as a stack of chapters. In
+     * scroll mode there are no pages, so these stay the chapter controls they
+     * have always been and the callers need not know which mode they are in. */
+    function atLastPage() {
+      return scroll.top() + scroll.extent() >= scroll.contentExtent() - 2;
+    }
+
+    function nextPage() {
+      if (scroll.kind !== 'paged') return next();
+      if (!atLastPage()) {
+        scroll.scrollBy(scroll.extent());
+        persist();
+        return Promise.resolve(null);
+      }
+      /* Clamped rather than wrapped: show() clamps the index, so without this
+         the last page of the book would re-render the chapter and jump back to
+         its first page. */
+      if (state.index >= spineItems().length - 1) return Promise.resolve(null);
+      return next();
+    }
+
+    function prevPage() {
+      if (scroll.kind !== 'paged') return prev();
+      if (scroll.top() > 2) {
+        scroll.scrollBy(-scroll.extent());
+        persist();
+        return Promise.resolve(null);
+      }
+      if (state.index === 0) return Promise.resolve(null);
+      return prev().then(function (r) { scrollToEnd(); persist(); return r; });
+    }
+
+    function baseScroller() {
+      return scrollerFactory ? scrollerFactory(mount) : elementScroller(mount.parentNode);
+    }
+
+    /* Switching how the text flows is a re-render: the column geometry is
+     * written into the chapter's stylesheet. The anchor crosses over because
+     * both scrollers speak the same shape. */
+    /* `anchor` is for a caller that is about to change the layout around the
+     * reader, or has just done so. Capturing here would then measure a page
+     * that was never on screen: focus mode reopens the sidebar and puts its
+     * two strips back in the flow, and the columns re-break against the new
+     * width and height before this function is ever reached. Same failure the
+     * breakpoint swap already guards against, and the same remedy -- take the
+     * reading position while it still means something. */
+    function setPaged(on, anchor) {
+      on = !!on;
+      if (on === state.paged) return Promise.resolve(null);
+      anchor = anchor || captureAnchor();
+      state.paged = on;
+      scroll.unlisten(onScroll);
+      scroll = on ? pagedScroller(mount) : baseScroller();
+      scroll.listen(onScroll);
+      restoreScroll = anchor;
+      return show(state.index);
+    }
+
+    /* Column geometry is in pixels, so a resized window has to re-derive it.
+     * Cheap to call when nothing is paginated: it does nothing. */
+    function repaginate() {
+      if (!state.paged) return Promise.resolve(null);
+      return reflow(function () { /* geometry is read afresh by styleFor */ });
+    }
+
     /* Anything that reflows the text re-renders the chapter, so capture the
      * anchor first and put it back afterwards -- otherwise changing the font
      * size would throw the reader back to the top of the chapter. */
@@ -558,6 +768,10 @@
       goToPath: goToPath,
       next: next,
       prev: prev,
+      nextPage: nextPage,
+      prevPage: prevPage,
+      setPaged: setPaged,
+      repaginate: repaginate,
       setFontStyle: setFontStyle,
       fontStack: fontStack,
       setFontScale: setFontScale,
@@ -571,7 +785,11 @@
        * the listener moves across and the caller puts the position back. */
       setScroller: function (factory) {
         scroll.unlisten(onScroll);
-        scroll = factory ? factory(mount) : elementScroller(mount.parentNode);
+        scrollerFactory = factory || null;
+        /* Paged wins: it is the mode the reader is actually in, and the width
+           factory knows nothing about it. Leaving focus mode clears it first,
+           and comes back through the factory remembered here. */
+        scroll = state.paged ? pagedScroller(mount) : baseScroller();
         scroll.listen(onScroll);
         if (lastAnchor) restoreAnchor(lastAnchor);
         return scroll.kind;
@@ -606,4 +824,5 @@
   App.reader.alignCss = alignCss;
   App.reader.elementScroller = elementScroller;
   App.reader.documentScroller = documentScroller;
+  App.reader.pagedScroller = pagedScroller;
 })(window.App = window.App || {});

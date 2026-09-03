@@ -482,11 +482,45 @@
       t.check('it goes again in the middle of the page',
               fBar.classList.contains('tucked'), 'stayed visible');
 
+
+      /* Focus mode paginates: that is what it is for. */
+      t.eq('the text is laid out in pages', FW.App.ui.current.reader.scrollerKind(), 'paged');
+      var fHost = FW.App.ui.current.reader.mount;
+      t.check('which are wider than the view',
+              fHost.scrollWidth > fHost.clientWidth,
+              fHost.scrollWidth + ' vs ' + fHost.clientWidth);
+      t.eq('and the buttons say so', FD.getElementById('next').textContent, '下一頁 →');
+      t.check('the last chapter no longer disables them',
+              !FD.getElementById('prev').disabled,
+              'prev stayed disabled, so page one of the book is a dead end');
+
+      /* The margin either side of the page turns it. */
+      var atPage = FW.App.ui.current.reader.scrollPosition();
+      fViewer.dispatchEvent(new FW.MouseEvent('click', {
+        clientX: Math.round(fHost.getBoundingClientRect().right) + 20,
+        clientY: 400, bubbles: true
+      }));
+      await wait(60);
+      t.check('clicking the right margin turns the page',
+              FW.App.ui.current.reader.scrollPosition() > atPage,
+              'stayed at ' + atPage);
+      fViewer.dispatchEvent(new FW.MouseEvent('click', {
+        clientX: Math.round(fHost.getBoundingClientRect().left) - 20,
+        clientY: 400, bubbles: true
+      }));
+      await wait(60);
+      t.eq('and the left margin turns it back',
+           FW.App.ui.current.reader.scrollPosition(), atPage);
+
       FD.dispatchEvent(new FW.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await wait(80);
       t.check('Esc leaves focus mode', !FW.App.ui.focusOn(), 'still in focus mode');
       t.eq('the bar rejoins the flow', FW.getComputedStyle(fBar).position, 'relative');
       t.check('and the contents come back', FW.App.ui.drawerOpen(), 'sidebar stayed shut');
+      t.eq('and the text goes back to scrolling',
+           FW.App.ui.current.reader.scrollerKind(), 'element');
+      t.eq('with the chapter buttons named again',
+           FD.getElementById('next').textContent, '下一章 →');
       foc.remove();
 
       /* Below the breakpoint the strips already tuck themselves as you read, so
