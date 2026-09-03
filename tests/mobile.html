@@ -553,6 +553,37 @@
       t.eq('and the pager follows the layout',
            OD.getElementById('next').textContent, '下一頁 →');
 
+      /* The page keeps the same band clear of the screen edge whether or not
+         the chrome is there to help: measured from the screen, because that is
+         the distance the eye reads. A share of the page BOX instead left only
+         383px of text in an 800px window once the chrome's 117px was added on
+         top of it. */
+      function bandAbove(w, d) {
+        var m = w.App.ui.current.reader.mount;
+        return m.getBoundingClientRect().top + parseFloat(w.getComputedStyle(m).paddingTop);
+      }
+      function bandBelow(w, d) {
+        var m = w.App.ui.current.reader.mount;
+        return w.innerHeight - m.getBoundingClientRect().bottom +
+               parseFloat(w.getComputedStyle(m).paddingBottom);
+      }
+      var want = Math.round(OW.innerHeight * 0.15);
+      t.check('the page clears the top of the screen by its share',
+              Math.abs(bandAbove(OW) - want) <= 2,
+              Math.round(bandAbove(OW)) + 'px, wanted ' + want);
+      t.check('and the bottom of it too',
+              Math.abs(bandBelow(OW) - want) <= 2,
+              Math.round(bandBelow(OW)) + 'px, wanted ' + want);
+
+      OW.App.ui.setFocus(true); await wait(350);
+      t.check('and keeps the same band once focus mode removes the chrome',
+              Math.abs(bandAbove(OW) - want) <= 2,
+              Math.round(bandAbove(OW)) + 'px, wanted ' + want);
+      t.check('top and bottom alike',
+              Math.abs(bandBelow(OW) - want) <= 2,
+              Math.round(bandBelow(OW)) + 'px, wanted ' + want);
+      OW.App.ui.setFocus(false); await wait(350);
+
       /* Focus mode BORROWS pages and hands back what was set before it. */
       OW.App.ui.setFocus(true);  await wait(300);
       t.eq('focus mode keeps them on', kind(), 'paged');

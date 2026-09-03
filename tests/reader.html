@@ -806,9 +806,20 @@
       var up = App.reader.create(upHost, longBook, { paged: true });
       await up.show(0);
       t.eq('a reader can start paginated', up.scrollerKind(), 'paged');
+      /* How big the inset is depends on where the box sits on the SCREEN, which
+         a detached test host cannot pin down -- that proportion is asserted
+         against real window geometry in the responsive suite. What must hold
+         anywhere is the floor, and that the page is shorter than its box. */
       var upCs = window.getComputedStyle(up.mount);
-      t.eq('the page is inset from the top by the gutter', upCs.paddingTop, '48px');
-      t.eq('and from the bottom by the same', upCs.paddingBottom, '48px');
+      t.check('the page is inset from the top by at least the gutter',
+              parseFloat(upCs.paddingTop) >= 48, upCs.paddingTop);
+      t.check('and from the bottom by at least the gutter',
+              parseFloat(upCs.paddingBottom) >= 48, upCs.paddingBottom);
+      t.check('so the page is shorter than the box holding it',
+              up.mount.clientHeight -
+                parseFloat(upCs.paddingTop) - parseFloat(upCs.paddingBottom) <
+                up.mount.clientHeight - 90,
+              'no vertical inset worth the name');
       var upHostTop = up.mount.getBoundingClientRect().top;
       var upFirstTop = up.content.children[0].getBoundingClientRect().top;
       t.check('so the text starts below the edge rather than against it',

@@ -69,10 +69,18 @@
    * clientWidth -- one number, read the same way by the CSS and by the
    * scroller. The gutter provides the breathing room instead.
    *
-   * Vertically it is the gutter, so one constant governs every space around a
-   * page: as much room above and below a page as there is between one page and
-   * the next. It also means the page is shorter than the reading area rather
-   * than filling it edge to edge.
+   * Vertically it is a share of the SCREEN, counting whatever chrome already
+   * stands between the page and the edge -- because that distance is the one
+   * the eye actually reads.
+   *
+   * A fixed 48px looked bounded while the toolbar and the pager framed it, and
+   * looked full-height the moment focus mode took them away: on an 800px window
+   * the text ran to 48px off the bottom edge with 336px of empty space either
+   * side of it. Measuring the share against the page BOX instead over-corrects
+   * the other way -- the chrome's 117px then sits on top of the page's own
+   * inset, leaving 383px of text in an 800px window. Measured from the screen,
+   * both modes hold the same band: the toolbar and pager simply count towards
+   * it, and the padding makes up the difference.
    */
   function pagedCss(mount, scale) {
     var parent = mount.parentNode;
@@ -80,10 +88,19 @@
     var avail = parent.clientWidth || 600;
     var width = Math.max(240, Math.min(38 * base * scale, avail));
     var col = Math.max(160, width - PAGE_GAP);
+    /* The band the page keeps clear of each screen edge, and what the chrome
+       already contributes to it. In focus mode the strips are out of the flow,
+       so both contributions are zero and the padding carries the whole band. */
+    var band = (window.innerHeight || 800) * 0.15;
+    var box = parent.getBoundingClientRect();
+    var above = Math.max(0, box.top);
+    var below = Math.max(0, (window.innerHeight || 800) - box.bottom);
+    var padTop = Math.max(PAGE_GAP, Math.round(band - above));
+    var padBottom = Math.max(PAGE_GAP, Math.round(band - below));
     return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
            'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
            'height: 100% !important; overflow: hidden !important; ' +
-           'padding: ' + PAGE_GAP + 'px 0 !important; ' +
+           'padding: ' + padTop + 'px 0 ' + padBottom + 'px !important; ' +
            'column-width: ' + Math.round(col) + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
            'column-fill: auto; }\n' +
            /* A figure taller than the page would otherwise open a column
