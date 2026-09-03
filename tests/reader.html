@@ -828,6 +828,101 @@
       up.destroy();
       upHost.remove();
 
+
+      // ---- line width ----
+      /* The measure is the reader's, not the book's, and it has to move both
+         layouts: in pages it also sets the page width and therefore the
+         distance from one page to the next.
+
+         A wide host, so the measure is what limits the column rather than the
+         container -- the point that makes this control inert on a phone. */
+      var wideHost = document.createElement('div');
+      wideHost.style.cssText =
+        'position:absolute;left:-9999px;width:1000px;height:400px;overflow:auto';
+      document.body.appendChild(wideHost);
+      var wr = App.reader.create(wideHost, longBook);
+      await wr.show(0);
+      var at38 = wr.mount.getBoundingClientRect().width;
+      t.check('the default measure is what limits the column, not the box',
+              at38 < 900, Math.round(at38) + 'px inside 1000px');
+
+      await wr.setMeasure(28);
+      var at28 = wr.mount.getBoundingClientRect().width;
+      t.check('a narrower measure narrows the column', at28 < at38 - 100,
+              Math.round(at38) + 'px -> ' + Math.round(at28) + 'px');
+      await wr.setMeasure(48);
+      var at48 = wr.mount.getBoundingClientRect().width;
+      t.check('and a wider one widens it', at48 > at38 + 100,
+              Math.round(at38) + 'px -> ' + Math.round(at48) + 'px');
+
+      /* Changing it reflows the text, so the reading position has to ride
+         across the same way it does for a font-size change. */
+      await wr.setMeasure(38);
+      wr.scrollBy(700);
+      var wBefore = wr.captureAnchor();
+      var wText = wr.content.children[wBefore.index].textContent.slice(0, 12);
+      await wr.setMeasure(30);
+      var wAfter = wr.captureAnchor();
+      t.eq('the reading position survives a width change',
+           wr.content.children[wAfter.index].textContent.slice(0, 12), wText);
+
+      /* A rubbish value must not collapse the column -- in pages that would
+         take the pitch with it and the reader would stop moving. */
+      await wr.setMeasure(0);
+      t.check('a nonsense measure is refused', wr.mount.getBoundingClientRect().width > 100,
+              Math.round(wr.mount.getBoundingClientRect().width) + 'px wide');
+
+      await wr.setPaged(true);
+      await wr.setMeasure(30);
+      var pitch30 = wr.viewportExtent();
+      await wr.setMeasure(46);
+      var pitch46 = wr.viewportExtent();
+      t.check('the page width follows the measure too', pitch46 > pitch30 + 100,
+              pitch30 + 'px -> ' + pitch46 + 'px');
+      t.eq('and a page is still the column plus the gutter',
+           pitch46, wr.mount.clientWidth + 48);
+
+      /* A RUN of adjustments must not walk backwards. A paged position can only
+         be named to the nearest page, so re-reading it from each freshly broken
+         layout compounds that rounding: on a real book five width changes lost
+         two pages and put the paragraph being read off screen. */
+      await wr.setMeasure(38);
+      wr.scrollBy(wr.viewportExtent());        // a real move, ending any run
+      var watched = wr.captureAnchor().index;
+      function watchedIsOnThePage() {
+        var pitch = wr.viewportExtent();
+        var hostX = wr.mount.getBoundingClientRect().left;
+        var at = wr.scrollPosition();
+        var page = Math.round(at / pitch);
+        var rects = wr.content.children[watched].getClientRects();
+        for (var ri = 0; ri < rects.length; ri++) {
+          if (Math.round((rects[ri].left - hostX + at) / pitch) === page) return true;
+        }
+        return false;
+      }
+      t.check('the watched block is on the page to begin with',
+              watchedIsOnThePage(), 'the test proves nothing from here');
+      var lost = [];
+      var widths = [30, 44, 26, 50, 38];
+      for (var wi = 0; wi < widths.length; wi++) {
+        await wr.setMeasure(widths[wi]);
+        if (!watchedIsOnThePage()) lost.push(widths[wi]);
+      }
+      t.eq('and a run of width changes never loses it', lost.join(','), '');
+
+      /* Remembered like every other reading preference. */
+      await wr.setPaged(false);
+      await wr.setMeasure(30);
+      wr.destroy();
+      var wr2 = App.reader.create(wideHost, longBook);
+      await wr2.show(0);
+      t.eq('and the next reader opens with it', wr2.state.measure, 30);
+      /* Back to the default: this preference is shared by every test page on
+         this origin, and a stray 30 would follow the suite around. */
+      await wr2.setMeasure(38);
+      wr2.destroy();
+      wideHost.remove();
+
       // ---- a book must not knock the column off-centre ----
       /* The book's `body` rule is scoped to :host and lands after the reader's
          own, so it wins on ties. That is right for typography and wrong for

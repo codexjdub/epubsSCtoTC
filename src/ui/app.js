@@ -343,6 +343,7 @@
       App.readingFonts.effectiveStyle(reader.state.fontStyle, bookLanguage(book));
     syncMarksLabel();
     el.lineHeight.value = reader.state.lineHeight;
+    el.measure.value = reader.state.measure;
     el.align.value = reader.state.align;
     syncSource();
     if (api.syncPaged) api.syncPaged();
@@ -608,6 +609,7 @@
     el.app = $('app');
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
+    el.measure = $('measure');
     el.align = $('align');
     el.exportFormat = $('exportFormat');
     el.exportPanel = $('exportPanel');
@@ -1077,6 +1079,9 @@
     });
     el.lineHeight.addEventListener('input', function () {
       if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
+    });
+    el.measure.addEventListener('input', function () {
+      if (current.reader) current.reader.setMeasure(parseFloat(this.value));
     });
 
     /* "Publisher" is the default and the honest one: most EPUBs set their own

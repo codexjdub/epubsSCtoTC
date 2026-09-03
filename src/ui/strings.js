@@ -44,6 +44,7 @@
     /* ---- reading settings ---- */
     'panel.typeface.title': '字體',
     'panel.leading': '行距',
+    'panel.measure': '行寬',
     'panel.align.title': '對齊方式',
     'panel.focus': '專注閱讀',
     'panel.focus.title': '只留下正文，按 Esc 離開',

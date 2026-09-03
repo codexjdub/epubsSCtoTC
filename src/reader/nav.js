@@ -44,8 +44,9 @@
    * along with everything else; the width is already capped by max-width, so a
    * book cannot bleed to the edges either way and nothing it might legitimately
    * want is taken from it. */
-  function modeCss() {
-    return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n' +
+  function modeCss(measure) {
+    return ':host { writing-mode: horizontal-tb; max-width: ' + measure +
+           'em; margin: 0 auto; padding: 1em; }\n' +
            ':host { margin-left: auto !important; margin-right: auto !important; }\n';
   }
 
@@ -82,11 +83,11 @@
    * both modes hold the same band: the toolbar and pager simply count towards
    * it, and the padding makes up the difference.
    */
-  function pagedCss(mount, scale) {
+  function pagedCss(mount, scale, measure) {
     var parent = mount.parentNode;
     var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
     var avail = parent.clientWidth || 600;
-    var width = Math.max(240, Math.min(38 * base * scale, avail));
+    var width = Math.max(240, Math.min(measure * base * scale, avail));
     var col = Math.max(160, width - PAGE_GAP);
     /* The band the page keeps clear of each screen edge, and what the chrome
        already contributes to it. In focus mode the strips are out of the flow,
@@ -309,6 +310,25 @@
         var offset = Math.round((rects[0].left - box.left) / pitch());
         return { size: rects.length, past: -offset };
       },
+      /* Prefer a block that BEGINS on this page. Where a block starts is a
+         content point that survives any reflow exactly; a fraction into a block
+         that merely REACHES the page has to be requantised against a new
+         fragment count, and that requantisation ratchets backwards -- measured
+         across five width changes on a real book, it lost two pages and put the
+         paragraph being read off screen. Only a page with no block start on it
+         at all needs the fraction, and then only until the next one does.
+         Returning null hands back to the shared measurement. */
+      anchorFor: function (blocks, box) {
+        var p = pitch();
+        for (var i = 0; i < blocks.length; i++) {
+          var rects = blocks[i].getClientRects();
+          if (!rects.length) continue;
+          var at = Math.round((rects[0].left - box.left) / p);
+          if (at === 0) return { index: i, id: blocks[i].id || '', fraction: 0 };
+          if (at > 0) break;              // begins later; none begins here
+        }
+        return null;
+      },
       /* The fraction picks which fragment, so a position captured mid-scroll in
          a long block does not throw the reader back to that block's first page
          when the same anchor is restored here. */
@@ -344,6 +364,10 @@
         ? pref('fontStyle') : App.readingFonts.DEFAULT,
       fontScale: pref('fontScale', 1),
       lineHeight: pref('lineHeight', 1.9),
+      /* How wide a line runs, in ems of the reading size -- so it holds its
+         character count when the text is enlarged. 38 is about 38 Chinese
+         characters, or 70 Latin ones. */
+      measure: pref('measure', 38),
       align: pref('align', 'default'),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
@@ -439,6 +463,12 @@
       var blocks = content.children;
       if (!blocks.length) return null;
       var containerRect = scroll.viewportRect();
+      /* A scroller may know a steadier way to name this position than "how far
+         into the block at the leading edge" -- see the paged one. */
+      if (scroll.anchorFor) {
+        var preferred = scroll.anchorFor(blocks, containerRect);
+        if (preferred) return preferred;
+      }
       for (var i = 0; i < blocks.length; i++) {
         var m = scroll.measure(blocks[i], containerRect);
         if (!m || m.size <= 0) continue;
@@ -481,6 +511,7 @@
         fontStyle: state.fontStyle,
         fontScale: state.fontScale,
         lineHeight: state.lineHeight,
+        measure: state.measure,
         align: state.align
       });
     }
@@ -622,7 +653,8 @@
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        (state.paged ? pagedCss(mount, state.fontScale) : modeCss()) +
+        (state.paged ? pagedCss(mount, state.fontScale, state.measure)
+                     : modeCss(state.measure)) +
         alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
         chapterCss;
@@ -680,6 +712,7 @@
     }
 
     function back() {
+      navigated();
       var previous = trail.pop();
       emit('trail', { depth: trail.length });
       if (!previous) return Promise.resolve(null);
@@ -688,6 +721,7 @@
     }
 
     function goToPath(path, fragment) {
+      navigated();
       var items = spineItems();
       for (var i = 0; i < items.length; i++) {
         if (items[i].item.path === path) return show(i, fragment);
@@ -698,8 +732,8 @@
       return Promise.resolve(null);
     }
 
-    function next() { return show(state.index + 1); }
-    function prev() { return show(state.index - 1); }
+    function next() { navigated(); return show(state.index + 1); }
+    function prev() { navigated(); return show(state.index - 1); }
 
     /* Page turns run off the end of a chapter into the next one, so the book
      * reads as one sequence of pages rather than as a stack of chapters. In
@@ -710,6 +744,7 @@
     }
 
     function nextPage() {
+      navigated();
       if (scroll.kind !== 'paged') return next();
       if (!atLastPage()) {
         scroll.scrollBy(scroll.extent());
@@ -724,6 +759,7 @@
     }
 
     function prevPage() {
+      navigated();
       if (scroll.kind !== 'paged') return prev();
       if (scroll.top() > 2) {
         scroll.scrollBy(-scroll.extent());
@@ -774,9 +810,37 @@
 
     /* Anything that reflows the text re-renders the chapter, so capture the
      * anchor first and put it back afterwards -- otherwise changing the font
-     * size would throw the reader back to the top of the chapter. */
+     * size would throw the reader back to the top of the chapter.
+     *
+     * A RUN of adjustments maps from where the run began, not from where the
+     * last one landed. In pages the position can only be named to the nearest
+     * page, so re-reading it from each freshly broken layout compounds that
+     * rounding and walks backwards: measured on a real book, five width changes
+     * lost two pages and put the paragraph being read off screen. Mapping every
+     * change from the same starting position stops the error accumulating.
+     *
+     * A run is "changes that keep coming", which is exactly what dragging a
+     * slider or holding A+ produces. Pause, or navigate, and the next change
+     * reads the position afresh -- by then it is the reader's real place in the
+     * book again, not an artefact of the last adjustment.
+     *
+     * Only pages chain. A scrolled anchor names a block AND a fraction of its
+     * height, which survives a reflow intact, so re-reading it costs nothing
+     * and cannot drift -- while chaining there WOULD be wrong, because the
+     * reader can scroll the text by hand between two adjustments and nothing
+     * here would hear about it. */
+    var RUN_MS = 2500;
+    var runAnchor = null;
+    var runUntil = 0;
+
+    function navigated() { runAnchor = null; }
+
     function reflow(mutate) {
-      var anchor = captureAnchor();
+      var now = Date.now();
+      var chain = state.paged && runAnchor && now < runUntil;
+      var anchor = chain ? runAnchor : captureAnchor();
+      runAnchor = anchor;
+      runUntil = now + RUN_MS;
       mutate();
       restoreScroll = anchor;
       return show(state.index);
@@ -789,6 +853,15 @@
     }
     function setFontScale(scale) { return reflow(function () { state.fontScale = scale; }); }
     function setLineHeight(v) { return reflow(function () { state.lineHeight = v; }); }
+    /* Guarded more widely than the control offers, because a bad value here
+       does not merely look wrong -- a zero or negative measure collapses the
+       column, and in pages the pitch with it. */
+    function setMeasure(v) {
+      return reflow(function () {
+        var n = parseFloat(v);
+        state.measure = isNaN(n) ? 38 : Math.max(16, Math.min(60, n));
+      });
+    }
     function setAlign(v) {
       return reflow(function () {
         state.align = (v === 'left' || v === 'justify') ? v : 'default';
@@ -821,6 +894,7 @@
       fontStack: fontStack,
       setFontScale: setFontScale,
       setLineHeight: setLineHeight,
+      setMeasure: setMeasure,
       setAlign: setAlign,
       setShowMarks: setShowMarks,
       setSource: setSource,
@@ -849,9 +923,12 @@
       },
       captureAnchor: captureAnchor,
       restoreAnchor: restoreAnchor,
-      scrollBy: scrollBy,
-      scrollToStart: scrollToStart,
-      scrollToEnd: scrollToEnd,
+      /* Wrapped rather than exposed raw: a move the READER asked for ends the
+         run of adjustments, while the same helpers called from inside a
+         re-render must not. */
+      scrollBy: function (delta) { navigated(); return scrollBy(delta); },
+      scrollToStart: function () { navigated(); return scrollToStart(); },
+      scrollToEnd: function () { navigated(); return scrollToEnd(); },
       viewportExtent: viewportExtent,
       scrollPosition: scrollPosition,
       destroy: function () {
