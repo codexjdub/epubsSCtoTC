@@ -65,13 +65,15 @@
     'panel.leading': ['行距', 'Leading'],
     'panel.measure': ['行寬', 'Width'],
     'panel.align.title': ['對齊方式', 'Alignment'],
-    'panel.lang.title': ['介面語言', 'Interface language'],
-    'lang.zh': ['中文', '中文'],
-    'lang.en': ['English', 'English'],
+    /* Deliberately inverted: the button names the language you would GET, so
+       each column holds the OTHER language. A bilingual site shows you the way
+       out, not the room you are standing in. */
+    'panel.lang': ['English', '中文'],
+    'panel.lang.title': ['切換成英文介面', 'Switch the interface to Chinese'],
     'panel.focus': ['專注閱讀', 'Focus'],
     'panel.focus.title': ['只留下正文，按 Esc 離開',
                           'The reading column and nothing else. Esc to leave.'],
-    'panel.paged': ['翻頁', 'Pages'],
+    'panel.paged': ['翻頁', 'Pagination'],
     'panel.paged.title': ['一頁一頁翻，不用捲動', 'Turn pages instead of scrolling'],
     'panel.vim.title': ['Vim 鍵盤操作（按 ? 看說明）',
                         'Vim keys (press ? for the list)'],

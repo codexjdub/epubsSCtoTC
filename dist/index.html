@@ -600,7 +600,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.24.0</p>
+    <p class="hint build">v1.24.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -649,8 +649,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
         <!-- The interface language follows the READER, not the book: switching
-             titles from the shelf must never relabel the app. -->
-        <label><select id="lang" data-i18n-title="panel.lang.title"></select></label>
+             titles from the shelf must never relabel the app. The button names
+             the language it would switch TO, so it needs no state of its own
+             and apply() can fill it like any other label. -->
+        <button id="lang" type="button"
+                data-i18n-title="panel.lang.title" data-i18n="panel.lang">English</button>
         <!-- Not on the bar: that bar was just cleared of everything not needed
              on sight, and this sits with the other display preferences anyway.
              No data-keep-open -- it changes what you are looking at, so the
@@ -4170,13 +4173,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'panel.leading': ['行距', 'Leading'],
     'panel.measure': ['行寬', 'Width'],
     'panel.align.title': ['對齊方式', 'Alignment'],
-    'panel.lang.title': ['介面語言', 'Interface language'],
-    'lang.zh': ['中文', '中文'],
-    'lang.en': ['English', 'English'],
+    /* Deliberately inverted: the button names the language you would GET, so
+       each column holds the OTHER language. A bilingual site shows you the way
+       out, not the room you are standing in. */
+    'panel.lang': ['English', '中文'],
+    'panel.lang.title': ['切換成英文介面', 'Switch the interface to Chinese'],
     'panel.focus': ['專注閱讀', 'Focus'],
     'panel.focus.title': ['只留下正文，按 Esc 離開',
                           'The reading column and nothing else. Esc to leave.'],
-    'panel.paged': ['翻頁', 'Pages'],
+    'panel.paged': ['翻頁', 'Pagination'],
     'panel.paged.title': ['一頁一頁翻，不用捲動', 'Turn pages instead of scrolling'],
     'panel.vim.title': ['Vim 鍵盤操作（按 ? 看說明）',
                         'Vim keys (press ? for the list)'],
@@ -5726,18 +5731,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (current.reader) current.reader.setMeasure(parseFloat(this.value));
     });
 
-    function populateLangs() {
-      el.lang.textContent = '';
-      [['zh', 'lang.zh'], ['en', 'lang.en']].forEach(function (pair) {
-        var opt = document.createElement('option');
-        opt.value = pair[0];
-        opt.textContent = S(pair[1]);
-        el.lang.appendChild(opt);
-      });
-      el.lang.value = App.strings.locale();
-    }
-    populateLangs();
-
     /* The one place that knows the whole interface.
      *
      * apply() only reaches markup carrying data-i18n, and a good half of the
@@ -5751,7 +5744,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       populatePresets();
       populateAligns();
       populateFormats();
-      populateLangs();
       syncExportLabel();
       syncPaged();
       syncMarksLabel();
@@ -5769,8 +5761,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
     api.relabel = relabel;
 
-    el.lang.addEventListener('change', function () {
-      App.strings.setLocale(this.value);
+    /* One button, two languages: press it and you are in the other one. Its own
+       label is filled by apply() during relabel(), like every other label. */
+    el.lang.addEventListener('click', function () {
+      App.strings.setLocale(App.strings.locale() === 'zh' ? 'en' : 'zh');
       relabel();
     });
 

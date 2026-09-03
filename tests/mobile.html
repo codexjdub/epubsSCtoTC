@@ -632,15 +632,15 @@
       var LW = lang.contentWindow, LD = lang.contentDocument;
       await loadBook(lang);
       var pick = LD.getElementById('lang');
-      var fire = function (el) { el.dispatchEvent(new LW.Event('change', { bubbles: true })); };
 
       t.check('the language control is offered', !!pick, 'no control');
       t.eq('Chinese is the default', LW.App.strings.locale(), 'zh');
       t.eq('and the document says so', LD.documentElement.getAttribute('lang'), 'zh-Hant');
       t.eq('the bar starts Chinese', LD.getElementById('toggleShelf').textContent, '書架');
+      /* The button names the way OUT, not the room you are in. */
+      t.eq('and the switch offers the other language', pick.textContent, 'English');
 
-      pick.value = 'en';
-      fire(pick);
+      pick.click();
       await wait(350);
 
       t.eq('switching relabels the bar', LD.getElementById('toggleShelf').textContent, 'Shelf');
@@ -649,6 +649,8 @@
       t.eq('and the action inside it', LD.getElementById('exportRun').textContent, 'Export EPUB');
       t.eq('and the pager', LD.getElementById('next').textContent, 'Next →');
       t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
+      t.eq('including the pagination toggle',
+           LD.getElementById('togglePaged').textContent, 'Pagination');
       t.eq('and the document language', LD.documentElement.getAttribute('lang'), 'en');
 
       /* Option lists are built in JS, so apply() never reaches them: each one
@@ -670,7 +672,11 @@
       var cjk = /[\u4e00-\u9fff]/;
       var stragglers = Array.prototype.filter.call(
         LD.querySelectorAll('#topbar button'),
-        function (b) { return !b.closest('.shelf-row') && cjk.test(b.textContent); }).map(
+        function (b) {
+          /* #lang is Chinese here ON PURPOSE -- it names the language it would
+             switch to, which from English is 中文. Asserted just above. */
+          return b.id !== 'lang' && !b.closest('.shelf-row') && cjk.test(b.textContent);
+        }).map(
         function (b) { return (b.id || b.className) + ': ' + b.textContent; });
       t.eq('and nothing on the bar is left in Chinese', stragglers.join(' | '), '');
       t.check('while a Chinese book keeps its Chinese title',
@@ -688,8 +694,8 @@
       LD.getElementById('toggleVim').click();     // leave vim off again
       await wait(80);
 
-      pick.value = 'zh';
-      fire(pick);
+      t.eq('and the switch now offers the way back', pick.textContent, '中文');
+      pick.click();
       await wait(350);
       t.eq('and switching back restores Chinese',
            LD.getElementById('toggleShelf').textContent, '書架');

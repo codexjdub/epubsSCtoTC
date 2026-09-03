@@ -1097,18 +1097,6 @@
       if (current.reader) current.reader.setMeasure(parseFloat(this.value));
     });
 
-    function populateLangs() {
-      el.lang.textContent = '';
-      [['zh', 'lang.zh'], ['en', 'lang.en']].forEach(function (pair) {
-        var opt = document.createElement('option');
-        opt.value = pair[0];
-        opt.textContent = S(pair[1]);
-        el.lang.appendChild(opt);
-      });
-      el.lang.value = App.strings.locale();
-    }
-    populateLangs();
-
     /* The one place that knows the whole interface.
      *
      * apply() only reaches markup carrying data-i18n, and a good half of the
@@ -1122,7 +1110,6 @@
       populatePresets();
       populateAligns();
       populateFormats();
-      populateLangs();
       syncExportLabel();
       syncPaged();
       syncMarksLabel();
@@ -1140,8 +1127,10 @@
     }
     api.relabel = relabel;
 
-    el.lang.addEventListener('change', function () {
-      App.strings.setLocale(this.value);
+    /* One button, two languages: press it and you are in the other one. Its own
+       label is filled by apply() during relabel(), like every other label. */
+    el.lang.addEventListener('click', function () {
+      App.strings.setLocale(App.strings.locale() === 'zh' ? 'en' : 'zh');
       relabel();
     });
 
