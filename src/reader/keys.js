@@ -24,6 +24,7 @@
     ['o', 'Toggle original / converted'],
     ['m', 'Toggle ambiguity marks'],
     ['+  /  -', 'Font size'],
+    ['z', 'Focus mode (desktop)'],
     ['?', 'This help'],
     ['Esc', 'Close help'],
     ['3j', 'Counts work: repeat 3 times']
@@ -145,6 +146,7 @@
         case 'm': count = ''; actions.toggleMarks(); break;
         case '+': case '=': count = ''; actions.fontBigger(); break;
         case '-': count = ''; actions.fontSmaller(); break;
+        case 'z': count = ''; actions.toggleFocus(); break;
         case '?': count = ''; setHelp(true); break;
         default:
           count = '';

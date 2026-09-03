@@ -45,6 +45,8 @@
     'panel.typeface.title': '字體',
     'panel.leading': '行距',
     'panel.align.title': '對齊方式',
+    'panel.focus': '專注閱讀',
+    'panel.focus.title': '只留下正文，按 Esc 離開',
     'panel.vim.title': 'Vim 鍵盤操作（按 ? 看說明）',
     'align.default': '對齊：預設',
     'align.left': '對齊：靠左',

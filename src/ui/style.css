@@ -409,6 +409,39 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .pager, .topbar { transition: none; }
 }
 
+/* ---- focus mode: the reading column and nothing else ----------------------
+
+   A min-width block, sitting ABOVE the max-width blocks that close this file
+   rather than below them. The two are disjoint -- 701-and-up against
+   700-and-down -- so neither can ever override the other and their order
+   carries no meaning; the rule below about responsive overrides coming last is
+   about blocks that CAN collide, and the audit enforces it for max-width.
+
+   The strips leave the FLOW rather than being display:none'd. On this side of
+   the breakpoint they are ordinary in-flow flex items, so hiding them by
+   display would hand the reading column their height and take it back on every
+   reveal -- the line under the cursor jumping each time the pointer neared an
+   edge. Fixed, they slide over the text instead, and the column keeps the
+   height for good.
+   --------------------------------------------------------------------------- */
+
+@media (min-width: 701px) {
+  .app.focus .topbar,
+  .app.focus .pager {
+    position: fixed; left: 0; right: 0; z-index: 31;
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  .app.focus .topbar { top: 0; }
+  .app.focus .pager { bottom: 0; }
+
+  .app.focus .topbar.tucked {
+    transform: translateY(-100%); opacity: 0; pointer-events: none;
+  }
+  .app.focus .pager.tucked {
+    transform: translateY(100%); opacity: 0; pointer-events: none;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Responsive overrides, and they live LAST on purpose.
 

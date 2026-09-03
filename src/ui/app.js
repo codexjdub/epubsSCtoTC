@@ -577,6 +577,11 @@
     el.themeLanding = $('themeLanding');
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
+    el.toggleFocus = $('toggleFocus');
+    /* By id, like every other piece of chrome. The one element reached for by
+       class was the bar, and a rename would have returned null and silently
+       zeroed an inset rather than failing. */
+    el.app = $('app');
     el.fontStyle = $('fontStyle');
     el.lineHeight = $('lineHeight');
     el.align = $('align');
@@ -797,7 +802,9 @@
     }
 
     function onReadingScroll() {
-      if (!isNarrow()) { tuckPager(false); return; }
+      /* In focus mode the strips are hidden because they were asked to be, so
+         scrolling neither hides nor reveals them; only the pointer does. */
+      if (!isNarrow()) { if (!focusMode.on) tuckPager(false); return; }
       var at = readingScroll();
       var delta = at.top - lastViewerScroll;
       if (Math.abs(delta) < 8) return;          /* ignore jitter and bounce */
@@ -808,6 +815,90 @@
     window.addEventListener('scroll', onReadingScroll, { passive: true });
 
     api.tuckPager = tuckPager;
+
+    /* ---- focus mode ----
+     *
+     * The reading column alone: both strips slide off, the table of contents
+     * closes, and the browser goes fullscreen so its tabs and bookmarks go with
+     * them. Nothing is stranded by the missing pager -- the arrow keys and
+     * PageUp/PageDown change chapter whether or not vim mode is on.
+     *
+     * Desktop only, and gated twice. Below the breakpoint the bar and the pager
+     * already tuck themselves away as you read, so there would be nothing left
+     * for this to hide; iOS Safari also refuses requestFullscreen for anything
+     * but a video, which is the one place it would have mattered most.
+     */
+    var focusMode = { on: false, sidebarWas: false };
+    var EDGE = 60;             // how near an edge summons its strip back
+
+    /* A rejected fullscreen promise with nobody listening is an unhandled
+       rejection in the console, and it rejects for ordinary reasons: no user
+       gesture behind the call, or a browser that simply declines. */
+    function settle(promise) { if (promise && promise['catch']) promise['catch'](function () {}); }
+
+    function goFullscreen() {
+      var root = document.documentElement;
+      var fn = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (!fn) return;
+      try { settle(fn.call(root)); } catch (e) { /* not available */ }
+    }
+
+    function leaveFullscreen() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+      var fn = document.exitFullscreen || document.webkitExitFullscreen;
+      if (!fn) return;
+      try { settle(fn.call(document)); } catch (e) { /* not available */ }
+    }
+
+    /* Closing the sidebar widens the reading column, which reflows the text: a
+       pixel offset does not survive that and the content anchor does. Same
+       reason the reader captures and restores around a font-size change. */
+    function setFocus(on) {
+      on = !!on;
+      if (on === focusMode.on) return;
+      if (on && isNarrow()) return;
+
+      var reader = current.reader;
+      var anchor = reader ? reader.captureAnchor() : null;
+
+      if (on) {
+        closeDropdowns(null);
+        focusMode.sidebarWas = drawerOpen();
+        setDrawer(false);
+      }
+      focusMode.on = on;
+      el.app.classList.toggle('focus', on);
+      tuckPager(on);
+      if (!on) setDrawer(focusMode.sidebarWas);
+
+      if (anchor && reader) reader.restoreAnchor(anchor);
+      if (on) goFullscreen(); else leaveFullscreen();
+      syncFocus();
+    }
+
+    function syncFocus() {
+      el.toggleFocus.classList.toggle('active', focusMode.on);
+      el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
+    }
+
+    /* The way back to the chrome without leaving the mode: approach the edge it
+       lives on, as a video player does it. Toggling a class to the value it
+       already holds costs nothing, so this can run on every move. */
+    document.addEventListener('mousemove', function (ev) {
+      if (!focusMode.on) return;
+      tuckPager(ev.clientY > EDGE && ev.clientY < window.innerHeight - EDGE);
+    });
+
+    /* Leaving fullscreen by the browser's own route -- its Esc, or the window
+       button -- means leaving the mode, not sitting in it half-applied. */
+    document.addEventListener('fullscreenchange', function () {
+      if (!document.fullscreenElement && focusMode.on) setFocus(false);
+    });
+
+    el.toggleFocus.addEventListener('click', function () { setFocus(!focusMode.on); });
+    syncFocus();
+    api.setFocus = setFocus;
+    api.focusOn = function () { return focusMode.on; };
 
     /* Start collapsed on a narrow screen, and re-settle when the breakpoint
      * is crossed so a drawer left open on mobile does not linger as a
@@ -827,6 +918,10 @@
     }
 
     function settleForWidth() {
+      /* Focus mode is a desktop state and its CSS stops applying below the
+         breakpoint. Leaving the class on would strand the remembered sidebar
+         state with nothing left to restore it. */
+      setFocus(false);
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
@@ -859,7 +954,8 @@
       toggleSource: function () { el.toggleSource.click(); },
       toggleMarks: function () { if (!el.toggleMarks.disabled) el.toggleMarks.click(); },
       fontBigger: function () { $('fontBigger').click(); },
-      fontSmaller: function () { $('fontSmaller').click(); }
+      fontSmaller: function () { $('fontSmaller').click(); },
+      toggleFocus: function () { setFocus(!focusMode.on); }
     });
 
     function syncVim() {
@@ -933,6 +1029,7 @@
     document.addEventListener('keydown', function (ev) {
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
+      if (ev.key === 'Escape' && focusMode.on) { setFocus(false); return; }
       if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.next();
       if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prev();
     });
@@ -941,6 +1038,8 @@
   App.ui = { init: init, loadBuffer: loadBuffer, current: current,
              highlightToc: highlightToc,
              drawerOpen: function () { return el.sidebar && api.drawerOpen(); },
+             focusOn: function () { return !!api.focusOn && api.focusOn(); },
+             setFocus: function (on) { if (api.setFocus) api.setFocus(on); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {

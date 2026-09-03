@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="src/ui/style.css"/>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
 
   <div id="landing" class="landing">
     <h1>繁花似錦</h1>
@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.19.1</p>
+    <p class="hint build">v1.20.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -75,6 +75,12 @@
         </label>
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
+        <!-- Not on the bar: that bar was just cleared of everything not needed
+             on sight, and this sits with the other display preferences anyway.
+             No data-keep-open -- it changes what you are looking at, so the
+             panel should get out of the way once it is pressed. -->
+        <button id="toggleFocus" type="button" aria-pressed="false"
+                data-i18n-title="panel.focus.title" data-i18n="panel.focus">專注閱讀</button>
         <!-- Kept here rather than moved to the ? overlay: that overlay only
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->

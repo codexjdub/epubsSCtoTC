@@ -687,7 +687,8 @@
         toggleSource: function () { calls.push('source'); },
         toggleMarks: function () { calls.push('marks'); },
         fontBigger: function () { calls.push('bigger'); },
-        fontSmaller: function () { calls.push('smaller'); }
+        fontSmaller: function () { calls.push('smaller'); },
+        toggleFocus: function () { calls.push('focus'); }
       });
       function press(key, target) {
         var ev = new KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true });
@@ -747,9 +748,9 @@
 
       // delegated actions
       calls.length = 0;
-      ['t', 'o', 'm', '+', '-'].forEach(function (k) { press(k); });
+      ['t', 'o', 'm', '+', '-', 'z'].forEach(function (k) { press(k); });
       t.eq('action keys are delegated in order', calls.join(','),
-           'toc,source,marks,bigger,smaller');
+           'toc,source,marks,bigger,smaller,focus');
 
       // help overlay
       t.check('help starts hidden', !vim.helpVisible(), 'visible too early');
@@ -766,9 +767,11 @@
       t.eq('keys are ignored inside a form field', reader.scrollPosition(), 0);
       input.remove();
 
-      // unbound keys must pass through
-      var ev = press('z');
-      t.check('unbound keys are not swallowed', !ev.defaultPrevented, 'z was consumed');
+      /* Unbound keys must pass through. Not 'z' any more -- binding it to focus
+         mode left this assertion passing for the wrong reason: the missing
+         action threw before preventDefault() was ever reached. */
+      var ev = press('x');
+      t.check('unbound keys are not swallowed', !ev.defaultPrevented, 'x was consumed');
       vim.set(false);
 
       reader.destroy();
