@@ -9,25 +9,28 @@
   var KEY = 'epub-tc:vim';
   var LINE = 64;              // one "line" of scrolling, in pixels
 
+  /* Keystrokes on the left, a label KEY on the right -- the descriptions live
+   * in the strings table like every other label, and the overlay is filled from
+   * it each time it opens. */
   var BINDINGS = [
-    ['j', 'Scroll forward'],
-    ['k', 'Scroll back'],
-    ['d', 'Half page forward'],
-    ['u', 'Half page back'],
-    ['f  /  Space', 'Page forward'],
-    ['b', 'Page back'],
-    ['gg', 'Start of chapter'],
-    ['G', 'End of chapter'],
-    ['n  /  ]  /  L', 'Next chapter'],
-    ['p  /  [  /  H', 'Previous chapter'],
-    ['t', 'Toggle table of contents'],
-    ['o', 'Toggle original / converted'],
-    ['m', 'Toggle ambiguity marks'],
-    ['+  /  -', 'Font size'],
-    ['z', 'Focus mode (desktop)'],
-    ['?', 'This help'],
-    ['Esc', 'Close help'],
-    ['3j', 'Counts work: repeat 3 times']
+    ['j', 'keys.scrollFwd'],
+    ['k', 'keys.scrollBack'],
+    ['d', 'keys.halfFwd'],
+    ['u', 'keys.halfBack'],
+    ['f  /  Space', 'keys.pageFwd'],
+    ['b', 'keys.pageBack'],
+    ['gg', 'keys.chapterStart'],
+    ['G', 'keys.chapterEnd'],
+    ['n  /  ]  /  L', 'keys.nextChapter'],
+    ['p  /  [  /  H', 'keys.prevChapter'],
+    ['t', 'keys.toc'],
+    ['o', 'keys.source'],
+    ['m', 'keys.marks'],
+    ['+  /  -', 'keys.fontSize'],
+    ['z', 'keys.focus'],
+    ['?', 'keys.help'],
+    ['Esc', 'keys.closeHelp'],
+    ['3j', 'keys.counts']
   ];
 
   function stored() {
@@ -54,9 +57,20 @@
 
     var panel = document.createElement('div');
     panel.className = 'keyhelp-panel';
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', function () { overlay.classList.add('hidden'); });
+    return overlay;
+  }
+
+  /* Filled every time it opens rather than once at startup. This overlay is the
+   * one piece of chrome built entirely in JS with no markup to relabel, and the
+   * interface language can change while the app is running. */
+  function fillHelp(overlay) {
+    var panel = overlay.firstChild;
+    panel.textContent = '';
 
     var h = document.createElement('h2');
-    h.textContent = 'Vim navigation';
+    h.textContent = App.strings.get('keys.title');
     panel.appendChild(h);
 
     var dl = document.createElement('dl');
@@ -64,19 +78,15 @@
       var dt = document.createElement('dt');
       dt.textContent = pair[0];
       var dd = document.createElement('dd');
-      dd.textContent = pair[1];
+      dd.textContent = App.strings.get(pair[1]);
       dl.appendChild(dt);
       dl.appendChild(dd);
     });
     panel.appendChild(dl);
 
     var note = document.createElement('p');
-    note.textContent = 'Press ? or Esc to close.';
+    note.textContent = App.strings.get('keys.close');
     panel.appendChild(note);
-
-    overlay.appendChild(panel);
-    overlay.addEventListener('click', function () { overlay.classList.add('hidden'); });
-    return overlay;
   }
 
   function create(actions) {
@@ -98,7 +108,10 @@
     function fullPage() { return Math.round(reader().viewportExtent() * 0.9); }
 
     function helpVisible() { return !help.classList.contains('hidden'); }
-    function setHelp(on) { help.classList.toggle('hidden', !on); }
+    function setHelp(on) {
+      if (on) fillHelp(help);
+      help.classList.toggle('hidden', !on);
+    }
 
     function handle(ev) {
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;

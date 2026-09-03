@@ -96,7 +96,7 @@
     if (!book.toc.length) {
       var p = document.createElement('p');
       p.className = 'hint';
-      p.textContent = 'This book has no table of contents.';
+      p.textContent = S('toc.empty');
       el.toc.appendChild(p);
       return;
     }
@@ -440,7 +440,7 @@
       drop.type = 'button';
       drop.className = config.drop;
       drop.textContent = '×';
-      drop.title = 'Remove from this device';
+      drop.title = S('shelf.remove');
       drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
       drop.addEventListener('click', async function (ev) {
         ev.stopPropagation();
@@ -603,6 +603,7 @@
     el.toggleVim = $('toggleVim');
     el.toggleFocus = $('toggleFocus');
     el.togglePaged = $('togglePaged');
+    el.lang = $('lang');
     /* By id, like every other piece of chrome. The one element reached for by
        class was the bar, and a rename would have returned null and silently
        zeroed an inset rather than failing. */
@@ -623,18 +624,26 @@
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
 
+    App.strings.markDocument();
     App.strings.apply(document);
 
-    App.theme.THEMES.forEach(function (t) {
-      [el.theme, el.themeLanding].forEach(function (select) {
-        var opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = S(t.labelKey);
-        select.appendChild(opt);
+    /* Every option list is a named function, because each one has to be built
+       twice: once at startup, and again whenever the interface language
+       changes. Inline, they were unreachable from anywhere but init(). */
+    function populateThemes() {
+      [el.theme, el.themeLanding].forEach(function (select) { select.textContent = ''; });
+      App.theme.THEMES.forEach(function (t) {
+        [el.theme, el.themeLanding].forEach(function (select) {
+          var opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = S(t.labelKey);
+          select.appendChild(opt);
+        });
       });
-    });
-    el.theme.value = App.theme.current();
-    el.themeLanding.value = App.theme.current();
+      el.theme.value = App.theme.current();
+      el.themeLanding.value = App.theme.current();
+    }
+    populateThemes();
 
     function onThemeChange(value) {
       var applied = App.theme.apply(value);
@@ -644,17 +653,21 @@
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });
     el.themeLanding.addEventListener('change', function () { onThemeChange(this.value); });
 
-    App.convert.presets().forEach(function (p) {
-      [el.preset, el.presetTop].forEach(function (select) {
-        var opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.label;
-        opt.title = p.note;
-        select.appendChild(opt);
+    function populatePresets() {
+      [el.preset, el.presetTop].forEach(function (select) { select.textContent = ''; });
+      App.convert.presets().forEach(function (p) {
+        [el.preset, el.presetTop].forEach(function (select) {
+          var opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.label;
+          opt.title = p.note;
+          select.appendChild(opt);
+        });
       });
-    });
-    el.preset.value = current.presetId;
-    el.presetTop.value = current.presetId;
+      el.preset.value = current.presetId;
+      el.presetTop.value = current.presetId;
+    }
+    populatePresets();
 
     el.dropzone.addEventListener('click', function () { el.fileInput.click(); });
     /* The shelf answers "which book", and opening a file is the same question.
@@ -1084,27 +1097,85 @@
       if (current.reader) current.reader.setMeasure(parseFloat(this.value));
     });
 
+    function populateLangs() {
+      el.lang.textContent = '';
+      [['zh', 'lang.zh'], ['en', 'lang.en']].forEach(function (pair) {
+        var opt = document.createElement('option');
+        opt.value = pair[0];
+        opt.textContent = S(pair[1]);
+        el.lang.appendChild(opt);
+      });
+      el.lang.value = App.strings.locale();
+    }
+    populateLangs();
+
+    /* The one place that knows the whole interface.
+     *
+     * apply() only reaches markup carrying data-i18n, and a good half of the
+     * chrome is neither: option lists built in JS, buttons that name their own
+     * state, the shelf, the table of contents. Every one of them has to be
+     * rebuilt here, and the test walks the interface afterwards looking for
+     * anything left in the language we just left. */
+    function relabel() {
+      App.strings.apply(document);
+      populateThemes();
+      populatePresets();
+      populateAligns();
+      populateFormats();
+      populateLangs();
+      syncExportLabel();
+      syncPaged();
+      syncMarksLabel();
+      /* Rebuilds the table of contents and the title as well, which is where
+         the "no table of contents" line lives. */
+      syncSource();
+      if (current.book && current.reader) {
+        var wasFont = el.fontStyle.value;
+        populateFontStyles(bookLanguage(current.book), current.presetId);
+        if (wasFont) el.fontStyle.value = wasFont;
+      }
+      renderLibrary();
+      renderShelf();
+      if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
+    }
+    api.relabel = relabel;
+
+    el.lang.addEventListener('change', function () {
+      App.strings.setLocale(this.value);
+      relabel();
+    });
+
     /* "Publisher" is the default and the honest one: most EPUBs set their own
        alignment, and overriding it unasked is not this reader's business. */
-    ['default', 'left', 'justify'].forEach(function (id) {
-      var opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = S('align.' + id);
-      el.align.appendChild(opt);
-    });
+    function populateAligns() {
+      var was = el.align.value;
+      el.align.textContent = '';
+      ['default', 'left', 'justify'].forEach(function (id) {
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = S('align.' + id);
+        el.align.appendChild(opt);
+      });
+      if (was) el.align.value = was;
+    }
+    populateAligns();
     el.align.addEventListener('change', function () {
       if (current.reader) current.reader.setAlign(this.value);
     });
 
     /* EPUB first: it is what puts the book on a reader, and the rest are for
        getting the text somewhere else. */
-    ['epub', 'html', 'md', 'txt'].forEach(function (id) {
-      var opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = S('format.' + id);
-      el.exportFormat.appendChild(opt);
-    });
-    el.exportFormat.value = current.format;
+    function populateFormats() {
+      el.exportFormat.textContent = '';
+      ['epub', 'html', 'md', 'txt'].forEach(function (id) {
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = S('format.' + id);
+        el.exportFormat.appendChild(opt);
+      });
+      el.exportFormat.value = current.format;
+    }
+    populateFormats();
     el.exportFormat.addEventListener('change', function () {
       current.format = this.value;
       syncExportLabel();

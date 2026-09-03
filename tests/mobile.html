@@ -626,6 +626,84 @@
       kept.remove();
       window.localStorage.removeItem('epub-tc:paged');
 
+
+      // ================= interface language =================
+      var lang = await mount(DESKTOP, 800);
+      var LW = lang.contentWindow, LD = lang.contentDocument;
+      await loadBook(lang);
+      var pick = LD.getElementById('lang');
+      var fire = function (el) { el.dispatchEvent(new LW.Event('change', { bubbles: true })); };
+
+      t.check('the language control is offered', !!pick, 'no control');
+      t.eq('Chinese is the default', LW.App.strings.locale(), 'zh');
+      t.eq('and the document says so', LD.documentElement.getAttribute('lang'), 'zh-Hant');
+      t.eq('the bar starts Chinese', LD.getElementById('toggleShelf').textContent, '書架');
+
+      pick.value = 'en';
+      fire(pick);
+      await wait(350);
+
+      t.eq('switching relabels the bar', LD.getElementById('toggleShelf').textContent, 'Shelf');
+      t.eq('and the contents button', LD.getElementById('toggleSidebar').textContent, 'Contents');
+      t.eq('and the export button', LD.getElementById('exportBtn').textContent, 'Export');
+      t.eq('and the action inside it', LD.getElementById('exportRun').textContent, 'Export EPUB');
+      t.eq('and the pager', LD.getElementById('next').textContent, 'Next →');
+      t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
+      t.eq('and the document language', LD.documentElement.getAttribute('lang'), 'en');
+
+      /* Option lists are built in JS, so apply() never reaches them: each one
+         has to be rebuilt by hand, and a forgotten list sits there in the old
+         language with nothing to announce it. */
+      t.eq('the theme list is rebuilt',
+           LD.getElementById('theme').options[0].textContent, 'System');
+      t.eq('the conversion targets too',
+           LD.getElementById('presetTop').options[0].textContent, 'Hong Kong');
+      t.eq('and the alignment list',
+           LD.getElementById('align').options[0].textContent, 'Align: publisher');
+
+      /* The sweep that catches whatever the list above forgot. Every button on
+         the bar and in its panels is a pure label, so none may still be Chinese
+         -- unlike the typeface names and 「 」, which are Chinese on purpose.
+         The shelf rows are excluded because they carry BOOK TITLES: those are
+         the reader's data, and a Chinese book keeps its Chinese name in an
+         English interface. */
+      var cjk = /[\u4e00-\u9fff]/;
+      var stragglers = Array.prototype.filter.call(
+        LD.querySelectorAll('#topbar button'),
+        function (b) { return !b.closest('.shelf-row') && cjk.test(b.textContent); }).map(
+        function (b) { return (b.id || b.className) + ': ' + b.textContent; });
+      t.eq('and nothing on the bar is left in Chinese', stragglers.join(' | '), '');
+      t.check('while a Chinese book keeps its Chinese title',
+              Array.prototype.some.call(LD.querySelectorAll('.shelf-row .pick'),
+                function (b) { return cjk.test(b.textContent); }),
+              'no Chinese title on the shelf; the exclusion above proves nothing');
+
+      /* Built entirely in JS with no markup to relabel, so it is filled afresh
+         every time it opens rather than once at startup. */
+      LD.getElementById('toggleVim').click();
+      await wait(150);
+      var helpText = LD.querySelector('.keyhelp-panel').textContent;
+      t.check('the key help follows the language too',
+              helpText.indexOf('Scroll forward') >= 0, helpText.slice(0, 60));
+      LD.getElementById('toggleVim').click();     // leave vim off again
+      await wait(80);
+
+      pick.value = 'zh';
+      fire(pick);
+      await wait(350);
+      t.eq('and switching back restores Chinese',
+           LD.getElementById('toggleShelf').textContent, '書架');
+      lang.remove();
+
+      /* Remembered, like the theme. */
+      window.localStorage.setItem('epub-tc:lang', 'en');
+      var keptLang = await mount(DESKTOP, 800);
+      await loadBook(keptLang);
+      t.eq('a remembered language opens in it',
+           keptLang.contentDocument.getElementById('toggleShelf').textContent, 'Shelf');
+      keptLang.remove();
+      window.localStorage.removeItem('epub-tc:lang');
+
       /* Regression guard for the real bug: a frame that starts narrow and is
        * widened afterwards must still show the sidebar, because the default
        * comes from CSS rather than a width sampled once at startup. */

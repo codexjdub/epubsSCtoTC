@@ -271,6 +271,57 @@
       has(textOf(bookBad, 'OEBPS/text/nav.xhtml'), '第二章 老闆與皇后',
           'labels in a repaired nav document still convert');
 
+
+      // ---- the strings table carries both languages ----
+      /* Checked against the real object rather than by matching the source.
+         Entries wrap across lines and concatenate, so a regex that half-parses
+         them would pass on exactly the malformed entry it exists to catch. */
+      var notPairs = [], emptyCol = [];
+      Object.keys(App.strings.TEXT).forEach(function (key) {
+        var entry = App.strings.TEXT[key];
+        if (Object.prototype.toString.call(entry) !== '[object Array]' || entry.length !== 2) {
+          notPairs.push(key);
+          return;
+        }
+        if (typeof entry[0] !== 'string' || !entry[0] ||
+            typeof entry[1] !== 'string' || !entry[1]) emptyCol.push(key);
+      });
+      check('every label is a [中文, English] pair', notPairs.length === 0,
+            notPairs.join(', '));
+      check('and neither column is empty', emptyCol.length === 0, emptyCol.join(', '));
+
+      App.strings.setLocale('en');
+      check('English is served when asked for',
+            App.strings.get('bar.shelf') === 'Shelf', App.strings.get('bar.shelf'));
+      App.strings.setLocale('zh');
+      check('and Chinese when asked for that',
+            App.strings.get('bar.shelf') === '書架', App.strings.get('bar.shelf'));
+      check('an unknown key still returns itself',
+            App.strings.get('no.such.key') === 'no.such.key',
+            App.strings.get('no.such.key'));
+      check('and placeholders interpolate',
+            App.strings.get('shelf.count', { n: 3 }).indexOf('3') >= 0,
+            App.strings.get('shelf.count', { n: 3 }));
+
+      /* English inflects and Chinese does not, so one book is not "1 books". */
+      App.strings.setLocale('en');
+      check('one of something reads as one in English',
+            App.strings.get('shelf.count', { n: 1 }) === '1 book saved on this device.',
+            App.strings.get('shelf.count', { n: 1 }));
+      check('and more than one still reads as many',
+            App.strings.get('shelf.count', { n: 4 }) === '4 books saved on this device.',
+            App.strings.get('shelf.count', { n: 4 }));
+      check('a count with no singular form falls back to the plain entry',
+            App.strings.get('status.exporting.pct', { pct: 1 }).indexOf('1') >= 0,
+            App.strings.get('status.exporting.pct', { pct: 1 }));
+      App.strings.setLocale('zh');
+      check('and Chinese is unbothered either way',
+            App.strings.get('shelf.count', { n: 1 }) === '這部裝置存了 1 本書。',
+            App.strings.get('shelf.count', { n: 1 }));
+      /* Left as the app ships: Chinese, with nothing stored. This preference is
+         shared by every test page on this origin. */
+      try { window.localStorage.removeItem('epub-tc:lang'); } catch (e) { /* ignore */ }
+
     } catch (e) {
       check('unexpected exception', false, e && (e.stack || e.message));
     }

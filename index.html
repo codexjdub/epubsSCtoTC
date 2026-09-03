@@ -11,22 +11,22 @@
 
   <div id="landing" class="landing">
     <h1>繁花似錦</h1>
-    <p>Convert a simplified Chinese EPUB to traditional and read it right here.
+    <p data-i18n="landing.blurb">Convert a simplified Chinese EPUB to traditional and read it right here.
        Your book never leaves this browser — nothing is uploaded.</p>
 
     <button type="button" id="dropzone" class="dropzone">
-      <strong>Drop an EPUB here</strong>
-      <span>or click to choose a file</span>
+      <strong data-i18n="landing.drop">Drop an EPUB here</strong>
+      <span data-i18n="landing.pick">or click to choose a file</span>
     </button>
     <input type="file" id="fileInput" accept=".epub,application/epub+zip" hidden/>
 
     <div class="options">
-      <label>Convert to <select id="preset"></select></label>
-      <label>Theme <select id="themeLanding"></select></label>
+      <label><span data-i18n="landing.convertTo">Convert to</span> <select id="preset"></select></label>
+      <label><span data-i18n="landing.theme">Theme</span> <select id="themeLanding"></select></label>
     </div>
 
     <div class="library hidden" id="library">
-      <h2>Your books</h2>
+      <h2 data-i18n="landing.books">Your books</h2>
       <div class="library-list" id="libraryList"></div>
       <p class="hint" id="libraryNote"></p>
     </div>
@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.23.0</p>
+    <p class="hint build">v1.24.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -82,6 +82,9 @@
         </label>
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
+        <!-- The interface language follows the READER, not the book: switching
+             titles from the shelf must never relabel the app. -->
+        <label><select id="lang" data-i18n-title="panel.lang.title"></select></label>
         <!-- Not on the bar: that bar was just cleared of everything not needed
              on sight, and this sits with the other display preferences anyway.
              No data-keep-open -- it changes what you are looking at, so the
@@ -145,7 +148,7 @@
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <h2>目錄</h2>
+        <h2 data-i18n="sidebar.toc">目錄</h2>
         <nav id="toc" class="toc"></nav>
       </aside>
       <div id="viewer" class="viewer"></div>
@@ -162,7 +165,7 @@
     </div>
 
     <div id="reportPanel" class="report hidden">
-      <h2>Conversion report</h2>
+      <h2 data-i18n="report.title">Conversion report</h2>
       <div id="reportBody"></div>
     </div>
   </div>
