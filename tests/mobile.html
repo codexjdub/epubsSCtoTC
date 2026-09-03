@@ -533,6 +533,68 @@
               !pFoc.contentWindow.App.ui.focusOn(), 'engaged on a phone');
       pFoc.remove();
 
+
+      // ================= pages without focus mode =================
+      var opt = await mount(DESKTOP, 800);
+      var OW = opt.contentWindow, OD = opt.contentDocument;
+      await loadBook(opt);
+      var optBtn = OD.getElementById('togglePaged');
+      var kind = function () { return OW.App.ui.current.reader.scrollerKind(); };
+
+      t.check('the reading settings offer pages on their own', !!optBtn, 'no control');
+      t.check('and offer them on a desktop width', !optBtn.disabled, 'offered disabled');
+      t.eq('a book opens scrolling by default', kind(), 'element');
+
+      optBtn.click();
+      await wait(250);
+      t.eq('pressing it paginates', kind(), 'paged');
+      t.check('without turning focus mode on', !OW.App.ui.focusOn(),
+              'focus mode came along uninvited');
+      t.eq('and the pager follows the layout',
+           OD.getElementById('next').textContent, '下一頁 →');
+
+      /* Focus mode BORROWS pages and hands back what was set before it. */
+      OW.App.ui.setFocus(true);  await wait(300);
+      t.eq('focus mode keeps them on', kind(), 'paged');
+      OW.App.ui.setFocus(false); await wait(300);
+      t.eq('and leaving it hands them back on', kind(), 'paged');
+
+      optBtn.click(); await wait(250);
+      t.eq('pressing it again returns to scrolling', kind(), 'element');
+      t.eq('and the pager names chapters again',
+           OD.getElementById('next').textContent, '下一章 →');
+
+      OW.App.ui.setFocus(true);  await wait(300);
+      t.eq('focus mode still borrows them', kind(), 'paged');
+      OW.App.ui.setFocus(false); await wait(300);
+      t.eq('and hands back scrolling, which is what was set', kind(), 'element');
+      opt.remove();
+
+      /* Below the breakpoint the document scrolls and there is no fixed-height
+         box to break pages in, so the control says so rather than accepting a
+         press and doing nothing. */
+      var pOpt = await mount(PHONE, 812);
+      await loadBook(pOpt);
+      t.check('a phone offers the control disabled',
+              pOpt.contentDocument.getElementById('togglePaged').disabled,
+              'offered as though it would work');
+      pOpt.contentDocument.getElementById('togglePaged').click();
+      await wait(200);
+      t.eq('and pressing it changes nothing',
+           pOpt.contentWindow.App.ui.current.reader.scrollerKind(), 'document');
+      pOpt.remove();
+
+      /* The preference outlives the page, the way the font size does. */
+      window.localStorage.setItem('epub-tc:paged', '1');
+      var kept = await mount(DESKTOP, 800);
+      await loadBook(kept);
+      t.eq('a remembered preference opens the book paginated',
+           kept.contentWindow.App.ui.current.reader.scrollerKind(), 'paged');
+      t.eq('with the control showing it', 
+           kept.contentDocument.getElementById('togglePaged').getAttribute('aria-pressed'), 'true');
+      kept.remove();
+      window.localStorage.removeItem('epub-tc:paged');
+
       /* Regression guard for the real bug: a frame that starts narrow and is
        * widened afterwards must still show the sidebar, because the default
        * comes from CSS rather than a width sampled once at startup. */

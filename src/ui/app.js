@@ -12,6 +12,18 @@
   function S(key, vars) { return App.strings.get(key, vars); }
   function isNarrowScreen() { return window.matchMedia('(max-width: 700px)').matches; }
 
+  /* A reading preference like the font size, but kept here rather than with the
+   * reader's own prefs because the layout it asks for is not always available.
+   * A phone has no fixed-height reading box to break pages in, and opening a
+   * book on one must not overwrite the answer given on a desktop. */
+  var PAGED_KEY = 'epub-tc:paged';
+  function pagedPref() {
+    try { return window.localStorage.getItem(PAGED_KEY) === '1'; } catch (e) { return false; }
+  }
+  function storePagedPref(on) {
+    try { window.localStorage.setItem(PAGED_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+
   /* Which element scrolls is a layout decision, so it is made here rather than
      in the reader: below the breakpoint the document scrolls, so the browser
      will collapse its own chrome; above it an inner container does, because
@@ -262,7 +274,10 @@
     el.title.textContent = book.metadata.title || filename;
     document.title = (book.metadata.title || filename) + ' — 繁花似錦';
 
-    var reader = App.reader.create(el.viewer, book, { scroller: scrollerFor() });
+    var reader = App.reader.create(el.viewer, book, {
+      scroller: scrollerFor(),
+      paged: pagedPref() && !isNarrowScreen()
+    });
     current.reader = reader;
 
     /* Chapter count plus how far through the book, which the index alone does
@@ -282,8 +297,8 @@
          unless focus mode has deliberately put it away. Switching into that
          mode re-renders the chapter, which is how the strip it had just tucked
          came straight back. */
-      var paged = !!(api.focusOn && api.focusOn());
-      if (api.tuckPager && !paged) api.tuckPager(false);
+      var paged = !!reader.state.paged;
+      if (api.tuckPager && !(api.focusOn && api.focusOn())) api.tuckPager(false);
       lastViewerScroll = 0;
       renderPosition();
       /* Those buttons turn PAGES while paginating, so a chapter boundary is no
@@ -330,6 +345,7 @@
     el.lineHeight.value = reader.state.lineHeight;
     el.align.value = reader.state.align;
     syncSource();
+    if (api.syncPaged) api.syncPaged();
   }
 
   /* ---- saved books ---- */
@@ -585,6 +601,7 @@
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
     el.toggleFocus = $('toggleFocus');
+    el.togglePaged = $('togglePaged');
     /* By id, like every other piece of chrome. The one element reached for by
        class was the bar, and a rename would have returned null and silently
        zeroed an inset rather than failing. */
@@ -877,6 +894,7 @@
       if (on) {
         closeDropdowns(null);
         focusMode.sidebarWas = drawerOpen();
+        focusMode.pagedWas = pagedOn();
         setDrawer(false);
       }
       focusMode.on = on;
@@ -884,26 +902,66 @@
       tuckPager(on);
       if (!on) setDrawer(focusMode.sidebarWas);
 
-      if (current.reader) current.reader.setPaged(on, anchor);
+      /* Focus mode BORROWS pages for as long as it runs and hands back whatever
+         was set before it; the stored preference is never touched here. When
+         that is already what the reader is doing, the layout still has to be
+         re-broken -- the reading box just changed size around it. */
+      if (current.reader) {
+        var want = on ? true : focusMode.pagedWas;
+        if (want === pagedOn()) current.reader.repaginate(anchor);
+        else current.reader.setPaged(want, anchor);
+      }
       if (on) goFullscreen(); else leaveFullscreen();
       syncFocus();
+      syncPaged();
     }
 
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
-      /* The buttons turn pages in focus mode, so they have to say so. They are
-         tucked away most of the time, but a revealed pager offering 下一章 that
-         advances one page would be lying. */
-      el.prev.textContent = S(focusMode.on ? 'pager.prevPage' : 'pager.prev');
-      el.next.textContent = S(focusMode.on ? 'pager.nextPage' : 'pager.next');
     }
+
+    function pagedOn() {
+      return !!(current.reader && current.reader.state.paged);
+    }
+
+    function syncPaged() {
+      var on = pagedOn();
+      el.togglePaged.classList.toggle('active', on);
+      el.togglePaged.setAttribute('aria-pressed', String(on));
+      /* Nothing below the breakpoint can honour it, so it says so rather than
+         accepting a press and doing nothing. */
+      el.togglePaged.disabled = isNarrow();
+      /* Keyed on the LAYOUT, not on focus mode: pages can be on without it. A
+         pager offering 下一章 while the button advances one page would lie. */
+      el.prev.textContent = S(on ? 'pager.prevPage' : 'pager.prev');
+      el.next.textContent = S(on ? 'pager.nextPage' : 'pager.next');
+    }
+    api.syncPaged = syncPaged;
+
+    /* Layout only. The stored preference is written where the reader asks for
+       it, so a width change or focus mode can move the layout without
+       answering for the reader. */
+    function applyPaged(on) {
+      if (!current.reader) return;
+      if (on && isNarrow()) { syncPaged(); return; }
+      if (on === pagedOn()) { syncPaged(); return; }
+      var p = current.reader.setPaged(on);
+      if (p && p.then) p.then(syncPaged); else syncPaged();
+    }
+
+    el.togglePaged.addEventListener('click', function () {
+      if (isNarrow()) return;
+      var want = !pagedOn();
+      storePagedPref(want);
+      applyPaged(want);
+    });
 
     /* The empty margins either side of the page turn it: the only control a
        paged view needs, and the only one it shows. A click inside the column
        falls through to the reader, where the marks and links live. */
     el.viewer.addEventListener('click', function (ev) {
-      if (!focusMode.on || !current.reader) return;
+      if (!pagedOn()) return;
       var box = current.reader.mount.getBoundingClientRect();
       if (ev.clientX < box.left) current.reader.prevPage();
       else if (ev.clientX > box.right) current.reader.nextPage();
@@ -953,6 +1011,10 @@
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
+      /* The preference outlives the width: crossing down to a phone puts the
+         text back to scrolling, and crossing back up restores what was asked
+         for rather than leaving it off until noticed. */
+      applyPaged(!isNarrow() && pagedPref());
       /* The layout has just changed which element scrolls, so the reader is
          holding the wrong one. It keeps the place itself: capturing here would
          be too late, since the stylesheet has already relaid the page. */

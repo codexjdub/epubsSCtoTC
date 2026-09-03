@@ -795,6 +795,28 @@
       t.eq('and clearing it goes back to the element', reader.scrollerKind(), 'element');
       reader.scrollToStart();
 
+
+      /* Pages asked for up front, so a reader who prefers them never watches
+         the chapter laid out twice, and the page is inset from the top and
+         bottom rather than filling the box edge to edge. */
+      var upHost = document.createElement('div');
+      upHost.style.cssText =
+        'position:absolute;left:-9999px;width:700px;height:400px;overflow:auto';
+      document.body.appendChild(upHost);
+      var up = App.reader.create(upHost, longBook, { paged: true });
+      await up.show(0);
+      t.eq('a reader can start paginated', up.scrollerKind(), 'paged');
+      var upCs = window.getComputedStyle(up.mount);
+      t.eq('the page is inset from the top by the gutter', upCs.paddingTop, '48px');
+      t.eq('and from the bottom by the same', upCs.paddingBottom, '48px');
+      var upHostTop = up.mount.getBoundingClientRect().top;
+      var upFirstTop = up.content.children[0].getBoundingClientRect().top;
+      t.check('so the text starts below the edge rather than against it',
+              upFirstTop - upHostTop >= 40,
+              Math.round(upFirstTop - upHostTop) + 'px of inset');
+      up.destroy();
+      upHost.remove();
+
       // ---- a book must not knock the column off-centre ----
       /* The book's `body` rule is scoped to :host and lands after the reader's
          own, so it wins on ties. That is right for typography and wrong for

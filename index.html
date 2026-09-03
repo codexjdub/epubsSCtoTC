@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.21.1</p>
+    <p class="hint build">v1.22.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -81,6 +81,11 @@
              panel should get out of the way once it is pressed. -->
         <button id="toggleFocus" type="button" aria-pressed="false"
                 data-i18n-title="panel.focus.title" data-i18n="panel.focus">專注閱讀</button>
+        <!-- A reading setting in its own right, not a corner of focus mode.
+             Disabled below the breakpoint, where the document scrolls and there
+             is no fixed-height box to break pages in. -->
+        <button id="togglePaged" type="button" aria-pressed="false"
+                data-i18n-title="panel.paged.title" data-i18n="panel.paged">翻頁</button>
         <!-- Kept here rather than moved to the ? overlay: that overlay only
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->

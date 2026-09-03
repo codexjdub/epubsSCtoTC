@@ -68,6 +68,11 @@
    * content box are the same width, so the column pitch is exactly
    * clientWidth -- one number, read the same way by the CSS and by the
    * scroller. The gutter provides the breathing room instead.
+   *
+   * Vertically it is the gutter, so one constant governs every space around a
+   * page: as much room above and below a page as there is between one page and
+   * the next. It also means the page is shorter than the reading area rather
+   * than filling it edge to edge.
    */
   function pagedCss(mount, scale) {
     var parent = mount.parentNode;
@@ -78,7 +83,7 @@
     return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
            'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
            'height: 100% !important; overflow: hidden !important; ' +
-           'padding: 1em 0 !important; ' +
+           'padding: ' + PAGE_GAP + 'px 0 !important; ' +
            'column-width: ' + Math.round(col) + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
            'column-fill: auto; }\n' +
            /* A figure taller than the page would otherwise open a column
@@ -329,9 +334,11 @@
        * helping. The toggle turns them on when someone wants to review. */
       showMarks: saved.showMarks === true,
       source: saved.source === 'original' ? 'original' : 'converted',
-      /* Pagination is a property of focus mode, which is deliberately not
-         remembered, so this is not persisted either. */
-      paged: false,
+      /* Applied before the first render rather than toggled after it, so a
+         reader who prefers pages does not watch the chapter laid out twice.
+         Whether pages are POSSIBLE is the caller's judgement -- it knows the
+         width, and a phone has no fixed-height box to break them in. */
+      paged: !!opts.paged,
       overrides: saved.overrides || {},
       listeners: {}
     };
@@ -365,7 +372,10 @@
      * widen the window, use focus mode, and the old code handed back the phone's
      * document scroller on a desktop layout. */
     var scrollerFactory = opts.scroller || null;
-    var scroll = baseScroller();
+    /* Starting paged means starting on the paged scroller. Setting only the
+       state left the reader reading a horizontal layout through a vertical
+       scroller, which reports the top of the book and never moves. */
+    var scroll = state.paged ? pagedScroller(mount) : baseScroller();
 
     function scrollPosition() { return scroll.top(); }
 
@@ -734,10 +744,15 @@
     }
 
     /* Column geometry is in pixels, so a resized window has to re-derive it.
-     * Cheap to call when nothing is paginated: it does nothing. */
-    function repaginate() {
+     * Cheap to call when nothing is paginated: it does nothing.
+     *
+     * Takes an anchor for the same reason setPaged does -- a caller that has
+     * just resized the reading box around us has already broken the pages the
+     * position was read from. */
+    function repaginate(anchor) {
       if (!state.paged) return Promise.resolve(null);
-      return reflow(function () { /* geometry is read afresh by styleFor */ });
+      restoreScroll = anchor || captureAnchor();
+      return show(state.index);
     }
 
     /* Anything that reflows the text re-renders the chapter, so capture the

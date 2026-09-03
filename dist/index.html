@@ -600,7 +600,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.21.1</p>
+    <p class="hint build">v1.22.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -647,6 +647,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              panel should get out of the way once it is pressed. -->
         <button id="toggleFocus" type="button" aria-pressed="false"
                 data-i18n-title="panel.focus.title" data-i18n="panel.focus">專注閱讀</button>
+        <!-- A reading setting in its own right, not a corner of focus mode.
+             Disabled below the breakpoint, where the document scrolls and there
+             is no fixed-height box to break pages in. -->
+        <button id="togglePaged" type="button" aria-pressed="false"
+                data-i18n-title="panel.paged.title" data-i18n="panel.paged">翻頁</button>
         <!-- Kept here rather than moved to the ? overlay: that overlay only
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->
@@ -2496,6 +2501,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * content box are the same width, so the column pitch is exactly
    * clientWidth -- one number, read the same way by the CSS and by the
    * scroller. The gutter provides the breathing room instead.
+   *
+   * Vertically it is the gutter, so one constant governs every space around a
+   * page: as much room above and below a page as there is between one page and
+   * the next. It also means the page is shorter than the reading area rather
+   * than filling it edge to edge.
    */
   function pagedCss(mount, scale) {
     var parent = mount.parentNode;
@@ -2506,7 +2516,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
            'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
            'height: 100% !important; overflow: hidden !important; ' +
-           'padding: 1em 0 !important; ' +
+           'padding: ' + PAGE_GAP + 'px 0 !important; ' +
            'column-width: ' + Math.round(col) + 'px; column-gap: ' + PAGE_GAP + 'px; ' +
            'column-fill: auto; }\n' +
            /* A figure taller than the page would otherwise open a column
@@ -2757,9 +2767,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        * helping. The toggle turns them on when someone wants to review. */
       showMarks: saved.showMarks === true,
       source: saved.source === 'original' ? 'original' : 'converted',
-      /* Pagination is a property of focus mode, which is deliberately not
-         remembered, so this is not persisted either. */
-      paged: false,
+      /* Applied before the first render rather than toggled after it, so a
+         reader who prefers pages does not watch the chapter laid out twice.
+         Whether pages are POSSIBLE is the caller's judgement -- it knows the
+         width, and a phone has no fixed-height box to break them in. */
+      paged: !!opts.paged,
       overrides: saved.overrides || {},
       listeners: {}
     };
@@ -2793,7 +2805,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * widen the window, use focus mode, and the old code handed back the phone's
      * document scroller on a desktop layout. */
     var scrollerFactory = opts.scroller || null;
-    var scroll = baseScroller();
+    /* Starting paged means starting on the paged scroller. Setting only the
+       state left the reader reading a horizontal layout through a vertical
+       scroller, which reports the top of the book and never moves. */
+    var scroll = state.paged ? pagedScroller(mount) : baseScroller();
 
     function scrollPosition() { return scroll.top(); }
 
@@ -3162,10 +3177,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     /* Column geometry is in pixels, so a resized window has to re-derive it.
-     * Cheap to call when nothing is paginated: it does nothing. */
-    function repaginate() {
+     * Cheap to call when nothing is paginated: it does nothing.
+     *
+     * Takes an anchor for the same reason setPaged does -- a caller that has
+     * just resized the reading box around us has already broken the pages the
+     * position was read from. */
+    function repaginate(anchor) {
       if (!state.paged) return Promise.resolve(null);
-      return reflow(function () { /* geometry is read afresh by styleFor */ });
+      restoreScroll = anchor || captureAnchor();
+      return show(state.index);
     }
 
     /* Anything that reflows the text re-renders the chapter, so capture the
@@ -4015,6 +4035,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'panel.align.title': '對齊方式',
     'panel.focus': '專注閱讀',
     'panel.focus.title': '只留下正文，按 Esc 離開',
+    'panel.paged': '翻頁',
+    'panel.paged.title': '一頁一頁翻，不用捲動',
     'panel.vim.title': 'Vim 鍵盤操作（按 ? 看說明）',
     'align.default': '對齊：預設',
     'align.left': '對齊：靠左',
@@ -4391,6 +4413,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   function S(key, vars) { return App.strings.get(key, vars); }
   function isNarrowScreen() { return window.matchMedia('(max-width: 700px)').matches; }
 
+  /* A reading preference like the font size, but kept here rather than with the
+   * reader's own prefs because the layout it asks for is not always available.
+   * A phone has no fixed-height reading box to break pages in, and opening a
+   * book on one must not overwrite the answer given on a desktop. */
+  var PAGED_KEY = 'epub-tc:paged';
+  function pagedPref() {
+    try { return window.localStorage.getItem(PAGED_KEY) === '1'; } catch (e) { return false; }
+  }
+  function storePagedPref(on) {
+    try { window.localStorage.setItem(PAGED_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+
   /* Which element scrolls is a layout decision, so it is made here rather than
      in the reader: below the breakpoint the document scrolls, so the browser
      will collapse its own chrome; above it an inner container does, because
@@ -4641,7 +4675,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.title.textContent = book.metadata.title || filename;
     document.title = (book.metadata.title || filename) + ' — 繁花似錦';
 
-    var reader = App.reader.create(el.viewer, book, { scroller: scrollerFor() });
+    var reader = App.reader.create(el.viewer, book, {
+      scroller: scrollerFor(),
+      paged: pagedPref() && !isNarrowScreen()
+    });
     current.reader = reader;
 
     /* Chapter count plus how far through the book, which the index alone does
@@ -4661,8 +4698,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          unless focus mode has deliberately put it away. Switching into that
          mode re-renders the chapter, which is how the strip it had just tucked
          came straight back. */
-      var paged = !!(api.focusOn && api.focusOn());
-      if (api.tuckPager && !paged) api.tuckPager(false);
+      var paged = !!reader.state.paged;
+      if (api.tuckPager && !(api.focusOn && api.focusOn())) api.tuckPager(false);
       lastViewerScroll = 0;
       renderPosition();
       /* Those buttons turn PAGES while paginating, so a chapter boundary is no
@@ -4709,6 +4746,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.lineHeight.value = reader.state.lineHeight;
     el.align.value = reader.state.align;
     syncSource();
+    if (api.syncPaged) api.syncPaged();
   }
 
   /* ---- saved books ---- */
@@ -4964,6 +5002,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleSource = $('toggleSource');
     el.toggleVim = $('toggleVim');
     el.toggleFocus = $('toggleFocus');
+    el.togglePaged = $('togglePaged');
     /* By id, like every other piece of chrome. The one element reached for by
        class was the bar, and a rename would have returned null and silently
        zeroed an inset rather than failing. */
@@ -5256,6 +5295,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (on) {
         closeDropdowns(null);
         focusMode.sidebarWas = drawerOpen();
+        focusMode.pagedWas = pagedOn();
         setDrawer(false);
       }
       focusMode.on = on;
@@ -5263,26 +5303,66 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       tuckPager(on);
       if (!on) setDrawer(focusMode.sidebarWas);
 
-      if (current.reader) current.reader.setPaged(on, anchor);
+      /* Focus mode BORROWS pages for as long as it runs and hands back whatever
+         was set before it; the stored preference is never touched here. When
+         that is already what the reader is doing, the layout still has to be
+         re-broken -- the reading box just changed size around it. */
+      if (current.reader) {
+        var want = on ? true : focusMode.pagedWas;
+        if (want === pagedOn()) current.reader.repaginate(anchor);
+        else current.reader.setPaged(want, anchor);
+      }
       if (on) goFullscreen(); else leaveFullscreen();
       syncFocus();
+      syncPaged();
     }
 
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
-      /* The buttons turn pages in focus mode, so they have to say so. They are
-         tucked away most of the time, but a revealed pager offering 下一章 that
-         advances one page would be lying. */
-      el.prev.textContent = S(focusMode.on ? 'pager.prevPage' : 'pager.prev');
-      el.next.textContent = S(focusMode.on ? 'pager.nextPage' : 'pager.next');
     }
+
+    function pagedOn() {
+      return !!(current.reader && current.reader.state.paged);
+    }
+
+    function syncPaged() {
+      var on = pagedOn();
+      el.togglePaged.classList.toggle('active', on);
+      el.togglePaged.setAttribute('aria-pressed', String(on));
+      /* Nothing below the breakpoint can honour it, so it says so rather than
+         accepting a press and doing nothing. */
+      el.togglePaged.disabled = isNarrow();
+      /* Keyed on the LAYOUT, not on focus mode: pages can be on without it. A
+         pager offering 下一章 while the button advances one page would lie. */
+      el.prev.textContent = S(on ? 'pager.prevPage' : 'pager.prev');
+      el.next.textContent = S(on ? 'pager.nextPage' : 'pager.next');
+    }
+    api.syncPaged = syncPaged;
+
+    /* Layout only. The stored preference is written where the reader asks for
+       it, so a width change or focus mode can move the layout without
+       answering for the reader. */
+    function applyPaged(on) {
+      if (!current.reader) return;
+      if (on && isNarrow()) { syncPaged(); return; }
+      if (on === pagedOn()) { syncPaged(); return; }
+      var p = current.reader.setPaged(on);
+      if (p && p.then) p.then(syncPaged); else syncPaged();
+    }
+
+    el.togglePaged.addEventListener('click', function () {
+      if (isNarrow()) return;
+      var want = !pagedOn();
+      storePagedPref(want);
+      applyPaged(want);
+    });
 
     /* The empty margins either side of the page turn it: the only control a
        paged view needs, and the only one it shows. A click inside the column
        falls through to the reader, where the marks and links live. */
     el.viewer.addEventListener('click', function (ev) {
-      if (!focusMode.on || !current.reader) return;
+      if (!pagedOn()) return;
       var box = current.reader.mount.getBoundingClientRect();
       if (ev.clientX < box.left) current.reader.prevPage();
       else if (ev.clientX > box.right) current.reader.nextPage();
@@ -5332,6 +5412,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
+      /* The preference outlives the width: crossing down to a phone puts the
+         text back to scrolling, and crossing back up restores what was asked
+         for rather than leaving it off until noticed. */
+      applyPaged(!isNarrow() && pagedPref());
       /* The layout has just changed which element scrolls, so the reader is
          holding the wrong one. It keeps the place itself: capturing here would
          be too late, since the stylesheet has already relaid the page. */
