@@ -32,8 +32,21 @@
     return ':host p { text-align: ' + align + ' !important; }\n';
   }
 
+  /* How WIDE the column is, and what it looks like, is the book's business to
+   * work within. WHERE it sits on screen is the reader's.
+   *
+   * The book's own `body` rule is scoped to :host and appended after this one,
+   * so a plain `margin: 0 auto` loses to any book that zeroes its body margins
+   * -- and plenty do. This sample book's cover does exactly that, and sat
+   * against the left edge of the window while every text chapter was centred.
+   *
+   * Only the two horizontal margins are forced. Top and bottom stay the book's,
+   * along with everything else; the width is already capped by max-width, so a
+   * book cannot bleed to the edges either way and nothing it might legitimately
+   * want is taken from it. */
   function modeCss() {
-    return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n';
+    return ':host { writing-mode: horizontal-tb; max-width: 38em; margin: 0 auto; padding: 1em; }\n' +
+           ':host { margin-left: auto !important; margin-right: auto !important; }\n';
   }
 
   var PAGE_GAP = 48;          // gutter between one page and the next, in px

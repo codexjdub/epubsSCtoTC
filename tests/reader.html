@@ -795,6 +795,30 @@
       t.eq('and clearing it goes back to the element', reader.scrollerKind(), 'element');
       reader.scrollToStart();
 
+      // ---- a book must not knock the column off-centre ----
+      /* The book's `body` rule is scoped to :host and lands after the reader's
+         own, so it wins on ties. That is right for typography and wrong for
+         the column's position: the sample book's cover zeroes its body margins
+         and sat against the left edge while every text chapter was centred.
+         The pair of assertions below is the point -- the book still wins the
+         padding, so its rule is demonstrably in force, and loses the centring. */
+      var centreHost = document.createElement('div');
+      centreHost.style.cssText =
+        'position:absolute;left:-9999px;width:900px;height:300px;overflow:auto';
+      document.body.appendChild(centreHost);
+      var centreBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(centreBook, 'hk');
+      var cr = App.reader.create(centreHost, centreBook);
+      await cr.show(0);
+      var cm = window.getComputedStyle(cr.mount);
+      t.eq('the book still wins the padding, so its rule is really in force',
+           cm.paddingLeft, '0px');
+      t.eq('but the column keeps its centring', cm.marginLeft, cm.marginRight);
+      t.check('and is genuinely inset from both edges',
+              parseFloat(cm.marginLeft) > 100, cm.marginLeft + ' each side of 900px');
+      cr.destroy();
+      centreHost.remove();
+
       // ---- vim keys ----
       var calls = [];
       var vim = App.keys.create({

@@ -256,7 +256,10 @@
     oebps.file('toc.ncx', ncx());
     oebps.folder('text').file('chapter1.xhtml', xhtml('第一章 干净的头发', longProse(60), 'zh-CN'));
     oebps.folder('text').file('chapter2.xhtml', xhtml('第二章 老板与皇后', longProse(60), 'zh-CN'));
-    oebps.folder('styles').file('main.css', CSS);
+    /* Zeroes its own body box, the way a real cover or chapter stylesheet
+       often does. Scoped to :host, it lands after the reader's own frame rule
+       and wins -- which is right for the padding and wrong for the centring. */
+    oebps.folder('styles').file('main.css', CSS + 'body { margin: 0; padding: 0; }\n');
     oebps.folder('images').file('pic.png', bytes(PNG_B64));
     return zip.generateAsync({ type: 'arraybuffer' });
   }
