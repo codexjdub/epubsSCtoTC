@@ -2,18 +2,21 @@
 
 Convert a simplified Chinese EPUB to traditional and read it in the browser.
 
-Open `dist/index.html` — one self-contained file, ~1.5 MB, no install, works
-offline. Drop in an EPUB, read it converted, export it if you want the file.
-Nothing is uploaded.
+Open `dist/index.html` — one self-contained file, ~1.6 MB, no install, works
+offline. Drop in an EPUB, read it converted, and export it as EPUB, HTML,
+Markdown or plain text. Nothing is uploaded.
 
 ## Features
 
 - Converts text only — stylesheets and internal links keep working
 - Hong Kong, Taiwan or plain traditional (面条 → 麪條 in HK, 麵條 in TW)
-- Built-in reader: table of contents, seven themes
+- Built-in reader: table of contents, seven themes, progress through the book,
+  and typefaces chosen for the script the book is written in
 - Ambiguous characters (发 → 發 or 髮) are underlined — click to cycle, and the
   choice carries into the export
 - Drops embedded fonts that can't render the converted text
+- Exports as EPUB, or as one self-contained HTML file — which is also how to
+  print it, since the browser breaks CJK lines properly
 - Optional vim keys (`j`/`k`, `gg`, `n`/`p`; press `?` for the list)
 - Works on a phone
 
@@ -28,7 +31,7 @@ node tools/audit-dist.js      # check it still works from file://
 ```
 
 Tests are browser pages — open `tests/run.html`, `reader.html`, `fonts.html`,
-`library.html` and `mobile.html` on the dev server. 306 assertions.
+`library.html` and `mobile.html` on the dev server. 401 assertions.
 `node tools/validate/run-tests.js` drives all five headlessly, which is how CI
 runs them.
 
