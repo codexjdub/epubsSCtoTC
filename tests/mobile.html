@@ -647,7 +647,7 @@
       t.eq('and the contents button', LD.getElementById('toggleSidebar').textContent, 'Contents');
       t.eq('and the export button', LD.getElementById('exportBtn').textContent, 'Export');
       t.eq('and the action inside it', LD.getElementById('exportRun').textContent, 'Export EPUB');
-      t.eq('and the pager', LD.getElementById('next').textContent, 'Next →');
+      t.eq('and the pager', LD.getElementById('next').textContent, 'Chapter →');
       t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
       t.eq('including the pagination toggle',
            LD.getElementById('togglePaged').textContent, 'Pagination');
@@ -709,6 +709,39 @@
            keptLang.contentDocument.getElementById('toggleShelf').textContent, 'Shelf');
       keptLang.remove();
       window.localStorage.removeItem('epub-tc:lang');
+
+      /* English labels run longer than Chinese ones, and the tightest place for
+         that is the pager on a phone: "← Previous chapter" wrapped to two lines
+         and took the strip from 55px to 78px, spending height this layout went
+         to real trouble to win back. Asserted with room in the threshold,
+         because CI renders with a different font set than any desktop -- what
+         must not happen is a SECOND LINE, which costs about 23px, and no
+         plausible font moves a single row that far. */
+      var enPhone = await mount(PHONE, 812);
+      await loadBook(enPhone);
+      var ep = enPhone.contentDocument;
+      ep.getElementById('lang').click();
+      await wait(400);
+      t.eq('the phone pager speaks English', ep.getElementById('next').textContent,
+           'Chapter →');
+      /* The readout has to be the widest a real book produces, or this proves
+         nothing: the two-chapter fixture renders "1 / 2 · 0%", some 40px narrower
+         than a long book's, and leaves room the phone does not have. The first
+         version of this test passed with labels that demonstrably wrap, for
+         exactly that reason. */
+      ep.getElementById('position').textContent = '123 / 456 · 100%';
+      void ep.getElementById('prev').offsetHeight;
+      t.check('and still fits on one row',
+              px(ep.querySelector('.pager')).height < 66,
+              Math.round(px(ep.querySelector('.pager')).height) + 'px tall');
+      ['prev', 'next'].forEach(function (id) {
+        t.check('the ' + id + ' button does not wrap',
+                px(ep.getElementById(id)).height < 56,
+                Math.round(px(ep.getElementById(id)).height) + 'px tall');
+      });
+      enPhone.remove();
+      window.localStorage.removeItem('epub-tc:lang');
+
 
       /* Regression guard for the real bug: a frame that starts narrow and is
        * widened afterwards must still show the sidebar, because the default

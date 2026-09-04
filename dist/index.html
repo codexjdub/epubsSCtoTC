@@ -600,7 +600,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.25.0</p>
+    <p class="hint build">v1.25.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -4189,7 +4189,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* ---- reading settings ---- */
     'panel.typeface.title': ['字體', 'Typeface'],
     'panel.leading': ['行距', 'Leading'],
-    'panel.measure': ['行寬', 'Width'],
+    'panel.measure': ['行寬', 'Line width'],
     'panel.align.title': ['對齊方式', 'Alignment'],
     /* Deliberately inverted: the button names the language you would GET, so
        each column holds the OTHER language. A bilingual site shows you the way
@@ -4203,7 +4203,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'panel.paged.title': ['一頁一頁翻，不用捲動', 'Turn pages instead of scrolling'],
     'panel.vim.title': ['Vim 鍵盤操作（按 ? 看說明）',
                         'Vim keys (press ? for the list)'],
-    'align.default': ['對齊：預設', 'Align: publisher'],
+    /* Not "default": what this leaves alone is whatever the PUBLISHER set, and
+       both languages should say so. The Chinese read 預設 while the English read
+       publisher, which are two different claims about the same option. */
+    'align.default': ['對齊：出版方', 'Align: publisher'],
     'align.left': ['對齊：靠左', 'Align: left'],
     'align.justify': ['對齊：兩端', 'Align: justified'],
 
@@ -4222,7 +4225,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* ---- the shelf ---- */
     'shelf.open': ['開啟新書…', 'Open a book…'],
-    'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB on the window'],
+    'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB anywhere on this page'],
     'shelf.count': ['這部裝置存了 {n} 本書。', '{n} books saved on this device.'],
     'shelf.count.one': ['這部裝置存了 1 本書。', '1 book saved on this device.'],
     'shelf.empty': ['還沒有存書。開過的書會留在這裡。',
@@ -4231,15 +4234,27 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* ---- the pager ---- */
     'pager.back': ['↩ 返回', '↩ Back'],
-    'pager.prev': ['← 上一章', '← Previous'],
-    'pager.next': ['下一章 →', 'Next →'],
+    /* Two parallel pairs, as in the Chinese: 上一章/下一章 against 上一頁/下一頁.
+       The English used to say "Previous" for one and "Page back" for the other,
+       blurring the very distinction the buttons exist to make.
+
+       The direction comes from the arrow and the unit from the word, which is
+       how the Chinese does it too -- 上一章 is three characters, not "previous
+       chapter". The English has to be as terse for the same reason. Measured on
+       a 375px phone against the widest position readout a long book produces,
+       "← Previous chapter" wrapped to two lines and took the pager from 55px to
+       78px; "← Prev chapter" wrapped as well. Only this fits every case. */
+    'pager.prev': ['← 上一章', '← Chapter'],
+    'pager.next': ['下一章 →', 'Chapter →'],
     /* Pages are a setting of their own, so the same two buttons turn pages
        wherever it is on -- in focus mode or out of it. */
-    'pager.prevPage': ['← 上一頁', '← Page back'],
-    'pager.nextPage': ['下一頁 →', 'Page forward →'],
+    'pager.prevPage': ['← 上一頁', '← Page'],
+    'pager.nextPage': ['下一頁 →', 'Page →'],
 
     /* ---- what the app is doing ---- */
-    'status.opening': ['開啟《{title}》…', 'Opening {title}…'],
+    /* Delimited in both: 《》 in Chinese, quotes in English. Bare, a long title
+       ran straight into the sentence around it. */
+    'status.opening': ['開啟《{title}》…', 'Opening \u201c{title}\u201d…'],
     'status.exporting': ['正在匯出…', 'Exporting…'],
     'status.exporting.pct': ['正在匯出… {pct}%', 'Exporting… {pct}%'],
     'status.exported': ['已匯出 {name}', 'Exported {name}'],
@@ -4291,7 +4306,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
                       'Brush forms. Common in textbooks and poetry.'],
     'font.yuan': ['圓體', '圓體 Yuan'],
     'font.yuan.note': ['圓潤的無襯線，比黑體柔和。',
-                       'Rounded sans-serif, softer than 黑體.'],
+                       'Rounded sans-serif, softer than 黑體 Hei.'],
     'font.fangsong': ['仿宋', '仿宋 Fangsong'],
     'font.fangsong.note': ['較細的宋體，引文與公文常用。',
                            'A lighter Song face, used for quotations and documents.'],
