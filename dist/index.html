@@ -607,7 +607,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.25.3</p>
+    <p class="hint build">v1.25.4</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -4199,7 +4199,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* ---- reading settings ---- */
     'panel.typeface.title': ['字體', 'Typeface'],
-    'panel.leading': ['行距', 'Leading'],
+    /* Not "Leading". That is the right typographic word and the wrong label:
+       it is trade jargon, it reads as the ordinary word for "foremost", and it
+       pairs plain Chinese with English a reader has to already know. 行距 and
+       行寬 are parallel and everyday; so are these two. */
+    'panel.leading': ['行距', 'Line spacing'],
     'panel.measure': ['行寬', 'Line width'],
     'panel.align.title': ['對齊方式', 'Alignment'],
     /* Deliberately inverted: the button names the language you would GET, so

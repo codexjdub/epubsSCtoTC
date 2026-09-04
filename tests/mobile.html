@@ -295,6 +295,28 @@
                 var e = D.getElementById(id);
                 return e && e.getClientRects().length > 0;
               }), 'a control is unreachable in the panel');
+
+      /* The sliders share a label column, and English labels are the long ones:
+         "Line spacing" and "Line width" against 行距 and 行寬. The narrow panel
+         is where that column costs the most, so check it here in the language
+         that makes it widest -- the desktop frame proves alignment, this proves
+         the track survives it. */
+      D.getElementById('lang').click();
+      await wait(300);
+      setPanelOpen(true);
+      await wait(80);
+      var pInputs = D.querySelectorAll('#aaPanel .ranges input[type="range"]');
+      var pPanel = px(D.getElementById('aaPanel'));
+      t.eq('both sliders are laid out on a phone', pInputs.length, 2);
+      t.check('and neither runs past the panel',
+              Array.prototype.every.call(pInputs, function (i) {
+                return px(i).right <= pPanel.right + 1;
+              }), 'a slider overflows the panel');
+      t.check('with a track still worth dragging',
+              px(pInputs[0]).width >= 90,
+              Math.round(px(pInputs[0]).width) + 'px of track');
+      D.getElementById('lang').click();            // back to Chinese
+      await wait(300);
       setPanelOpen(false);
 
       // touch targets

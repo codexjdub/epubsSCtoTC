@@ -62,7 +62,11 @@
 
     /* ---- reading settings ---- */
     'panel.typeface.title': ['字體', 'Typeface'],
-    'panel.leading': ['行距', 'Leading'],
+    /* Not "Leading". That is the right typographic word and the wrong label:
+       it is trade jargon, it reads as the ordinary word for "foremost", and it
+       pairs plain Chinese with English a reader has to already know. 行距 and
+       行寬 are parallel and everyday; so are these two. */
+    'panel.leading': ['行距', 'Line spacing'],
     'panel.measure': ['行寬', 'Line width'],
     'panel.align.title': ['對齊方式', 'Alignment'],
     /* Deliberately inverted: the button names the language you would GET, so
