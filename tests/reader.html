@@ -941,8 +941,17 @@
       var lr = App.reader.create(scriptHost, latinBook);
       await lr.show(0);
       t.eq('an English book opens with a narrower line', lr.state.measure, 32);
-      t.eq('and is offered Latin typefaces to go with it',
-           App.readingFonts.availableStyles('en', 'hk')[0].id, 'serif');
+      /* Asserted without naming a font that has to exist -- the rule already
+         written down beside the availability tests above, which the first
+         version of this line broke: it asked for 'serif' and got 'sans' on CI,
+         where the serif families simply are not installed. What matters is that
+         an English book is offered the LATIN set, and 楷書 and its kin are not
+         in it whatever fonts the machine happens to have. */
+      var latinIds = App.readingFonts.stylesFor('en').map(function (f) { return f.id; });
+      t.check('and is offered Latin typefaces to go with it',
+              App.readingFonts.availableStyles('en', 'hk').every(function (f) {
+                return latinIds.indexOf(f.id) >= 0;
+              }), 'a non-Latin style was offered for an English book');
 
       /* A choice about English books must not follow a Chinese one home. */
       await lr.setMeasure(46);
