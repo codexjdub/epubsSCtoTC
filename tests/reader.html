@@ -833,6 +833,67 @@
       upHost.remove();
 
 
+      /* ---- a resize must not move the reader ----
+       *
+       * The box's height is the one dimension paged CSS leaves live: the width
+       * is baked into the stylesheet as pixels, but `height: 100%` tracks the
+       * parent, so shrinking it re-breaks every column IMMEDIATELY, before any
+       * script runs, while scrollLeft keeps its old and now meaningless value.
+       * Capturing a position after that reads a page that was never on screen.
+       *
+       * Measured in the real app before this was fixed: nudging the window
+       * 40px shorter and back -- less than a download bar appearing -- moved
+       * the reader a page and left it there, at the size it started from.
+       * The reader has to fall back to the anchor it settled on while the old
+       * layout was still up, which is what it does when the box no longer
+       * measures what it did. */
+      var rzHost = document.createElement('div');
+      rzHost.style.cssText =
+        'position:absolute;left:-9999px;width:700px;height:400px;overflow:auto';
+      document.body.appendChild(rzHost);
+      var rz = App.reader.create(rzHost, longBook, { paged: true });
+      await rz.show(0);
+      await rz.nextPage(); await rz.nextPage(); await rz.nextPage();
+      var rzBefore = rz.captureAnchor();
+      t.check('a few pages in, before any resize', rzBefore.index > 0,
+              JSON.stringify(rzBefore));
+
+      function rzResize(h) {
+        rzHost.style.height = h;
+        /* Forced. The whole defect is the browser re-breaking the columns
+           BEFORE any script asks it to; without reading the box back, the
+           reflow is deferred past repaginate() and this measures a layout that
+           never changed. */
+        void rzHost.offsetHeight;
+        void rz.mount.clientHeight;
+      }
+
+      /* The live reading of the position is now wrong -- that is the defect,
+         stated plainly: the columns have re-broken while scrollLeft still holds
+         the offset they had before, so it names a page that was never shown. */
+      rzResize('340px');
+      t.check('a squeeze makes the live position wrong',
+              rz.captureAnchor().index !== rzBefore.index,
+              'the fixture no longer reproduces the re-break; this guards nothing');
+
+      /* So repaginate must NOT use it. Called with no anchor, exactly as the
+         resize handler calls it. Asserted here, mid-resize, rather than after
+         squeezing and restoring: a symmetric round trip cancels the error out
+         -- measured lp7 -> lp5 -> lp7 -- and would pass with the bug in place.
+         In the app nothing is symmetric, because the position settles between
+         one resize and the next, and the error accumulated a page at a time. */
+      await rz.repaginate();
+      t.eq('but re-paginating keeps the block the reader was on',
+           rz.captureAnchor().index, rzBefore.index);
+
+      rzResize('400px');
+      await rz.repaginate();
+      t.eq('and restoring the height keeps it too',
+           rz.captureAnchor().index, rzBefore.index);
+      rz.destroy();
+      rzHost.remove();
+
+
       // ---- line width ----
       /* The measure is the reader's, not the book's, and it has to move both
          layouts: in pages it also sets the page width and therefore the
