@@ -12,7 +12,8 @@ Markdown or plain text. Nothing is uploaded.
 - Hong Kong, Taiwan or plain traditional (面条 → 麪條 in HK, 麵條 in TW)
 - Built-in reader: table of contents, seven themes, progress through the book,
   and typefaces chosen for the script the book is written in
-- Reading settings that stay put: size, leading, line width, alignment
+- Reading settings that stay put: size, leading, line width, alignment — the
+  width per script, since 38em is 38 Chinese characters but 81 Latin ones
 - Turn pages instead of scrolling, and a focus mode that clears the chrome away
   and goes fullscreen — both desktop only, where there is a fixed-height column
   to break pages in

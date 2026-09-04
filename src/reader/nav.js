@@ -358,6 +358,27 @@
            : saved[name] !== undefined ? saved[name] : fallback;
     }
 
+    /* The language BEFORE conversion: an English book is still English, and
+     * conversion retags Chinese ones to the preset's tag anyway. */
+    function bookLanguage() {
+      var meta = book.metadata || {};
+      return (meta.original && meta.original.language) || meta.language;
+    }
+
+    /* A comfortable line is not the same NUMBER in both scripts. 38em is about
+     * 38 Chinese characters -- inside the 25-40 that CJK typography asks for --
+     * and about 81 Latin ones, well past the 45-75 that Latin typography asks
+     * for. Measured on a real English book: 38em gave 81 characters to the
+     * line, 32em gave 66.
+     *
+     * Remembered per script for the same reason. Widening the column for a
+     * Chinese book says nothing about English ones, and a single shared number
+     * is wrong for whichever script it was not chosen for. The Han key keeps the
+     * old name, so a width chosen before this split stays with the books it was
+     * chosen for. */
+    var hanBook = App.readingFonts.isHan(bookLanguage());
+    var measureKey = hanBook ? 'measure' : 'measure.latin';
+
     var state = {
       index: 0,
       fontStyle: App.readingFonts.isValidStyle(pref('fontStyle'))
@@ -367,7 +388,7 @@
       /* How wide a line runs, in ems of the reading size -- so it holds its
          character count when the text is enlarged. 38 is about 38 Chinese
          characters, or 70 Latin ones. */
-      measure: pref('measure', 38),
+      measure: pref(measureKey, hanBook ? 38 : 32),
       align: pref('align', 'default'),
       /* Off by default. A full-length book produces thousands of marked
        * characters, and most are readings the converter is not actually in
@@ -432,11 +453,7 @@
      * undo what the conversion just did. */
     function fontStack() {
       var preset = book.report && book.report.preset ? book.report.preset.id : 'hk';
-      /* The language BEFORE conversion: an English book is still English, and
-       * conversion retags Chinese ones to the preset's tag anyway. */
-      var meta = book.metadata || {};
-      var language = (meta.original && meta.original.language) || meta.language;
-      return App.readingFonts.stackFor(state.fontStyle, preset, language);
+      return App.readingFonts.stackFor(state.fontStyle, preset, bookLanguage());
     }
 
     /* Reading position as a content anchor rather than a pixel offset.
@@ -506,14 +523,16 @@
       (state.listeners[name] = state.listeners[name] || []).push(fn);
     }
 
+    /* Merged rather than replaced: the measure is kept per script, so writing
+     * the one for this book must not drop the other script's. */
     function persistPrefs() {
-      prefs.write({
-        fontStyle: state.fontStyle,
-        fontScale: state.fontScale,
-        lineHeight: state.lineHeight,
-        measure: state.measure,
-        align: state.align
-      });
+      var out = prefs.read() || {};
+      out.fontStyle = state.fontStyle;
+      out.fontScale = state.fontScale;
+      out.lineHeight = state.lineHeight;
+      out.align = state.align;
+      out[measureKey] = state.measure;
+      prefs.write(out);
     }
 
     function persist() {

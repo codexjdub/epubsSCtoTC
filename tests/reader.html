@@ -923,6 +923,52 @@
       wr2.destroy();
       wideHost.remove();
 
+
+      // ---- a comfortable line is not the same number in both scripts ----
+      /* 38em is about 38 Chinese characters and about 81 Latin ones. Measured on
+         a real English book, 38em gave 81 characters to the line and 32em gave
+         66 -- so the default follows the book's script, the way the typeface
+         already does, and each script remembers its own. */
+      var scriptHost = document.createElement('div');
+      scriptHost.style.cssText =
+        'position:absolute;left:-9999px;width:1000px;height:300px;overflow:auto';
+      document.body.appendChild(scriptHost);
+
+      var latinBook = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(latinBook, 'hk');
+      latinBook.metadata.language = 'en';
+      if (latinBook.metadata.original) latinBook.metadata.original.language = 'en';
+      var lr = App.reader.create(scriptHost, latinBook);
+      await lr.show(0);
+      t.eq('an English book opens with a narrower line', lr.state.measure, 32);
+      t.eq('and is offered Latin typefaces to go with it',
+           App.readingFonts.availableStyles('en', 'hk')[0].id, 'serif');
+
+      /* A choice about English books must not follow a Chinese one home. */
+      await lr.setMeasure(46);
+      lr.destroy();
+
+      var hanBook2 = await App.parse.load(await App.fixtures.buildLong());
+      await App.convert.book(hanBook2, 'hk');
+      var hr = App.reader.create(scriptHost, hanBook2);
+      await hr.show(0);
+      t.eq('a Chinese book still opens at the wider default', hr.state.measure, 38);
+      await hr.setMeasure(30);
+      hr.destroy();
+
+      var lr2 = App.reader.create(scriptHost, latinBook);
+      await lr2.show(0);
+      t.eq('and the English choice survived the Chinese one', lr2.state.measure, 46);
+      /* Both back to their defaults: these preferences are shared by every test
+         page on this origin. */
+      await lr2.setMeasure(32);
+      lr2.destroy();
+      var hr2 = App.reader.create(scriptHost, hanBook2);
+      await hr2.show(0);
+      await hr2.setMeasure(38);
+      hr2.destroy();
+      scriptHost.remove();
+
       // ---- a book must not knock the column off-centre ----
       /* The book's `body` rule is scoped to :host and lands after the reader's
          own, so it wins on ties. That is right for typography and wrong for
