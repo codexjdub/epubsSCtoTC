@@ -75,6 +75,11 @@
                           'The reading column and nothing else. Esc to leave.'],
     'panel.paged': ['翻頁', 'Pagination'],
     'panel.paged.title': ['一頁一頁翻，不用捲動', 'Turn pages instead of scrolling'],
+    /* A mode, named like the two beside it -- "Vim" alone names a program. The
+       label no longer changes when it is on: the button already shows that with
+       its pressed state, the tooltip already says which key opens the list, and
+       turning it on opens the list anyway. */
+    'panel.vim': ['Vim 模式', 'Vim mode'],
     'panel.vim.title': ['Vim 鍵盤操作（按 ? 看說明）',
                         'Vim keys (press ? for the list)'],
     /* Not "default": what this leaves alone is whatever the PUBLISHER set, and

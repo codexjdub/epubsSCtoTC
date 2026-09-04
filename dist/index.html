@@ -304,8 +304,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    you are in matters more than the last three characters of its name. */
 
 /* ---- typeface + leading controls ---- */
-.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+/* One label column shared by both sliders, so their tracks begin at the same x
+   whatever the labels say. A fixed width would have to suit both languages at
+   once and would suit neither: 行距 and 行寬 are 28px while Leading and Line
+   width are 51 and 66, so padding out to the English width would cost the
+   Chinese sliders 38px of track. max-content is whichever label is widest in
+   the language actually on screen. */
+.bar-panel .ranges {
+  display: grid; grid-template-columns: max-content 1fr;
+  column-gap: 8px; row-gap: 8px; align-items: center;
+}
+.bar-panel .ranges label.range { display: contents; }
+.bar-panel .ranges span { white-space: nowrap; }
+.bar-panel input[type="range"] { min-width: 90px; accent-color: var(--accent); }
 
 /* ---- saved books ---- */
 .library { width: 100%; max-width: 560px; }
@@ -596,7 +607,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.25.2</p>
+    <p class="hint build">v1.25.3</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -632,16 +643,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
           <button id="fontSmaller" type="button" data-keep-open>A−</button>
           <button id="fontBigger" type="button" data-keep-open>A+</button>
         </div>
-        <label class="range"><span data-i18n="panel.leading">行距</span>
-          <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
-        </label>
-        <!-- In ems of the reading size, so a line keeps its character count as
-             the text is enlarged. Below the breakpoint the screen is the
-             narrower limit for most of this range, and the control simply has
-             nothing to do. -->
-        <label class="range"><span data-i18n="panel.measure">行寬</span>
-          <input type="range" id="measure" min="26" max="50" step="2"/>
-        </label>
+        <!-- Grouped so the two labels share a column and the tracks begin at the
+             same x. Apart, each slider started wherever its own label ended. -->
+        <div class="ranges">
+          <label class="range"><span data-i18n="panel.leading">行距</span>
+            <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
+          </label>
+          <!-- In ems of the reading size, so a line keeps its character count as
+               the text is enlarged. Below the breakpoint the screen is the
+               narrower limit for most of this range, and the control simply has
+               nothing to do. -->
+          <label class="range"><span data-i18n="panel.measure">行寬</span>
+            <input type="range" id="measure" min="26" max="50" step="2"/>
+          </label>
+        </div>
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
         <!-- The interface language follows the READER, not the book: switching
@@ -665,7 +680,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
-                data-i18n-title="panel.vim.title">Vim</button>
+                data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
       </div>
 
       <!-- Everything about producing a file, in one place, at the moment you
@@ -4197,6 +4212,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
                           'The reading column and nothing else. Esc to leave.'],
     'panel.paged': ['翻頁', 'Pagination'],
     'panel.paged.title': ['一頁一頁翻，不用捲動', 'Turn pages instead of scrolling'],
+    /* A mode, named like the two beside it -- "Vim" alone names a program. The
+       label no longer changes when it is on: the button already shows that with
+       its pressed state, the tooltip already says which key opens the list, and
+       turning it on opens the list anyway. */
+    'panel.vim': ['Vim 模式', 'Vim mode'],
     'panel.vim.title': ['Vim 鍵盤操作（按 ? 看說明）',
                         'Vim keys (press ? for the list)'],
     /* Not "default": what this leaves alone is whatever the PUBLISHER set, and
@@ -5732,10 +5752,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       toggleFocus: function () { setFocus(!focusMode.on); }
     });
 
+    /* The label is the table's now, filled by apply() like every other one --
+       this was the last piece of interface text written in JS, and the sweep
+       that looks for stragglers could never have caught it, "Vim" being Latin
+       in both languages. */
     function syncVim() {
       var on = current.keys.isEnabled();
       el.toggleVim.classList.toggle('active', on);
-      el.toggleVim.textContent = on ? 'Vim ?' : 'Vim';
       el.toggleVim.setAttribute('aria-pressed', String(on));
     }
     el.toggleVim.addEventListener('click', function () {

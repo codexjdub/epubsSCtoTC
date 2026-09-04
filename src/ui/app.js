@@ -1069,10 +1069,13 @@
       toggleFocus: function () { setFocus(!focusMode.on); }
     });
 
+    /* The label is the table's now, filled by apply() like every other one --
+       this was the last piece of interface text written in JS, and the sweep
+       that looks for stragglers could never have caught it, "Vim" being Latin
+       in both languages. */
     function syncVim() {
       var on = current.keys.isEnabled();
       el.toggleVim.classList.toggle('active', on);
-      el.toggleVim.textContent = on ? 'Vim ?' : 'Vim';
       el.toggleVim.setAttribute('aria-pressed', String(on));
     }
     el.toggleVim.addEventListener('click', function () {

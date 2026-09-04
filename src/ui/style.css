@@ -297,8 +297,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    you are in matters more than the last three characters of its name. */
 
 /* ---- typeface + leading controls ---- */
-.bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
+/* One label column shared by both sliders, so their tracks begin at the same x
+   whatever the labels say. A fixed width would have to suit both languages at
+   once and would suit neither: 行距 and 行寬 are 28px while Leading and Line
+   width are 51 and 66, so padding out to the English width would cost the
+   Chinese sliders 38px of track. max-content is whichever label is widest in
+   the language actually on screen. */
+.bar-panel .ranges {
+  display: grid; grid-template-columns: max-content 1fr;
+  column-gap: 8px; row-gap: 8px; align-items: center;
+}
+.bar-panel .ranges label.range { display: contents; }
+.bar-panel .ranges span { white-space: nowrap; }
+.bar-panel input[type="range"] { min-width: 90px; accent-color: var(--accent); }
 
 /* ---- saved books ---- */
 .library { width: 100%; max-width: 560px; }

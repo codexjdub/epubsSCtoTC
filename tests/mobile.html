@@ -651,6 +651,29 @@
       t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
       t.eq('including the pagination toggle',
            LD.getElementById('togglePaged').textContent, 'Pagination');
+      /* The last label that lived in JS rather than in the table. A sweep for
+         Chinese stragglers could never have caught it: "Vim" is Latin in both. */
+      t.eq('and the vim toggle, which used to be spelled in JS',
+           LD.getElementById('toggleVim').textContent, 'Vim mode');
+
+      /* Both sliders begin at the same x whatever their labels say. "Leading"
+         and "Line width" differ by 15px where 行距 and 行寬 do not, so this only
+         ever showed in English. Compared against each other rather than against
+         a number, so it holds whatever fonts the machine has. */
+      LD.getElementById('aaBtn').click();
+      await wait(200);
+      var tracks = Array.prototype.map.call(
+        LD.querySelectorAll('#aaPanel .ranges input[type="range"]'),
+        function (i) { return Math.round(px(i).left); });
+      t.eq('both sliders are laid out', tracks.length, 2);
+      t.eq('and they line up with each other', tracks[0], tracks[1]);
+      t.check('with the track left of the label, not against it',
+              px(LD.querySelector('#aaPanel .ranges input')).left -
+                px(LD.querySelector('#aaPanel .ranges span')).right >= 8,
+              Math.round(px(LD.querySelector('#aaPanel .ranges input')).left -
+                px(LD.querySelector('#aaPanel .ranges span')).right) + 'px apart');
+      LD.getElementById('aaBtn').click();
+      await wait(120);
       t.eq('and the document language', LD.documentElement.getAttribute('lang'), 'en');
 
       /* Option lists are built in JS, so apply() never reaches them: each one

@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.25.2</p>
+    <p class="hint build">v1.25.3</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -70,16 +70,20 @@
           <button id="fontSmaller" type="button" data-keep-open>A−</button>
           <button id="fontBigger" type="button" data-keep-open>A+</button>
         </div>
-        <label class="range"><span data-i18n="panel.leading">行距</span>
-          <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
-        </label>
-        <!-- In ems of the reading size, so a line keeps its character count as
-             the text is enlarged. Below the breakpoint the screen is the
-             narrower limit for most of this range, and the control simply has
-             nothing to do. -->
-        <label class="range"><span data-i18n="panel.measure">行寬</span>
-          <input type="range" id="measure" min="26" max="50" step="2"/>
-        </label>
+        <!-- Grouped so the two labels share a column and the tracks begin at the
+             same x. Apart, each slider started wherever its own label ended. -->
+        <div class="ranges">
+          <label class="range"><span data-i18n="panel.leading">行距</span>
+            <input type="range" id="lineHeight" min="1.4" max="2.4" step="0.1"/>
+          </label>
+          <!-- In ems of the reading size, so a line keeps its character count as
+               the text is enlarged. Below the breakpoint the screen is the
+               narrower limit for most of this range, and the control simply has
+               nothing to do. -->
+          <label class="range"><span data-i18n="panel.measure">行寬</span>
+            <input type="range" id="measure" min="26" max="50" step="2"/>
+          </label>
+        </div>
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
         <!-- The interface language follows the READER, not the book: switching
@@ -103,7 +107,7 @@
              answers ? once vim is already on, so a button is still the only
              way to switch it on in the first place. -->
         <button id="toggleVim" type="button" aria-pressed="false"
-                data-i18n-title="panel.vim.title">Vim</button>
+                data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
       </div>
 
       <!-- Everything about producing a file, in one place, at the moment you
