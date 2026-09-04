@@ -59,6 +59,24 @@ check('every label key in the markup exists in the table',
       usedKeys.length > 0 && unknownKeys.length === 0,
       unknownKeys.length ? unknownKeys.join(', ') : 'no data-i18n attributes found');
 
+/* Braces must balance. A stray `}` is not a loud failure in CSS: the parser
+   discards it and quietly drops the rule that follows, so the stylesheet still
+   loads and one rule simply never applies. That is not hypothetical either --
+   a `}` left behind when a media block was deleted swallowed
+   `.bar-panel label.range` for weeks, and the only symptom was two sliders
+   sitting a couple of pixels from their labels. */
+{
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0, stray = 0;
+  for (const ch of bare) {
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth < 0) { stray++; depth = 0; } }
+  }
+  check('stylesheet braces balance', stray === 0 && depth === 0,
+        stray ? stray + ' stray closing brace(s)' : depth + ' block(s) left open');
+}
+
 /* Responsive overrides must stay LAST in the stylesheet. A media query adds no
    specificity, so whether it wins is decided by source order alone -- a plain
    rule written below one silently beats it. That is not hypothetical: a

@@ -296,8 +296,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    匯出 frees 41px more, so it stays and ellipses instead: knowing which book
    you are in matters more than the last three characters of its name. */
 
-}
-
 /* ---- typeface + leading controls ---- */
 .bar-panel label.range { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .bar-panel input[type="range"] { flex: 1 1 auto; min-width: 90px; accent-color: var(--accent); }
@@ -369,8 +367,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   padding: 8px 10px; font-size: 15px; line-height: 1;
 }
 .shelf-row .drop:hover { color: var(--warn); }
-
-}
 
 .hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
 
