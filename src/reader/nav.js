@@ -946,5 +946,4 @@
   App.reader.alignCss = alignCss;
   App.reader.elementScroller = elementScroller;
   App.reader.documentScroller = documentScroller;
-  App.reader.pagedScroller = pagedScroller;
 })(window.App = window.App || {});

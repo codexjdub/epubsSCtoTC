@@ -3392,7 +3392,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   App.reader.alignCss = alignCss;
   App.reader.elementScroller = elementScroller;
   App.reader.documentScroller = documentScroller;
-  App.reader.pagedScroller = pagedScroller;
 })(window.App = window.App || {});
 
 </script>
@@ -4376,7 +4375,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   App.strings = { get: get, apply: apply, TEXT: TEXT,
-                  setLocale: setLocale, locale: current, detect: detect,
+                  setLocale: setLocale, locale: current,
                   markDocument: markDocument };
 })(window.App = window.App || {});
 
@@ -5379,8 +5378,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       });
     });
 
-    api.closeDropdowns = closeDropdowns;
-
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     /* One control, in the export options where it takes effect. It used to be
      * mirrored on the landing page, offered before there was a book to export
@@ -5759,7 +5756,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
     }
-    api.relabel = relabel;
 
     /* One button, two languages: press it and you are in the other one. Its own
        label is filled by apply() during relabel(), like every other label. */

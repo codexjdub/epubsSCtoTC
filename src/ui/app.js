@@ -745,8 +745,6 @@
       });
     });
 
-    api.closeDropdowns = closeDropdowns;
-
     el.preset.addEventListener('change', function () { current.presetId = el.preset.value; });
     /* One control, in the export options where it takes effect. It used to be
      * mirrored on the landing page, offered before there was a book to export
@@ -1125,7 +1123,6 @@
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
     }
-    api.relabel = relabel;
 
     /* One button, two languages: press it and you are in the other one. Its own
        label is filled by apply() during relabel(), like every other label. */

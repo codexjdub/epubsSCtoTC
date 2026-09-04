@@ -268,6 +268,6 @@
   }
 
   App.strings = { get: get, apply: apply, TEXT: TEXT,
-                  setLocale: setLocale, locale: current, detect: detect,
+                  setLocale: setLocale, locale: current,
                   markDocument: markDocument };
 })(window.App = window.App || {});
