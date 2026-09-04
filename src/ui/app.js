@@ -10,7 +10,15 @@
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
-  function isNarrowScreen() { return window.matchMedia('(max-width: 700px)').matches; }
+  /* One breakpoint, written once. It was spelled out in four places here --
+     two identical functions, an inline copy and the MediaQueryList -- plus
+     twice in the stylesheet, where 701 is its complement. Moving it meant
+     remembering all six, and a JS/CSS disagreement of one pixel is a width
+     at which the desktop layout is on screen while this still says phone.
+     The stylesheet cannot share the constant, so the audit checks it. */
+  var NARROW = '(max-width: 700px)';
+  var narrowQuery = window.matchMedia(NARROW);
+  function isNarrowScreen() { return narrowQuery.matches; }
 
   /* A reading preference like the font size, but kept here rather than with the
    * reader's own prefs because the layout it asks for is not always available.
@@ -92,7 +100,7 @@
         a.addEventListener('click', function (ev) {
           ev.preventDefault();
           reader.goToPath(n.path, n.fragment);
-          if (window.matchMedia('(max-width: 700px)').matches) {
+          if (isNarrowScreen()) {
             el.sidebar.classList.remove('open');
             el.backdrop.classList.add('hidden');
             el.toggleSidebar.setAttribute('aria-expanded', 'false');
@@ -792,9 +800,7 @@
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
      * state has to drive a backdrop too. Above it, the backdrop stays out of
      * the way and the sidebar is just shown or collapsed as before. */
-    function isNarrow() {
-      return window.matchMedia('(max-width: 700px)').matches;
-    }
+    var isNarrow = isNarrowScreen;
 
     /* Two states with two different meanings, each owned by its breakpoint:
      * `.open` shows the mobile drawer (closed by default in CSS), `.hidden`
@@ -1041,7 +1047,6 @@
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
     syncExportLabel();
-    var narrowQuery = window.matchMedia('(max-width: 700px)');
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
     /* "EPUB" is redundant where the app exports nothing else, and dropping it

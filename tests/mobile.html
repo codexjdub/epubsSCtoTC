@@ -781,6 +781,16 @@
               Array.prototype.map.call(LD.querySelectorAll('#reportBody dt'),
                 function (dt) { return dt.textContent; }).join(' | '));
       LD.getElementById('toggleReport').click();
+
+      /* The BOOK's language, not the interface's. renderChapter hands back only
+         the body, so the shadow tree inherits from <html> -- which follows the
+         reader. Reading in English therefore put zh-HK prose under lang="en",
+         and Han glyphs are picked by language. Said on the host, it holds
+         whichever language the interface is in. */
+      t.eq('the interface language is on the document',
+           LD.documentElement.getAttribute('lang'), 'zh-Hant');
+      t.eq('and the book keeps its own on the reader',
+           LD.querySelector('.reader-mount').getAttribute('lang'), 'zh-HK');
       lang.remove();
 
       /* Remembered, like the theme. */

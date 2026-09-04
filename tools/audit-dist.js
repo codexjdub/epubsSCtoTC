@@ -67,7 +67,13 @@ check('every label key in the markup exists in the table',
    sitting a couple of pixels from their labels. */
 {
   const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* Comments AND string literals: `content: '}'` is legal CSS and would count
+     as a closing brace, which could either mask a real stray one or invent a
+     failure that is not there. */
+  const bare = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''");
   let depth = 0, stray = 0;
   for (const ch of bare) {
     if (ch === '{') depth++;
@@ -75,6 +81,33 @@ check('every label key in the markup exists in the table',
   }
   check('stylesheet braces balance', stray === 0 && depth === 0,
         stray ? stray + ' stray closing brace(s)' : depth + ' block(s) left open');
+}
+
+/* The one breakpoint, spelled in two languages that cannot share a constant.
+   JS names it as max-width, the phone block matches, and the focus block takes
+   the complement -- so the two numbers must stay exactly one apart. A drift of
+   a single pixel opens a width where the desktop layout is on screen while the
+   script still calls it a phone: focus mode accepted, its CSS not applying. */
+{
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const cssMax = new Set(
+    [...css.matchAll(/@media\s*\(max-width:\s*(\d+)px\)/g)].map(m => +m[1]));
+  const mins = [...css.matchAll(/@media\s*\(min-width:\s*(\d+)px\)/g)].map(m => +m[1]);
+  /* Only the script's own copies. The stylesheet is allowed other breakpoints
+     -- 420px trims the title on a small phone and has nothing to do with the
+     layout split -- but the script must know exactly one. */
+  const js = new Set(
+    [...html.matchAll(/matchMedia\(\s*['"]\(max-width:\s*(\d+)px\)['"]\s*\)/g)]
+      .concat([...html.matchAll(/NARROW\s*=\s*['"]\(max-width:\s*(\d+)px\)['"]/g)])
+      .map(m => +m[1]));
+  check('the script knows exactly one breakpoint',
+        js.size === 1, 'max-width values in the script: ' + [...js].join(', '));
+  const narrow = [...js][0];
+  check('and the stylesheet has a block for it',
+        cssMax.has(narrow), narrow + 'px has no @media block');
+  check('and every min-width block takes its exact complement',
+        mins.every(v => v === narrow + 1),
+        'expected ' + (narrow + 1) + ', found ' + (mins.join(', ') || 'none'));
 }
 
 /* Responsive overrides must stay LAST in the stylesheet. A media query adds no

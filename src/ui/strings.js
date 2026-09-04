@@ -332,15 +332,24 @@
     });
   }
 
+  /* A label with a {placeholder} in it belongs to whoever has the value: apply()
+     has no vars to fill it with, and writing it raw would put a literal
+     "{format}" on the export button. Today the caller happens to run its own
+     sync immediately afterwards and paints over it, which is luck rather than
+     design -- skip it here and the luck is not needed. */
+  function fillable(value) { return value.indexOf('{') < 0; }
+
   function apply(root) {
     var scope = root || document;
     var nodes = scope.querySelectorAll('[data-i18n]');
     for (var i = 0; i < nodes.length; i++) {
-      nodes[i].textContent = get(nodes[i].getAttribute('data-i18n'));
+      var text = get(nodes[i].getAttribute('data-i18n'));
+      if (fillable(text)) nodes[i].textContent = text;
     }
     var titled = scope.querySelectorAll('[data-i18n-title]');
     for (var j = 0; j < titled.length; j++) {
-      titled[j].setAttribute('title', get(titled[j].getAttribute('data-i18n-title')));
+      var title = get(titled[j].getAttribute('data-i18n-title'));
+      if (fillable(title)) titled[j].setAttribute('title', title);
     }
   }
 

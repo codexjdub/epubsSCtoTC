@@ -2826,6 +2826,26 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return (meta.original && meta.original.language) || meta.language;
     }
 
+    /* The language of the text actually on screen, which is not the same thing:
+     * conversion retags the metadata to the preset, so `language` is the
+     * converted tag and `original.language` the one it came in with.
+     *
+     * It has to be said on the host, because renderChapter hands back only the
+     * book's <body> and the shadow tree inherits from <html> -- which carries
+     * the READER's interface language. Offering the interface in English
+     * therefore put zh-HK prose under lang="en", and Han glyphs are chosen by
+     * language: measured on the default typeface, the same characters render
+     * differently under en and zh-HK. Naming it here settles the question for
+     * both interface languages at once, and more accurately than the blanket
+     * zh-Hant the document carried before. */
+    function renderedLanguage() {
+      var meta = book.metadata || {};
+      if (state.source === 'original') {
+        return (meta.original && meta.original.language) || meta.language || '';
+      }
+      return meta.language || (meta.original && meta.original.language) || '';
+    }
+
     /* A comfortable line is not the same NUMBER in both scripts. 38em is about
      * 38 Chinese characters -- inside the 25-40 that CJK typography asks for --
      * and about 81 Latin ones, well past the 45-75 that Latin typography asks
@@ -3192,6 +3212,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        * measures its parent, which by then is null: getComputedStyle(null)
        * throws. Same test captureAnchor already uses for the same reason. */
       if (!mount.isConnected) return null;
+
+      var lang = renderedLanguage();
+      if (lang) mount.setAttribute('lang', lang);
+      else mount.removeAttribute('lang');
 
       styleEl.textContent = styleFor(rendered.css);
       content.textContent = '';
@@ -4555,15 +4579,24 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
   }
 
+  /* A label with a {placeholder} in it belongs to whoever has the value: apply()
+     has no vars to fill it with, and writing it raw would put a literal
+     "{format}" on the export button. Today the caller happens to run its own
+     sync immediately afterwards and paints over it, which is luck rather than
+     design -- skip it here and the luck is not needed. */
+  function fillable(value) { return value.indexOf('{') < 0; }
+
   function apply(root) {
     var scope = root || document;
     var nodes = scope.querySelectorAll('[data-i18n]');
     for (var i = 0; i < nodes.length; i++) {
-      nodes[i].textContent = get(nodes[i].getAttribute('data-i18n'));
+      var text = get(nodes[i].getAttribute('data-i18n'));
+      if (fillable(text)) nodes[i].textContent = text;
     }
     var titled = scope.querySelectorAll('[data-i18n-title]');
     for (var j = 0; j < titled.length; j++) {
-      titled[j].setAttribute('title', get(titled[j].getAttribute('data-i18n-title')));
+      var title = get(titled[j].getAttribute('data-i18n-title'));
+      if (fillable(title)) titled[j].setAttribute('title', title);
     }
   }
 
@@ -4836,7 +4869,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
-  function isNarrowScreen() { return window.matchMedia('(max-width: 700px)').matches; }
+  /* One breakpoint, written once. It was spelled out in four places here --
+     two identical functions, an inline copy and the MediaQueryList -- plus
+     twice in the stylesheet, where 701 is its complement. Moving it meant
+     remembering all six, and a JS/CSS disagreement of one pixel is a width
+     at which the desktop layout is on screen while this still says phone.
+     The stylesheet cannot share the constant, so the audit checks it. */
+  var NARROW = '(max-width: 700px)';
+  var narrowQuery = window.matchMedia(NARROW);
+  function isNarrowScreen() { return narrowQuery.matches; }
 
   /* A reading preference like the font size, but kept here rather than with the
    * reader's own prefs because the layout it asks for is not always available.
@@ -4918,7 +4959,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         a.addEventListener('click', function (ev) {
           ev.preventDefault();
           reader.goToPath(n.path, n.fragment);
-          if (window.matchMedia('(max-width: 700px)').matches) {
+          if (isNarrowScreen()) {
             el.sidebar.classList.remove('open');
             el.backdrop.classList.add('hidden');
             el.toggleSidebar.setAttribute('aria-expanded', 'false');
@@ -5618,9 +5659,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* Below the breakpoint the sidebar is an overlay drawer, so its open
      * state has to drive a backdrop too. Above it, the backdrop stays out of
      * the way and the sidebar is just shown or collapsed as before. */
-    function isNarrow() {
-      return window.matchMedia('(max-width: 700px)').matches;
-    }
+    var isNarrow = isNarrowScreen;
 
     /* Two states with two different meanings, each owned by its breakpoint:
      * `.open` shows the mobile drawer (closed by default in CSS), `.hidden`
@@ -5867,7 +5906,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * is crossed so a drawer left open on mobile does not linger as a
      * half-state on desktop. */
     syncExportLabel();
-    var narrowQuery = window.matchMedia('(max-width: 700px)');
     /* Crossing the breakpoint only has to clear transient state: the default
      * for each layout already comes from CSS. */
     /* "EPUB" is redundant where the app exports nothing else, and dropping it

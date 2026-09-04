@@ -362,6 +362,26 @@
       return (meta.original && meta.original.language) || meta.language;
     }
 
+    /* The language of the text actually on screen, which is not the same thing:
+     * conversion retags the metadata to the preset, so `language` is the
+     * converted tag and `original.language` the one it came in with.
+     *
+     * It has to be said on the host, because renderChapter hands back only the
+     * book's <body> and the shadow tree inherits from <html> -- which carries
+     * the READER's interface language. Offering the interface in English
+     * therefore put zh-HK prose under lang="en", and Han glyphs are chosen by
+     * language: measured on the default typeface, the same characters render
+     * differently under en and zh-HK. Naming it here settles the question for
+     * both interface languages at once, and more accurately than the blanket
+     * zh-Hant the document carried before. */
+    function renderedLanguage() {
+      var meta = book.metadata || {};
+      if (state.source === 'original') {
+        return (meta.original && meta.original.language) || meta.language || '';
+      }
+      return meta.language || (meta.original && meta.original.language) || '';
+    }
+
     /* A comfortable line is not the same NUMBER in both scripts. 38em is about
      * 38 Chinese characters -- inside the 25-40 that CJK typography asks for --
      * and about 81 Latin ones, well past the 45-75 that Latin typography asks
@@ -728,6 +748,10 @@
        * measures its parent, which by then is null: getComputedStyle(null)
        * throws. Same test captureAnchor already uses for the same reason. */
       if (!mount.isConnected) return null;
+
+      var lang = renderedLanguage();
+      if (lang) mount.setAttribute('lang', lang);
+      else mount.removeAttribute('lang');
 
       styleEl.textContent = styleFor(rendered.css);
       content.textContent = '';
