@@ -4322,6 +4322,40 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'panel.marks.hide': ['隱藏標記', 'Hide marks'],
     'panel.report': ['轉換報告', 'Conversion report'],
     'report.title': ['轉換報告', 'Conversion report'],
+    'report.target': ['轉換目標', 'Target'],
+    'report.documents': ['已轉換文件', 'Documents converted'],
+    'report.nodes': ['變更的文字節點', 'Text nodes changed'],
+    'report.marks': ['標記的一簡多繁字', 'Ambiguous characters marked'],
+    'report.unmarked': ['未標記的節點', 'Nodes left unmarked'],
+    'report.unmarked.why': ['{n}（長度已改變）', '{n} (length changed)'],
+    'report.marks.note': ['虛線底線標示有多個繁體寫法的字。點一下可循環選用其他寫法' +
+                          '——同一詞語中的每一處都會跟著改，匯出時也會保留。',
+                          'Dotted underlines mark characters with more than one traditional ' +
+                          'form. Click one to cycle through the alternatives — the choice ' +
+                          'applies to every occurrence in the same wording, and is carried ' +
+                          'into the exported file.'],
+    'report.font.unreadable': ['無法讀取內嵌字型 {path}（{error}），匯出時會移除。',
+                               'Embedded font {path} could not be read ({error}); ' +
+                               'it will be dropped on export.'],
+    'report.font.partial': ['內嵌字型「{family}」只涵蓋轉換後文字的 {pct}%{sample}，' +
+                            '匯出時會移除，以免文字無法顯示。',
+                            'Embedded font “{family}” covers only {pct}% of the converted ' +
+                            'text{sample}. It will be dropped on export so the text stays readable.'],
+    'report.font.sample': ['（例如缺少 {chars}）', ' (missing e.g. {chars})'],
+    'report.font.ok': ['內嵌字型「{family}」涵蓋轉換後的文字。',
+                       'Embedded font “{family}” covers the converted text.'],
+    'report.font.obfuscated': ['有 {n} 個內嵌字型經過混淆處理，已先解碼再檢查涵蓋範圍。',
+                               '{n} embedded fonts are obfuscated; they were decoded before ' +
+                               'checking coverage.'],
+    'report.font.obfuscated.one': ['有 1 個內嵌字型經過混淆處理，已先解碼再檢查涵蓋範圍。',
+                                   '1 embedded font is obfuscated; it was decoded before ' +
+                                   'checking coverage.'],
+    'report.images': ['書中有 {n} 張圖片。畫在圖片裡的文字無法轉換，仍會是簡體。',
+                      '{n} images in this book. Any text drawn inside an image cannot be ' +
+                      'converted and will still read as simplified.'],
+    'report.images.one': ['書中有 1 張圖片。畫在圖片裡的文字無法轉換，仍會是簡體。',
+                          '1 image in this book. Any text drawn inside an image cannot be ' +
+                          'converted and will still read as simplified.'],
     'reader.source.original': ['原文', 'Original'],
     'reader.source.converted': ['轉換後', 'Converted'],
     'reader.banner': ['正在顯示未轉換的原文，標記與更正暫時隱藏。',
@@ -4337,6 +4371,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'shelf.empty': ['還沒有存書。開過的書會留在這裡。',
                     'No books yet. The ones you open are kept here.'],
     'shelf.remove': ['從這部裝置移除', 'Remove from this device'],
+    /* Named, because the tooltip is not read aloud and "remove" on its own
+       gives a screen reader no way to tell one row's button from another's. */
+    'shelf.removeNamed': ['移除《{title}》', 'Remove {title}'],
+    'shelf.reading': ['閱讀中', 'reading now'],
+    'shelf.untitled': ['（未命名）', '(untitled)'],
+    /* The landing page's own note. Longer than the shelf's because there is
+       room for it there, and because it is the first thing a new reader sees. */
+    'library.count': ['這部裝置存了 {n} 本書{size}。書不會離開這部裝置。',
+                      '{n} books stored in this browser{size}. They never leave this device.'],
+    'library.count.one': ['這部裝置存了 1 本書{size}。書不會離開這部裝置。',
+                          '1 book stored in this browser{size}. It never leaves this device.'],
+    'library.usage': ['，共 {size}', ', using {size}'],
+    'library.today': ['今天', 'today'],
+    'library.yesterday': ['昨天', 'yesterday'],
+    'library.days': ['{n} 天前', '{n} days ago'],
 
     /* ---- the pager ---- */
     'pager.back': ['↩ 返回', '↩ Back'],
@@ -4361,6 +4410,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* Delimited in both: 《》 in Chinese, quotes in English. Bare, a long title
        ran straight into the sentence around it. */
     'status.opening': ['開啟《{title}》…', 'Opening \u201c{title}\u201d…'],
+    'status.reading': ['正在讀取 {name}…', 'Reading {name}…'],
+    'status.converting': ['正在轉換…', 'Converting…'],
+    'status.converting.pct': ['正在轉換… {pct}%', 'Converting… {pct}%'],
+    'error.convert': ['轉換失敗：{message}', 'Conversion failed: {message}'],
     'status.exporting': ['正在匯出…', 'Exporting…'],
     'status.exporting.pct': ['正在匯出… {pct}%', 'Exporting… {pct}%'],
     'status.exported': ['已匯出 {name}', 'Exported {name}'],
@@ -4779,7 +4832,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   var api = {};      // internals exposed for tests
   var lastViewerScroll = 0;
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk',
-                  punctuation: false, format: 'epub' };
+                  punctuation: false, format: 'epub', fontReport: [] };
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
@@ -4858,7 +4911,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         var li = document.createElement('li');
         var a = document.createElement('a');
         var label = useOriginal && n.originalLabel !== undefined ? n.originalLabel : n.label;
-        a.textContent = label || '(untitled)';
+        a.textContent = label || S('shelf.untitled');
         a.href = '#';
         a.dataset.path = n.path;
         a.dataset.fragment = n.fragment || '';
@@ -4964,11 +5017,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var dd = document.createElement('dd'); dd.textContent = value;
       dl.appendChild(dt); dl.appendChild(dd);
     }
-    row('Target', r.preset.label + ' (' + r.preset.lang + ')');
-    row('Documents converted', String(r.documents));
-    row('Text nodes changed', String(r.changedNodes));
-    row('Ambiguous characters marked', String(r.markCount));
-    if (r.unalignedNodes) row('Nodes left unmarked', String(r.unalignedNodes) + ' (length changed)');
+    row(S('report.target'), r.preset.label + ' (' + r.preset.lang + ')');
+    row(S('report.documents'), String(r.documents));
+    row(S('report.nodes'), String(r.changedNodes));
+    row(S('report.marks'), String(r.markCount));
+    if (r.unalignedNodes) {
+      row(S('report.unmarked'), S('report.unmarked.why', { n: r.unalignedNodes }));
+    }
 
     el.reportBody.textContent = '';
     el.reportBody.appendChild(dl);
@@ -4980,36 +5035,29 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       el.reportBody.appendChild(d);
     }
 
-    if (r.markCount) {
-      notice('Dotted underlines mark characters with more than one traditional form. ' +
-             'Click one to cycle through the alternatives — the choice applies to every ' +
-             'occurrence in the same wording, and is carried into the exported file.', true);
-    }
+    if (r.markCount) notice(S('report.marks.note'), true);
 
     (fontReport || []).forEach(function (f) {
       if (f.error) {
-        notice('Embedded font ' + f.path + ' could not be read (' + f.error + '); it will be dropped on export.');
+        notice(S('report.font.unreadable', { path: f.path, error: f.error }));
       } else if (!f.ok) {
-        notice('Embedded font "' + (f.family || f.path) + '" covers only ' +
-               Math.round(f.coverage * 100) + '% of the converted text' +
-               (f.missingSample.length ? ' (missing e.g. ' + f.missingSample.join(' ') + ')' : '') +
-               '. It will be dropped on export so the text stays readable.');
+        notice(S('report.font.partial', {
+          family: f.family || f.path,
+          pct: Math.round(f.coverage * 100),
+          sample: f.missingSample.length
+            ? S('report.font.sample', { chars: f.missingSample.join(' ') }) : ''
+        }));
       } else {
-        notice('Embedded font "' + (f.family || f.path) + '" covers the converted text.', true);
+        notice(S('report.font.ok', { family: f.family || f.path }), true);
       }
     });
 
-    if (book.encryption.obfuscatedFonts.length) {
-      notice(book.encryption.obfuscatedFonts.length + ' embedded font(s) are obfuscated; ' +
-             'they were decoded before checking coverage.', true);
-    }
+    var obfuscated = book.encryption.obfuscatedFonts.length;
+    if (obfuscated) notice(S('report.font.obfuscated', { n: obfuscated }), true);
 
     var images = 0;
     book.manifest.forEach(function (i) { if (/^image\//.test(i.mediaType)) images++; });
-    if (images) {
-      notice(images + ' image(s) in this book. Any text drawn inside an image cannot be ' +
-             'converted and will still read as simplified.');
-    }
+    if (images) notice(S('report.images', { n: images }));
 
     r.warnings.forEach(function (w) { notice(w); });
 
@@ -5019,7 +5067,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   async function loadBuffer(buffer, filename) {
     clearError();
-    setStatus('Reading ' + filename + '…');
+    setStatus(S('status.reading', { name: filename }));
 
     if (current.reader) { current.reader.destroy(); current.reader = null; }
 
@@ -5032,16 +5080,16 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return;
     }
 
-    setStatus('Converting…');
+    setStatus(S('status.converting'));
     await new Promise(function (r) { setTimeout(r, 0); });   // let the status paint
 
     try {
       await App.convert.book(book, current.presetId, function (fraction, path) {
-        setStatus('Converting… ' + Math.round(fraction * 100) + '%');
+        setStatus(S('status.converting.pct', { pct: Math.round(fraction * 100) }));
       });
     } catch (e) {
       setStatus('');
-      showError('Conversion failed: ' + e.message);
+      showError(S('error.convert', { message: e.message }));
       return;
     }
 
@@ -5114,6 +5162,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     buildToc(book, reader, reader.state.source === 'original');
     setShelfOpen(false);
+    /* Kept, so a language switch can rebuild the panel: the report is built
+       in JS, and its heading is a data-i18n attribute, so without this the
+       panel showed a translated heading over an untranslated body. */
+    current.fontReport = fontReport;
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -5153,9 +5205,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   function formatWhen(ts) {
     if (!ts) return '';
     var days = Math.floor((Date.now() - ts) / 86400000);
-    if (days <= 0) return 'today';
-    if (days === 1) return 'yesterday';
-    if (days < 30) return days + ' days ago';
+    if (days <= 0) return S('library.today');
+    if (days === 1) return S('library.yesterday');
+    if (days < 30) return S('library.days', { n: days });
     return new Date(ts).toLocaleDateString();
   }
 
@@ -5220,7 +5272,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       text.className = 'text';
       var name = document.createElement('span');
       name.className = config.name;
-      name.textContent = entry.title || '(untitled)';
+      name.textContent = entry.title || S('shelf.untitled');
       var meta = document.createElement('span');
       meta.className = config.meta;
       meta.textContent = config.subtitle(entry, currentId);
@@ -5234,7 +5286,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       drop.className = config.drop;
       drop.textContent = '×';
       drop.title = S('shelf.remove');
-      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.setAttribute('aria-label',
+        S('shelf.removeNamed', { title: entry.title || S('shelf.untitled') }));
       drop.addEventListener('click', async function (ev) {
         ev.stopPropagation();
         await App.library.remove(entry.id);
@@ -5265,10 +5318,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }, books, null);
 
     var used = await App.library.usage();
-    el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
-      ' stored in this browser' +
-      (used.used ? ', using ' + formatSize(used.used) : '') +
-      '. They never leave this device.';
+    el.libraryNote.textContent = S('library.count', {
+      n: books.length,
+      size: used.used ? S('library.usage', { size: formatSize(used.used) }) : ''
+    });
     show(el.library, true);
   }
 
@@ -5311,7 +5364,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       list: el.shelfList,
       row: 'shelf-row', pick: 'pick', name: 't', meta: 's', drop: 'drop',
       subtitle: function (entry, id) {
-        return formatSize(entry.size) + (entry.id === id ? ' · reading now' : '');
+        return formatSize(entry.size) + (entry.id === id ? ' · ' + S('shelf.reading') : '');
       },
       onPick: switchToBook
     }, books, currentId);
@@ -5959,6 +6012,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         populateFontStyles(bookLanguage(current.book), current.presetId);
         if (wasFont) el.fontStyle.value = wasFont;
       }
+      if (current.book) renderReport(current.book, current.fontReport);
       renderLibrary();
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');

@@ -99,6 +99,40 @@
     'panel.marks.hide': ['隱藏標記', 'Hide marks'],
     'panel.report': ['轉換報告', 'Conversion report'],
     'report.title': ['轉換報告', 'Conversion report'],
+    'report.target': ['轉換目標', 'Target'],
+    'report.documents': ['已轉換文件', 'Documents converted'],
+    'report.nodes': ['變更的文字節點', 'Text nodes changed'],
+    'report.marks': ['標記的一簡多繁字', 'Ambiguous characters marked'],
+    'report.unmarked': ['未標記的節點', 'Nodes left unmarked'],
+    'report.unmarked.why': ['{n}（長度已改變）', '{n} (length changed)'],
+    'report.marks.note': ['虛線底線標示有多個繁體寫法的字。點一下可循環選用其他寫法' +
+                          '——同一詞語中的每一處都會跟著改，匯出時也會保留。',
+                          'Dotted underlines mark characters with more than one traditional ' +
+                          'form. Click one to cycle through the alternatives — the choice ' +
+                          'applies to every occurrence in the same wording, and is carried ' +
+                          'into the exported file.'],
+    'report.font.unreadable': ['無法讀取內嵌字型 {path}（{error}），匯出時會移除。',
+                               'Embedded font {path} could not be read ({error}); ' +
+                               'it will be dropped on export.'],
+    'report.font.partial': ['內嵌字型「{family}」只涵蓋轉換後文字的 {pct}%{sample}，' +
+                            '匯出時會移除，以免文字無法顯示。',
+                            'Embedded font “{family}” covers only {pct}% of the converted ' +
+                            'text{sample}. It will be dropped on export so the text stays readable.'],
+    'report.font.sample': ['（例如缺少 {chars}）', ' (missing e.g. {chars})'],
+    'report.font.ok': ['內嵌字型「{family}」涵蓋轉換後的文字。',
+                       'Embedded font “{family}” covers the converted text.'],
+    'report.font.obfuscated': ['有 {n} 個內嵌字型經過混淆處理，已先解碼再檢查涵蓋範圍。',
+                               '{n} embedded fonts are obfuscated; they were decoded before ' +
+                               'checking coverage.'],
+    'report.font.obfuscated.one': ['有 1 個內嵌字型經過混淆處理，已先解碼再檢查涵蓋範圍。',
+                                   '1 embedded font is obfuscated; it was decoded before ' +
+                                   'checking coverage.'],
+    'report.images': ['書中有 {n} 張圖片。畫在圖片裡的文字無法轉換，仍會是簡體。',
+                      '{n} images in this book. Any text drawn inside an image cannot be ' +
+                      'converted and will still read as simplified.'],
+    'report.images.one': ['書中有 1 張圖片。畫在圖片裡的文字無法轉換，仍會是簡體。',
+                          '1 image in this book. Any text drawn inside an image cannot be ' +
+                          'converted and will still read as simplified.'],
     'reader.source.original': ['原文', 'Original'],
     'reader.source.converted': ['轉換後', 'Converted'],
     'reader.banner': ['正在顯示未轉換的原文，標記與更正暫時隱藏。',
@@ -114,6 +148,21 @@
     'shelf.empty': ['還沒有存書。開過的書會留在這裡。',
                     'No books yet. The ones you open are kept here.'],
     'shelf.remove': ['從這部裝置移除', 'Remove from this device'],
+    /* Named, because the tooltip is not read aloud and "remove" on its own
+       gives a screen reader no way to tell one row's button from another's. */
+    'shelf.removeNamed': ['移除《{title}》', 'Remove {title}'],
+    'shelf.reading': ['閱讀中', 'reading now'],
+    'shelf.untitled': ['（未命名）', '(untitled)'],
+    /* The landing page's own note. Longer than the shelf's because there is
+       room for it there, and because it is the first thing a new reader sees. */
+    'library.count': ['這部裝置存了 {n} 本書{size}。書不會離開這部裝置。',
+                      '{n} books stored in this browser{size}. They never leave this device.'],
+    'library.count.one': ['這部裝置存了 1 本書{size}。書不會離開這部裝置。',
+                          '1 book stored in this browser{size}. It never leaves this device.'],
+    'library.usage': ['，共 {size}', ', using {size}'],
+    'library.today': ['今天', 'today'],
+    'library.yesterday': ['昨天', 'yesterday'],
+    'library.days': ['{n} 天前', '{n} days ago'],
 
     /* ---- the pager ---- */
     'pager.back': ['↩ 返回', '↩ Back'],
@@ -138,6 +187,10 @@
     /* Delimited in both: 《》 in Chinese, quotes in English. Bare, a long title
        ran straight into the sentence around it. */
     'status.opening': ['開啟《{title}》…', 'Opening \u201c{title}\u201d…'],
+    'status.reading': ['正在讀取 {name}…', 'Reading {name}…'],
+    'status.converting': ['正在轉換…', 'Converting…'],
+    'status.converting.pct': ['正在轉換… {pct}%', 'Converting… {pct}%'],
+    'error.convert': ['轉換失敗：{message}', 'Conversion failed: {message}'],
     'status.exporting': ['正在匯出…', 'Exporting…'],
     'status.exporting.pct': ['正在匯出… {pct}%', 'Exporting… {pct}%'],
     'status.exported': ['已匯出 {name}', 'Exported {name}'],

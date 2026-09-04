@@ -754,6 +754,33 @@
       await wait(350);
       t.eq('and switching back restores Chinese',
            LD.getElementById('toggleShelf').textContent, '書架');
+
+      /* The other direction, which is the one that was broken and the one most
+         readers see: Chinese is the default, and everything built in JS rather
+         than marked up with data-i18n stayed English in it. The conversion
+         report was the worst of them, its heading translated over a wholly
+         English body, because relabel() rebuilt every list and never it. Each
+         of these is prose the interface owns -- no book titles, no file names
+         -- so in Chinese each must carry Chinese. */
+      LD.getElementById('toggleReport').click();
+      await wait(60);
+      var han = /[一-鿿]/;
+      [['reportBody', 'the conversion report'],
+       ['libraryNote', 'the library note']].forEach(function (pair) {
+        var node = LD.getElementById(pair[0]);
+        t.check(pair[1] + ' speaks Chinese in Chinese',
+                !!node && han.test(node.textContent),
+                pair[0] + ': ' + (node ? node.textContent.slice(0, 70) : '(missing)'));
+      });
+      /* Latin left in the report is the publisher's data -- a language tag, a
+         font family -- never the terms around it. */
+      t.check('and the report terms are translated, not just its heading',
+              LD.querySelectorAll('#reportBody dt').length > 0 &&
+              Array.prototype.every.call(LD.querySelectorAll('#reportBody dt'),
+                function (dt) { return han.test(dt.textContent); }),
+              Array.prototype.map.call(LD.querySelectorAll('#reportBody dt'),
+                function (dt) { return dt.textContent; }).join(' | '));
+      LD.getElementById('toggleReport').click();
       lang.remove();
 
       /* Remembered, like the theme. */

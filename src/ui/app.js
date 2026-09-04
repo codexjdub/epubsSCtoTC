@@ -6,7 +6,7 @@
   var api = {};      // internals exposed for tests
   var lastViewerScroll = 0;
   var current = { buffer: null, filename: '', book: null, reader: null, presetId: 'hk',
-                  punctuation: false, format: 'epub' };
+                  punctuation: false, format: 'epub', fontReport: [] };
 
   function $(id) { return document.getElementById(id); }
   function S(key, vars) { return App.strings.get(key, vars); }
@@ -85,7 +85,7 @@
         var li = document.createElement('li');
         var a = document.createElement('a');
         var label = useOriginal && n.originalLabel !== undefined ? n.originalLabel : n.label;
-        a.textContent = label || '(untitled)';
+        a.textContent = label || S('shelf.untitled');
         a.href = '#';
         a.dataset.path = n.path;
         a.dataset.fragment = n.fragment || '';
@@ -191,11 +191,13 @@
       var dd = document.createElement('dd'); dd.textContent = value;
       dl.appendChild(dt); dl.appendChild(dd);
     }
-    row('Target', r.preset.label + ' (' + r.preset.lang + ')');
-    row('Documents converted', String(r.documents));
-    row('Text nodes changed', String(r.changedNodes));
-    row('Ambiguous characters marked', String(r.markCount));
-    if (r.unalignedNodes) row('Nodes left unmarked', String(r.unalignedNodes) + ' (length changed)');
+    row(S('report.target'), r.preset.label + ' (' + r.preset.lang + ')');
+    row(S('report.documents'), String(r.documents));
+    row(S('report.nodes'), String(r.changedNodes));
+    row(S('report.marks'), String(r.markCount));
+    if (r.unalignedNodes) {
+      row(S('report.unmarked'), S('report.unmarked.why', { n: r.unalignedNodes }));
+    }
 
     el.reportBody.textContent = '';
     el.reportBody.appendChild(dl);
@@ -207,36 +209,29 @@
       el.reportBody.appendChild(d);
     }
 
-    if (r.markCount) {
-      notice('Dotted underlines mark characters with more than one traditional form. ' +
-             'Click one to cycle through the alternatives — the choice applies to every ' +
-             'occurrence in the same wording, and is carried into the exported file.', true);
-    }
+    if (r.markCount) notice(S('report.marks.note'), true);
 
     (fontReport || []).forEach(function (f) {
       if (f.error) {
-        notice('Embedded font ' + f.path + ' could not be read (' + f.error + '); it will be dropped on export.');
+        notice(S('report.font.unreadable', { path: f.path, error: f.error }));
       } else if (!f.ok) {
-        notice('Embedded font "' + (f.family || f.path) + '" covers only ' +
-               Math.round(f.coverage * 100) + '% of the converted text' +
-               (f.missingSample.length ? ' (missing e.g. ' + f.missingSample.join(' ') + ')' : '') +
-               '. It will be dropped on export so the text stays readable.');
+        notice(S('report.font.partial', {
+          family: f.family || f.path,
+          pct: Math.round(f.coverage * 100),
+          sample: f.missingSample.length
+            ? S('report.font.sample', { chars: f.missingSample.join(' ') }) : ''
+        }));
       } else {
-        notice('Embedded font "' + (f.family || f.path) + '" covers the converted text.', true);
+        notice(S('report.font.ok', { family: f.family || f.path }), true);
       }
     });
 
-    if (book.encryption.obfuscatedFonts.length) {
-      notice(book.encryption.obfuscatedFonts.length + ' embedded font(s) are obfuscated; ' +
-             'they were decoded before checking coverage.', true);
-    }
+    var obfuscated = book.encryption.obfuscatedFonts.length;
+    if (obfuscated) notice(S('report.font.obfuscated', { n: obfuscated }), true);
 
     var images = 0;
     book.manifest.forEach(function (i) { if (/^image\//.test(i.mediaType)) images++; });
-    if (images) {
-      notice(images + ' image(s) in this book. Any text drawn inside an image cannot be ' +
-             'converted and will still read as simplified.');
-    }
+    if (images) notice(S('report.images', { n: images }));
 
     r.warnings.forEach(function (w) { notice(w); });
 
@@ -246,7 +241,7 @@
 
   async function loadBuffer(buffer, filename) {
     clearError();
-    setStatus('Reading ' + filename + '…');
+    setStatus(S('status.reading', { name: filename }));
 
     if (current.reader) { current.reader.destroy(); current.reader = null; }
 
@@ -259,16 +254,16 @@
       return;
     }
 
-    setStatus('Converting…');
+    setStatus(S('status.converting'));
     await new Promise(function (r) { setTimeout(r, 0); });   // let the status paint
 
     try {
       await App.convert.book(book, current.presetId, function (fraction, path) {
-        setStatus('Converting… ' + Math.round(fraction * 100) + '%');
+        setStatus(S('status.converting.pct', { pct: Math.round(fraction * 100) }));
       });
     } catch (e) {
       setStatus('');
-      showError('Conversion failed: ' + e.message);
+      showError(S('error.convert', { message: e.message }));
       return;
     }
 
@@ -341,6 +336,10 @@
 
     buildToc(book, reader, reader.state.source === 'original');
     setShelfOpen(false);
+    /* Kept, so a language switch can rebuild the panel: the report is built
+       in JS, and its heading is a data-i18n attribute, so without this the
+       panel showed a translated heading over an untranslated body. */
+    current.fontReport = fontReport;
     renderReport(book, fontReport);
 
     /* Store the ORIGINAL bytes, not the converted ones: reopening should
@@ -380,9 +379,9 @@
   function formatWhen(ts) {
     if (!ts) return '';
     var days = Math.floor((Date.now() - ts) / 86400000);
-    if (days <= 0) return 'today';
-    if (days === 1) return 'yesterday';
-    if (days < 30) return days + ' days ago';
+    if (days <= 0) return S('library.today');
+    if (days === 1) return S('library.yesterday');
+    if (days < 30) return S('library.days', { n: days });
     return new Date(ts).toLocaleDateString();
   }
 
@@ -447,7 +446,7 @@
       text.className = 'text';
       var name = document.createElement('span');
       name.className = config.name;
-      name.textContent = entry.title || '(untitled)';
+      name.textContent = entry.title || S('shelf.untitled');
       var meta = document.createElement('span');
       meta.className = config.meta;
       meta.textContent = config.subtitle(entry, currentId);
@@ -461,7 +460,8 @@
       drop.className = config.drop;
       drop.textContent = '×';
       drop.title = S('shelf.remove');
-      drop.setAttribute('aria-label', 'Remove ' + (entry.title || 'book'));
+      drop.setAttribute('aria-label',
+        S('shelf.removeNamed', { title: entry.title || S('shelf.untitled') }));
       drop.addEventListener('click', async function (ev) {
         ev.stopPropagation();
         await App.library.remove(entry.id);
@@ -492,10 +492,10 @@
     }, books, null);
 
     var used = await App.library.usage();
-    el.libraryNote.textContent = books.length + ' book' + (books.length === 1 ? '' : 's') +
-      ' stored in this browser' +
-      (used.used ? ', using ' + formatSize(used.used) : '') +
-      '. They never leave this device.';
+    el.libraryNote.textContent = S('library.count', {
+      n: books.length,
+      size: used.used ? S('library.usage', { size: formatSize(used.used) }) : ''
+    });
     show(el.library, true);
   }
 
@@ -538,7 +538,7 @@
       list: el.shelfList,
       row: 'shelf-row', pick: 'pick', name: 't', meta: 's', drop: 'drop',
       subtitle: function (entry, id) {
-        return formatSize(entry.size) + (entry.id === id ? ' · reading now' : '');
+        return formatSize(entry.size) + (entry.id === id ? ' · ' + S('shelf.reading') : '');
       },
       onPick: switchToBook
     }, books, currentId);
@@ -1186,6 +1186,7 @@
         populateFontStyles(bookLanguage(current.book), current.presetId);
         if (wasFont) el.fontStyle.value = wasFont;
       }
+      if (current.book) renderReport(current.book, current.fontReport);
       renderLibrary();
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
