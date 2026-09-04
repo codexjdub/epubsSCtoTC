@@ -512,9 +512,14 @@
               fHost.scrollWidth > fHost.clientWidth,
               fHost.scrollWidth + ' vs ' + fHost.clientWidth);
       t.eq('and the buttons say so', FD.getElementById('next').textContent, '下一頁 →');
-      t.check('the last chapter no longer disables them',
-              !FD.getElementById('prev').disabled,
-              'prev stayed disabled, so page one of the book is a dead end');
+      /* The ends of the BOOK disable them, not the ends of a chapter: paging
+         runs straight across a chapter boundary, so disabling on the last
+         chapter would lock the reader out of the rest of it. Here we are at
+         page one of chapter one, which really is the start of the book. */
+      t.check('the very start of the book disables prev',
+              FD.getElementById('prev').disabled, 'prev stayed live at page one');
+      t.check('and next is live, with a whole book ahead',
+              !FD.getElementById('next').disabled, 'next was disabled at page one');
 
       /* The margin either side of the page turns it. */
       var atPage = FW.App.ui.current.reader.scrollPosition();
@@ -526,6 +531,11 @@
       t.check('clicking the right margin turns the page',
               FW.App.ui.current.reader.scrollPosition() > atPage,
               'stayed at ' + atPage);
+      /* And the pager keeps up with a PAGE turn, which fires no chapter event.
+         Judged on the chapter alone, prev stayed dead here. */
+      t.check('turning one page brings prev back',
+              !FD.getElementById('prev').disabled,
+              'prev stayed disabled a page into the book');
       fViewer.dispatchEvent(new FW.MouseEvent('click', {
         clientX: Math.round(fHost.getBoundingClientRect().left) - 20,
         clientY: 400, bubbles: true

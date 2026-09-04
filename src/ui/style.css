@@ -412,8 +412,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   margin: 6px 2px 0; text-align: center; font-size: 11px;
 }
 
+/* A user's standing preference, so it outranks the layout rules that set these
+   transitions -- not a specificity race it can only keep losing. Focus mode's
+   rule is three classes deep AND later in the file, so it won twice over and a
+   reduced-motion reader got sliding chrome every time the pointer neared an
+   edge, on the one gesture that mode makes constant; the phone bar's rule,
+   merely later, won the same way. !important so the next rule that animates a
+   strip cannot quietly take this back either. */
 @media (prefers-reduced-motion: reduce) {
-  .pager, .topbar { transition: none; }
+  .pager, .topbar { transition: none !important; }
 }
 
 /* ---- focus mode: the reading column and nothing else ----------------------

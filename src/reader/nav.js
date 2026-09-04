@@ -805,6 +805,21 @@
       return scroll.top() + scroll.extent() >= scroll.contentExtent() - 2;
     }
 
+    /* The two ends of the BOOK -- what the pager buttons can actually run out
+     * of. Paginating, a chapter boundary is not the end of anything, since the
+     * buttons carry straight across it; the end is the last page of the last
+     * chapter. Scrolling, the chapter index is the whole story, because there
+     * the buttons are still the chapter controls. */
+    function atBookStart() {
+      if (scroll.kind !== 'paged') return state.index === 0;
+      return state.index === 0 && scroll.top() <= 2;
+    }
+    function atBookEnd() {
+      var last = spineItems().length - 1;
+      if (scroll.kind !== 'paged') return state.index === last;
+      return state.index === last && atLastPage();
+    }
+
     function nextPage() {
       navigated();
       if (scroll.kind !== 'paged') return next();
@@ -983,6 +998,8 @@
         return scroll.kind;
       },
       scrollerKind: function () { return scroll.kind; },
+      atBookStart: atBookStart,
+      atBookEnd: atBookEnd,
       progress: progress,
       back: back,
       trailDepth: function () { return trail.length; },

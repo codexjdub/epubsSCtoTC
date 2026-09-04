@@ -192,5 +192,6 @@
     };
   }
 
-  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE };
+  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE,
+               inFormField: inFormField };
 })(window.App = window.App || {});

@@ -17,10 +17,22 @@
    * A phone has no fixed-height reading box to break pages in, and opening a
    * book on one must not overwrite the answer given on a desktop. */
   var PAGED_KEY = 'epub-tc:paged';
+  /* Remembered here too, because this is the one preference that is re-read
+   * mid-session -- settleForWidth asks for it again every time the breakpoint
+   * moves. Where localStorage refuses (Safari at file://, private windows), a
+   * dropped write used to mean pagination switched ITSELF off on the next
+   * crossing, while the line width beside it in the same panel survived: the
+   * reader's own prefs keep an in-memory copy and this did not. */
+  var pagedMemory = null;
   function pagedPref() {
-    try { return window.localStorage.getItem(PAGED_KEY) === '1'; } catch (e) { return false; }
+    try {
+      var raw = window.localStorage.getItem(PAGED_KEY);
+      if (raw !== null) return raw === '1';
+    } catch (e) { /* fall through to memory */ }
+    return pagedMemory === null ? false : pagedMemory;
   }
   function storePagedPref(on) {
+    pagedMemory = !!on;
     try { window.localStorage.setItem(PAGED_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
   }
 
@@ -274,9 +286,15 @@
     el.title.textContent = book.metadata.title || filename;
     document.title = (book.metadata.title || filename) + ' — 繁花似錦';
 
+    /* Focus mode borrows pages for as long as it runs, and it outlives the book
+       -- opening another title from the shelf does not leave it. Consulting
+       only the stored preference built the new reader scrolling while the mode
+       was still on, so the chrome stayed hidden over a view with no pages in
+       it: the one thing the mode exists to do, gone. */
+    var wantPaged = (pagedPref() || !!(api.focusOn && api.focusOn())) && !isNarrowScreen();
     var reader = App.reader.create(el.viewer, book, {
       scroller: scrollerFor(),
-      paged: pagedPref() && !isNarrowScreen()
+      paged: wantPaged
     });
     current.reader = reader;
 
@@ -287,6 +305,14 @@
       var pct = current.reader ? current.reader.progress() : null;
       el.position.textContent = (pos.index + 1) + ' / ' + pos.total +
         (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+      /* Here rather than on the chapter event, because paginating, the ends of
+         the book are reached by turning a page and no chapter event fires. Left
+         on the chapter event with a `!paged` guard, both buttons stayed lit and
+         inert at the last page of the last chapter -- clicking did nothing and
+         nothing said so. */
+      if (!current.reader) return;
+      el.prev.disabled = current.reader.atBookStart();
+      el.next.disabled = current.reader.atBookEnd();
     }
 
     reader.on('chapter', function (e) {
@@ -297,15 +323,9 @@
          unless focus mode has deliberately put it away. Switching into that
          mode re-renders the chapter, which is how the strip it had just tucked
          came straight back. */
-      var paged = !!reader.state.paged;
       if (api.tuckPager && !(api.focusOn && api.focusOn())) api.tuckPager(false);
       lastViewerScroll = 0;
       renderPosition();
-      /* Those buttons turn PAGES while paginating, so a chapter boundary is no
-         longer the end of what they can do. The reader stops itself at the two
-         ends of the book. */
-      el.prev.disabled = !paged && e.index === 0;
-      el.next.disabled = !paged && e.index === e.total - 1;
       highlightToc(e.path);
     });
     reader.on('progress', renderPosition);
@@ -1117,12 +1137,30 @@
     el.fontStyle.addEventListener('change', function () {
       if (current.reader) current.reader.setFontStyle(this.value);
     });
-    el.lineHeight.addEventListener('input', function () {
-      if (current.reader) current.reader.setLineHeight(parseFloat(this.value));
-    });
-    el.measure.addEventListener('input', function () {
-      if (current.reader) current.reader.setMeasure(parseFloat(this.value));
-    });
+    /* Coalesced, like the resize that re-paginates. One drag of either slider
+       fires `input` about five times, and each one re-renders the whole
+       chapter: the five overlapping renders raced over the reader's single
+       pending-anchor slot, four of them found it already taken and fell back to
+       the top of the chapter, so dragging 行寬 threw the reader out of the
+       passage it was meant to be adjusting. Only the last value matters, and
+       at 3,000 paragraphs the four discarded renders cost ~95ms of the drag. */
+    function slide(fn) {
+      var timer = null;
+      return function () {
+        var value = parseFloat(this.value);
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () {
+          timer = null;
+          if (current.reader) fn(value);
+        }, 120);
+      };
+    }
+    el.lineHeight.addEventListener('input', slide(function (v) {
+      current.reader.setLineHeight(v);
+    }));
+    el.measure.addEventListener('input', slide(function (v) {
+      current.reader.setMeasure(v);
+    }));
 
     /* The one place that knows the whole interface.
      *
@@ -1219,6 +1257,13 @@
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
       if (ev.key === 'Escape' && focusMode.on) { setFocus(false); return; }
+      /* Not while a control has the keyboard. Arrows are how a range slider and
+         a select are operated, and the Aa panel now holds two of the first and
+         three of the second: aiming ArrowRight at 行寬 both widened the line and
+         turned the page. Same guard vim mode has used all along, borrowed
+         rather than retyped. Escape is deliberately above it -- it is the way
+         out of focus mode wherever the keyboard happens to be. */
+      if (App.keys.inFormField(ev.target)) return;
       if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.nextPage();
       if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prevPage();
     });
