@@ -892,7 +892,7 @@
     /* Closing the sidebar widens the reading column, which reflows the text: a
        pixel offset does not survive that and the content anchor does. Same
        reason the reader captures and restores around a font-size change. */
-    function setFocus(on) {
+    function setFocus(on, anchor) {
       on = !!on;
       if (on === focusMode.on) return;
       if (on && isNarrow()) return;
@@ -901,13 +901,16 @@
          reading column -- the sidebar returns, the two strips rejoin the flow
          -- and a paged column re-breaks the moment its width or height moves.
          Captured afterwards, the position would be read off a set of pages
-         that were never on screen, and leaving focus mode landed a page early. */
-      var anchor = current.reader ? current.reader.captureAnchor() : null;
+         that were never on screen, and leaving focus mode landed a page early.
+         A caller that has ALREADY moved the layout -- settleForWidth, off the
+         breakpoint -- is past that point and passes its own. */
+      if (anchor === undefined) {
+        anchor = current.reader ? current.reader.captureAnchor() : null;
+      }
 
       if (on) {
         closeDropdowns(null);
         focusMode.sidebarWas = drawerOpen();
-        focusMode.pagedWas = pagedOn();
         setDrawer(false);
       }
       focusMode.on = on;
@@ -915,12 +918,16 @@
       tuckPager(on);
       if (!on) setDrawer(focusMode.sidebarWas);
 
-      /* Focus mode BORROWS pages for as long as it runs and hands back whatever
-         was set before it; the stored preference is never touched here. When
-         that is already what the reader is doing, the layout still has to be
-         re-broken -- the reading box just changed size around it. */
+      /* Focus mode BORROWS pages for as long as it runs and hands back what the
+         preference asks for; it never writes that preference itself. Read on
+         the way out rather than snapshotted on the way in, because 翻頁 stays
+         live inside the mode: turning pages off in there wrote '0', and a
+         snapshot taken at the door then turned them back on as you left,
+         leaving reader, preference and button disagreeing three ways. When the
+         preference is already what the reader is doing, the layout still has to
+         be re-broken -- the reading box just changed size around it. */
       if (current.reader) {
-        var want = on ? true : focusMode.pagedWas;
+        var want = on ? true : (pagedPref() && !isNarrow());
         if (want === pagedOn()) current.reader.repaginate(anchor);
         else current.reader.setPaged(want, anchor);
       }
@@ -932,6 +939,10 @@
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
+      /* setFocus refuses below the breakpoint, so the button says so rather
+         than accepting a press and only closing the panel under the cursor --
+         the same reason 翻頁 beside it is disabled there. */
+      el.toggleFocus.disabled = isNarrow();
     }
 
     function pagedOn() {
@@ -989,10 +1000,17 @@
     });
 
     /* Leaving fullscreen by the browser's own route -- its Esc, or the window
-       button -- means leaving the mode, not sitting in it half-applied. */
-    document.addEventListener('fullscreenchange', function () {
-      if (!document.fullscreenElement && focusMode.on) setFocus(false);
-    });
+       button -- means leaving the mode, not sitting in it half-applied.
+       Both spellings, because goFullscreen and leaveFullscreen both fall back
+       to the prefixed calls: a browser that can only ENTER by the webkit route
+       would otherwise have no way back out, which is the half-applied state
+       this listener exists to prevent. */
+    function onFullscreenChange() {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      if (focusMode.on) setFocus(false);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
     el.toggleFocus.addEventListener('click', function () { setFocus(!focusMode.on); });
     syncFocus();
@@ -1017,10 +1035,21 @@
     }
 
     function settleForWidth() {
+      /* The layout has just changed which element scrolls, so the reader is
+         holding the wrong one. FIRST, because setFocus and applyPaged below
+         both rebuild the scroller from the factory named here -- run last, they
+         built it from the previous width's and briefly held a container that
+         no longer scrolls. The reader keeps the place itself: capturing here
+         would be too late, since the stylesheet has already relaid the page. */
+      if (current.reader) current.reader.setScroller(scrollerFor());
       /* Focus mode is a desktop state and its CSS stops applying below the
          breakpoint. Leaving the class on would strand the remembered sidebar
-         state with nothing left to restore it. */
-      setFocus(false);
+         state with nothing left to restore it.
+
+         An explicit null anchor rather than none: the breakpoint has already
+         moved, so there is no live position left to read and the reader should
+         fall back to the one it settled on while the old layout was still up. */
+      setFocus(false, null);
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
@@ -1028,10 +1057,7 @@
          text back to scrolling, and crossing back up restores what was asked
          for rather than leaving it off until noticed. */
       applyPaged(!isNarrow() && pagedPref());
-      /* The layout has just changed which element scrolls, so the reader is
-         holding the wrong one. It keeps the place itself: capturing here would
-         be too late, since the stylesheet has already relaid the page. */
-      if (current.reader) current.reader.setScroller(scrollerFor());
+      syncFocus();
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

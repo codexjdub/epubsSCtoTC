@@ -2633,7 +2633,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       /* scrollIntoView already aligns to this element's own top, so nothing
        * needs correcting. Not the same number as viewportRect().top, which is
        * where the element sits in the window. */
-      inset: function () { return 0; },
       scrollBy: function (delta) { element.scrollBy({ top: delta, behavior: 'auto' }); },
       measure: verticalMeasure,
       alignStart: function (el, fraction) {
@@ -2679,7 +2678,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       },
       /* Here it is real: scrollIntoView aligns to the window, and the readable
        * area starts below the fixed chrome. */
-      inset: function () { return top(); },
       scrollBy: function (delta) { window.scrollBy({ top: delta, behavior: 'auto' }); },
       measure: verticalMeasure,
       /* scrollIntoView aligns a block to the top of the WINDOW; the anchor is
@@ -2741,7 +2739,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          figure runs past 100% on the last page. */
       contentExtent: function () { return lastPage() + pitch(); },
       viewportRect: function () { return host.getBoundingClientRect(); },
-      inset: function () { return 0; },
       /* Whole pages, and never none: a vim `j` asks for 64px, which would round
          to no movement at all rather than to the next page. */
       scrollBy: function (delta) {
@@ -2868,6 +2865,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * so the outgoing scroller measures a layout that no longer exists and
      * reports the top of the book. */
     var lastAnchor = null;
+    var lastGeom = '';
     var mount = document.createElement('div');
     mount.className = 'reader-mount';
     host.appendChild(mount);
@@ -2973,6 +2971,35 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return true;
     }
 
+    /* The box the columns last broke into. Two numbers and the scroller name
+     * are enough to tell "the text has not moved" from "the layout went out
+     * from under us", which is the whole question below. */
+    function geometry() {
+      return mount.clientWidth + 'x' + mount.clientHeight + ':' + scroll.kind;
+    }
+
+    /* The position to reflow from when the caller has not named one.
+     *
+     * Normally a live capture is the better answer: it is current, where
+     * lastAnchor can trail a hand-scroll by up to the 400ms settle.
+     *
+     * It stops being the better answer the moment the reading box changes size,
+     * because CSS re-breaks the columns immediately -- before any script gets a
+     * turn -- while scrollLeft keeps its old, now meaningless value. Capturing
+     * then reads a page that was never on screen. Measured on a real book,
+     * resizing the height by 40px and back four times walked the reader from
+     * lp36 to lp17: one page lost per cycle, ending at the size it started at.
+     * The same happens the other way at the breakpoint, where the stylesheet
+     * relays the page and a live capture reports the top of the book.
+     *
+     * So: trust the live one while the box still measures what it did when the
+     * anchor was last settled, and fall back to that settled anchor when it
+     * does not. */
+    function settledAnchor() {
+      if (lastAnchor && geometry() !== lastGeom) return lastAnchor;
+      return captureAnchor() || lastAnchor;
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -2994,7 +3021,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     function persist() {
       persistPrefs();
-      var here = captureAnchor();
+      /* Only while the layout is the one the text was laid into. The 400ms
+         scroll settle can land after a resize has already re-broken the
+         columns, and recording a position read from that would poison the very
+         anchor settledAnchor() falls back to. show() marks the new box settled
+         as soon as it has rendered into it. */
+      var here = geometry() === lastGeom ? captureAnchor() : null;
       if (here) lastAnchor = here;
       store.write({
         index: state.index,
@@ -3146,6 +3178,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         { showMarks: state.showMarks, stripFontFace: true, source: state.source }
       );
 
+      /* The reader can be destroyed across that await -- picking another book
+       * from the shelf, dropping a file, or changing the preset all do it while
+       * a render is in flight, and turning a page or dragging 行寬 starts one
+       * readily. Everything below writes into a detached mount, and pagedCss
+       * measures its parent, which by then is null: getComputedStyle(null)
+       * throws. Same test captureAnchor already uses for the same reason. */
+      if (!mount.isConnected) return null;
+
       styleEl.textContent = styleFor(rendered.css);
       content.textContent = '';
       var imported = document.importNode(rendered.body, true);
@@ -3165,6 +3205,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         scrollToStart();
       }
 
+      /* The text has just been laid into this box, so whatever it measures now
+         is the layout the reader is looking at. */
+      lastGeom = geometry();
       persist();
       emit('chapter', {
         index: state.index,
@@ -3263,7 +3306,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function setPaged(on, anchor) {
       on = !!on;
       if (on === state.paged) return Promise.resolve(null);
-      anchor = anchor || captureAnchor();
+      anchor = anchor || settledAnchor();
       state.paged = on;
       scroll.unlisten(onScroll);
       scroll = on ? pagedScroller(mount) : baseScroller();
@@ -3280,7 +3323,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * position was read from. */
     function repaginate(anchor) {
       if (!state.paged) return Promise.resolve(null);
-      restoreScroll = anchor || captureAnchor();
+      restoreScroll = anchor || settledAnchor();
       return show(state.index);
     }
 
@@ -3343,13 +3386,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         state.align = (v === 'left' || v === 'justify') ? v : 'default';
       });
     }
-    function setShowMarks(v) { state.showMarks = v; return show(state.index); }
+    /* Through reflow() like every other re-render: both of these are things a
+       reader does mid-chapter to check the passage in front of them, and going
+       straight to show() left restoreScroll null, so the passage they were
+       checking scrolled away to the top of the chapter. */
+    function setShowMarks(v) {
+      return reflow(function () { state.showMarks = v; });
+    }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
      * aside before conversion, so switching costs no re-parse of the file. */
     function setSource(which) {
-      state.source = which === 'original' ? 'original' : 'converted';
-      return show(state.index);
+      return reflow(function () {
+        state.source = which === 'original' ? 'original' : 'converted';
+      });
     }
 
     return {
@@ -3535,6 +3585,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function halfPage() { return Math.round(reader().viewportExtent() / 2); }
     function fullPage() { return Math.round(reader().viewportExtent() * 0.9); }
 
+    /* What one j or k is worth. Paginated text has no lines to move by -- the
+       smallest step there IS a page -- and asking for 64px anyway threw the
+       count away: the scroller rounds a sub-page delta up to one page, so 3j
+       and 13j both turned a single page while the help went on promising that
+       counts repeat. d/u/f/b never had the problem, being fractions of the
+       viewport already, which is the pitch once paginated. */
+    function lineStep() {
+      var r = reader();
+      return r.scrollerKind() === 'paged' ? r.viewportExtent() : LINE;
+    }
+
     function helpVisible() { return !help.classList.contains('hidden'); }
     function setHelp(on) {
       if (on) fillHelp(help);
@@ -3566,8 +3627,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (pendingG && k !== 'g') pendingG = false;
 
       switch (k) {
-        case 'j': r.scrollBy(LINE * takeCount()); break;
-        case 'k': r.scrollBy(-LINE * takeCount()); break;
+        case 'j': r.scrollBy(lineStep() * takeCount()); break;
+        case 'k': r.scrollBy(-lineStep() * takeCount()); break;
         /* Rounded so the motions are exactly reversible: a fractional delta
          * gets rounded by the browser on the way in, and d/u pairs would
          * otherwise drift a pixel per cycle. */
@@ -5579,7 +5640,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     /* Closing the sidebar widens the reading column, which reflows the text: a
        pixel offset does not survive that and the content anchor does. Same
        reason the reader captures and restores around a font-size change. */
-    function setFocus(on) {
+    function setFocus(on, anchor) {
       on = !!on;
       if (on === focusMode.on) return;
       if (on && isNarrow()) return;
@@ -5588,13 +5649,16 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          reading column -- the sidebar returns, the two strips rejoin the flow
          -- and a paged column re-breaks the moment its width or height moves.
          Captured afterwards, the position would be read off a set of pages
-         that were never on screen, and leaving focus mode landed a page early. */
-      var anchor = current.reader ? current.reader.captureAnchor() : null;
+         that were never on screen, and leaving focus mode landed a page early.
+         A caller that has ALREADY moved the layout -- settleForWidth, off the
+         breakpoint -- is past that point and passes its own. */
+      if (anchor === undefined) {
+        anchor = current.reader ? current.reader.captureAnchor() : null;
+      }
 
       if (on) {
         closeDropdowns(null);
         focusMode.sidebarWas = drawerOpen();
-        focusMode.pagedWas = pagedOn();
         setDrawer(false);
       }
       focusMode.on = on;
@@ -5602,12 +5666,16 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       tuckPager(on);
       if (!on) setDrawer(focusMode.sidebarWas);
 
-      /* Focus mode BORROWS pages for as long as it runs and hands back whatever
-         was set before it; the stored preference is never touched here. When
-         that is already what the reader is doing, the layout still has to be
-         re-broken -- the reading box just changed size around it. */
+      /* Focus mode BORROWS pages for as long as it runs and hands back what the
+         preference asks for; it never writes that preference itself. Read on
+         the way out rather than snapshotted on the way in, because 翻頁 stays
+         live inside the mode: turning pages off in there wrote '0', and a
+         snapshot taken at the door then turned them back on as you left,
+         leaving reader, preference and button disagreeing three ways. When the
+         preference is already what the reader is doing, the layout still has to
+         be re-broken -- the reading box just changed size around it. */
       if (current.reader) {
-        var want = on ? true : focusMode.pagedWas;
+        var want = on ? true : (pagedPref() && !isNarrow());
         if (want === pagedOn()) current.reader.repaginate(anchor);
         else current.reader.setPaged(want, anchor);
       }
@@ -5619,6 +5687,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
+      /* setFocus refuses below the breakpoint, so the button says so rather
+         than accepting a press and only closing the panel under the cursor --
+         the same reason 翻頁 beside it is disabled there. */
+      el.toggleFocus.disabled = isNarrow();
     }
 
     function pagedOn() {
@@ -5676,10 +5748,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
 
     /* Leaving fullscreen by the browser's own route -- its Esc, or the window
-       button -- means leaving the mode, not sitting in it half-applied. */
-    document.addEventListener('fullscreenchange', function () {
-      if (!document.fullscreenElement && focusMode.on) setFocus(false);
-    });
+       button -- means leaving the mode, not sitting in it half-applied.
+       Both spellings, because goFullscreen and leaveFullscreen both fall back
+       to the prefixed calls: a browser that can only ENTER by the webkit route
+       would otherwise have no way back out, which is the half-applied state
+       this listener exists to prevent. */
+    function onFullscreenChange() {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      if (focusMode.on) setFocus(false);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
     el.toggleFocus.addEventListener('click', function () { setFocus(!focusMode.on); });
     syncFocus();
@@ -5704,10 +5783,21 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     function settleForWidth() {
+      /* The layout has just changed which element scrolls, so the reader is
+         holding the wrong one. FIRST, because setFocus and applyPaged below
+         both rebuild the scroller from the factory named here -- run last, they
+         built it from the previous width's and briefly held a container that
+         no longer scrolls. The reader keeps the place itself: capturing here
+         would be too late, since the stylesheet has already relaid the page. */
+      if (current.reader) current.reader.setScroller(scrollerFor());
       /* Focus mode is a desktop state and its CSS stops applying below the
          breakpoint. Leaving the class on would strand the remembered sidebar
-         state with nothing left to restore it. */
-      setFocus(false);
+         state with nothing left to restore it.
+
+         An explicit null anchor rather than none: the breakpoint has already
+         moved, so there is no live position left to read and the reader should
+         fall back to the one it settled on while the old layout was still up. */
+      setFocus(false, null);
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
@@ -5715,10 +5805,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          text back to scrolling, and crossing back up restores what was asked
          for rather than leaving it off until noticed. */
       applyPaged(!isNarrow() && pagedPref());
-      /* The layout has just changed which element scrolls, so the reader is
-         holding the wrong one. It keeps the place itself: capturing here would
-         be too late, since the stylesheet has already relaid the page. */
-      if (current.reader) current.reader.setScroller(scrollerFor());
+      syncFocus();
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');
       el.backdrop.classList.add('hidden');

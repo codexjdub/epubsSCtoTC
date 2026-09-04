@@ -176,7 +176,6 @@
       /* scrollIntoView already aligns to this element's own top, so nothing
        * needs correcting. Not the same number as viewportRect().top, which is
        * where the element sits in the window. */
-      inset: function () { return 0; },
       scrollBy: function (delta) { element.scrollBy({ top: delta, behavior: 'auto' }); },
       measure: verticalMeasure,
       alignStart: function (el, fraction) {
@@ -222,7 +221,6 @@
       },
       /* Here it is real: scrollIntoView aligns to the window, and the readable
        * area starts below the fixed chrome. */
-      inset: function () { return top(); },
       scrollBy: function (delta) { window.scrollBy({ top: delta, behavior: 'auto' }); },
       measure: verticalMeasure,
       /* scrollIntoView aligns a block to the top of the WINDOW; the anchor is
@@ -284,7 +282,6 @@
          figure runs past 100% on the last page. */
       contentExtent: function () { return lastPage() + pitch(); },
       viewportRect: function () { return host.getBoundingClientRect(); },
-      inset: function () { return 0; },
       /* Whole pages, and never none: a vim `j` asks for 64px, which would round
          to no movement at all rather than to the next page. */
       scrollBy: function (delta) {
@@ -411,6 +408,7 @@
      * so the outgoing scroller measures a layout that no longer exists and
      * reports the top of the book. */
     var lastAnchor = null;
+    var lastGeom = '';
     var mount = document.createElement('div');
     mount.className = 'reader-mount';
     host.appendChild(mount);
@@ -516,6 +514,35 @@
       return true;
     }
 
+    /* The box the columns last broke into. Two numbers and the scroller name
+     * are enough to tell "the text has not moved" from "the layout went out
+     * from under us", which is the whole question below. */
+    function geometry() {
+      return mount.clientWidth + 'x' + mount.clientHeight + ':' + scroll.kind;
+    }
+
+    /* The position to reflow from when the caller has not named one.
+     *
+     * Normally a live capture is the better answer: it is current, where
+     * lastAnchor can trail a hand-scroll by up to the 400ms settle.
+     *
+     * It stops being the better answer the moment the reading box changes size,
+     * because CSS re-breaks the columns immediately -- before any script gets a
+     * turn -- while scrollLeft keeps its old, now meaningless value. Capturing
+     * then reads a page that was never on screen. Measured on a real book,
+     * resizing the height by 40px and back four times walked the reader from
+     * lp36 to lp17: one page lost per cycle, ending at the size it started at.
+     * The same happens the other way at the breakpoint, where the stylesheet
+     * relays the page and a live capture reports the top of the book.
+     *
+     * So: trust the live one while the box still measures what it did when the
+     * anchor was last settled, and fall back to that settled anchor when it
+     * does not. */
+    function settledAnchor() {
+      if (lastAnchor && geometry() !== lastGeom) return lastAnchor;
+      return captureAnchor() || lastAnchor;
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -537,7 +564,12 @@
 
     function persist() {
       persistPrefs();
-      var here = captureAnchor();
+      /* Only while the layout is the one the text was laid into. The 400ms
+         scroll settle can land after a resize has already re-broken the
+         columns, and recording a position read from that would poison the very
+         anchor settledAnchor() falls back to. show() marks the new box settled
+         as soon as it has rendered into it. */
+      var here = geometry() === lastGeom ? captureAnchor() : null;
       if (here) lastAnchor = here;
       store.write({
         index: state.index,
@@ -689,6 +721,14 @@
         { showMarks: state.showMarks, stripFontFace: true, source: state.source }
       );
 
+      /* The reader can be destroyed across that await -- picking another book
+       * from the shelf, dropping a file, or changing the preset all do it while
+       * a render is in flight, and turning a page or dragging 行寬 starts one
+       * readily. Everything below writes into a detached mount, and pagedCss
+       * measures its parent, which by then is null: getComputedStyle(null)
+       * throws. Same test captureAnchor already uses for the same reason. */
+      if (!mount.isConnected) return null;
+
       styleEl.textContent = styleFor(rendered.css);
       content.textContent = '';
       var imported = document.importNode(rendered.body, true);
@@ -708,6 +748,9 @@
         scrollToStart();
       }
 
+      /* The text has just been laid into this box, so whatever it measures now
+         is the layout the reader is looking at. */
+      lastGeom = geometry();
       persist();
       emit('chapter', {
         index: state.index,
@@ -806,7 +849,7 @@
     function setPaged(on, anchor) {
       on = !!on;
       if (on === state.paged) return Promise.resolve(null);
-      anchor = anchor || captureAnchor();
+      anchor = anchor || settledAnchor();
       state.paged = on;
       scroll.unlisten(onScroll);
       scroll = on ? pagedScroller(mount) : baseScroller();
@@ -823,7 +866,7 @@
      * position was read from. */
     function repaginate(anchor) {
       if (!state.paged) return Promise.resolve(null);
-      restoreScroll = anchor || captureAnchor();
+      restoreScroll = anchor || settledAnchor();
       return show(state.index);
     }
 
@@ -886,13 +929,20 @@
         state.align = (v === 'left' || v === 'justify') ? v : 'default';
       });
     }
-    function setShowMarks(v) { state.showMarks = v; return show(state.index); }
+    /* Through reflow() like every other re-render: both of these are things a
+       reader does mid-chapter to check the passage in front of them, and going
+       straight to show() left restoreScroll null, so the passage they were
+       checking scrolled away to the top of the chapter. */
+    function setShowMarks(v) {
+      return reflow(function () { state.showMarks = v; });
+    }
 
     /* 'converted' or 'original'. The original is rendered from the text kept
      * aside before conversion, so switching costs no re-parse of the file. */
     function setSource(which) {
-      state.source = which === 'original' ? 'original' : 'converted';
-      return show(state.index);
+      return reflow(function () {
+        state.source = which === 'original' ? 'original' : 'converted';
+      });
     }
 
     return {

@@ -107,6 +107,17 @@
     function halfPage() { return Math.round(reader().viewportExtent() / 2); }
     function fullPage() { return Math.round(reader().viewportExtent() * 0.9); }
 
+    /* What one j or k is worth. Paginated text has no lines to move by -- the
+       smallest step there IS a page -- and asking for 64px anyway threw the
+       count away: the scroller rounds a sub-page delta up to one page, so 3j
+       and 13j both turned a single page while the help went on promising that
+       counts repeat. d/u/f/b never had the problem, being fractions of the
+       viewport already, which is the pitch once paginated. */
+    function lineStep() {
+      var r = reader();
+      return r.scrollerKind() === 'paged' ? r.viewportExtent() : LINE;
+    }
+
     function helpVisible() { return !help.classList.contains('hidden'); }
     function setHelp(on) {
       if (on) fillHelp(help);
@@ -138,8 +149,8 @@
       if (pendingG && k !== 'g') pendingG = false;
 
       switch (k) {
-        case 'j': r.scrollBy(LINE * takeCount()); break;
-        case 'k': r.scrollBy(-LINE * takeCount()); break;
+        case 'j': r.scrollBy(lineStep() * takeCount()); break;
+        case 'k': r.scrollBy(-lineStep() * takeCount()); break;
         /* Rounded so the motions are exactly reversible: a fractional delta
          * gets rounded by the browser on the way in, and d/u pairs would
          * otherwise drift a pixel per cycle. */
