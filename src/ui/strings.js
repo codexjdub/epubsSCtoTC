@@ -98,6 +98,18 @@
     'panel.marks.show': ['顯示標記', 'Show marks'],
     'panel.marks.hide': ['隱藏標記', 'Hide marks'],
     'panel.report': ['轉換報告', 'Conversion report'],
+    'bar.bookmark': ['書籤', 'Bookmark'],
+    'bar.bookmark.title': ['把讀到的地方記下來', 'Keep this spot'],
+    'bar.bookmark.remove.title': ['移除這裡的書籤', 'Remove the bookmark here'],
+    'sidebar.bookmarks': ['書籤', 'Bookmarks'],
+    'bookmark.added': ['已加入書籤', 'Bookmark added'],
+    'bookmark.removed': ['已移除書籤', 'Bookmark removed'],
+    'bookmark.empty': ['還沒有書籤。讀到想記住的地方，按上面的「書籤」。',
+                       'No bookmarks yet. Press Bookmark to keep the spot you are reading.'],
+    'bookmark.removeNamed': ['移除書籤：{label}', 'Remove bookmark: {label}'],
+    /* A bookmark on a block with no text of its own -- a picture, or a page
+       break. Rare, but a blank row in the list is unreadable. */
+    'bookmark.unlabelled': ['（沒有文字）', '(no text)'],
     'report.title': ['轉換報告', 'Conversion report'],
     'report.target': ['轉換目標', 'Target'],
     'report.documents': ['已轉換文件', 'Documents converted'],

@@ -419,6 +419,13 @@
          width, and a phone has no fixed-height box to break them in. */
       paged: !!opts.paged,
       overrides: saved.overrides || {},
+      /* Spots the reader chose, as against the one the reader is at, which is
+         `anchor` and moves by itself. Each is the same {index, id, fraction}
+         shape, which is why this costs nothing: a bookmark is a POINT, and the
+         anchor already survives everything the text does -- a re-render, the
+         原文 toggle, an override, a change of preset. Conversion rewrites
+         characters, never the block structure the anchor names. */
+      bookmarks: Array.isArray(saved.bookmarks) ? saved.bookmarks : [],
       listeners: {}
     };
 
@@ -563,6 +570,102 @@
       return captureAnchor() || lastAnchor;
     }
 
+    /* ---- bookmarks ----
+     *
+     * A spot the reader chose, kept as the anchor already in use everywhere
+     * else. Two bookmarks are the same one when they name the same block of
+     * the same chapter: the fraction is how far INTO that block the reader
+     * happened to be, which is not what they were pointing at.
+     */
+    var LABEL_CHARS = 20;
+
+    function sameSpot(a, b) {
+      return a && b && a.chapter === b.chapter && a.anchor.index === b.anchor.index;
+    }
+
+    /* The opening words of the block, so the list can be read. Unlabelled
+     * bookmarks all look alike and you end up opening every one. Taken from
+     * what is ON SCREEN, so it is in the script the reader is reading -- a
+     * bookmark made in the converted text is labelled in traditional. */
+    function labelFor(anchor) {
+      var block = anchor && content.children[anchor.index];
+      var text = block ? (block.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      if (!text) return '';
+      var chars = Array.from(text);
+      return chars.length > LABEL_CHARS
+        ? chars.slice(0, LABEL_CHARS).join('') + '…' : text;
+    }
+
+    function bookmarkHere() {
+      var anchor = captureAnchor();
+      if (!anchor) return null;
+      return {
+        chapter: state.index,
+        /* A spine entry is {idref, item, linear}; the path is the manifest
+           item's, which is also what goToPath matches and what the table of
+           contents carries, so the list can name the chapter. */
+        path: ((spineItems()[state.index] || {}).item || {}).path || '',
+        anchor: anchor,
+        label: labelFor(anchor),
+        at: Date.now()
+      };
+    }
+
+    /* Which stored bookmark, if any, names the spot on screen. Drives the
+       button's pressed state, so it has to be cheap enough to ask on every
+       scroll -- captureAnchor is the only real work, and the app already
+       calls it that often to draw the progress figure. */
+    function bookmarkAt() {
+      var here = bookmarkHere();
+      if (!here) return null;
+      for (var i = 0; i < state.bookmarks.length; i++) {
+        if (sameSpot(state.bookmarks[i], here)) return state.bookmarks[i];
+      }
+      return null;
+    }
+
+    /* One gesture, both ways: press it where there is no bookmark and one is
+       made, press it where there is and it goes. Returns what happened so the
+       caller can say so -- the list lives in the sidebar, which is usually
+       shut, and a button that appears to do nothing is worse than no button. */
+    function toggleBookmark() {
+      var existing = bookmarkAt();
+      if (existing) {
+        state.bookmarks = state.bookmarks.filter(function (b) { return b !== existing; });
+        persist();
+        emit('bookmarks', state.bookmarks);
+        return { added: false, bookmark: existing };
+      }
+      var made = bookmarkHere();
+      if (!made) return null;
+      state.bookmarks = state.bookmarks.concat([made]);
+      /* In reading order, not the order they were made: the list sits under
+         the table of contents and is read the same way. */
+      state.bookmarks.sort(function (a, b) {
+        return a.chapter - b.chapter || a.anchor.index - b.anchor.index;
+      });
+      persist();
+      emit('bookmarks', state.bookmarks);
+      return { added: true, bookmark: made };
+    }
+
+    function removeBookmark(target) {
+      var before = state.bookmarks.length;
+      state.bookmarks = state.bookmarks.filter(function (b) {
+        return !(b.chapter === target.chapter && b.at === target.at);
+      });
+      if (state.bookmarks.length === before) return false;
+      persist();
+      emit('bookmarks', state.bookmarks);
+      return true;
+    }
+
+    function goToBookmark(target) {
+      navigated();
+      restoreScroll = target.anchor;
+      return show(target.chapter);
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -596,7 +699,8 @@
         showMarks: state.showMarks,
         source: state.source,
         anchor: lastAnchor,
-        overrides: state.overrides
+        overrides: state.overrides,
+        bookmarks: state.bookmarks
       });
     }
 
@@ -1024,6 +1128,11 @@
       scrollerKind: function () { return scroll.kind; },
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
+      bookmarks: function () { return state.bookmarks.slice(); },
+      bookmarkAt: bookmarkAt,
+      toggleBookmark: toggleBookmark,
+      removeBookmark: removeBookmark,
+      goToBookmark: goToBookmark,
       progress: progress,
       back: back,
       trailDepth: function () { return trail.length; },

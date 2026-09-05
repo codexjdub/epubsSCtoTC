@@ -191,6 +191,33 @@ button:disabled { opacity: .5; cursor: default; }
 .toc a:hover { background: var(--bg); }
 .toc a.current { background: var(--accent); color: var(--accent-fg); }
 
+/* Under the contents, and separated from it: the two lists are both "places in
+   this book", and without a rule between them the second reads as more of the
+   first. */
+.bookmarks { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.bookmark-row { display: flex; align-items: flex-start; gap: 4px; }
+.bookmark-row .go {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0;
+  padding: 5px 6px; border-radius: 6px; color: inherit; cursor: pointer;
+  font: inherit; display: block;
+}
+.bookmark-row .go:hover { background: var(--bg); }
+/* The opening words, on one line. Two bookmarks in the same paragraph would
+   otherwise be told apart only by reading to the end of both. */
+.bookmark-row .label {
+  display: block; font-size: 13px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bookmark-row .where {
+  display: block; font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bookmark-row .drop {
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 6px 4px; border-radius: 6px;
+}
+.bookmark-row .drop:hover { color: var(--accent); background: var(--bg); }
+
 .viewer { flex: 1; overflow: auto; min-width: 0; }
 .reader-mount { min-height: 100%; }
 
@@ -477,6 +504,16 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
+
+  /* A glyph here, the word on desktop. Measured: spelled out, 書籤 took 56px
+     off the title on a 375px screen and all 35px of it at 320px, where the
+     book you are reading stopped being named at all -- and this bar was
+     trimmed to the controls that earn their width precisely so the title could
+     keep some. The text stays in the button rather than being replaced, so the
+     accessible name and the tooltip are unchanged; only its size goes. */
+  #toggleBookmark { font-size: 0; padding-left: 9px; padding-right: 9px; }
+  #toggleBookmark::before { content: "\2606" / ""; font-size: 17px; line-height: 1; }
+  #toggleBookmark.active::before { content: "\2605" / ""; }
 
   /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
      chrome in response to the root scroller moving and ignore an overflow

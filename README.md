@@ -18,6 +18,7 @@ Markdown or plain text. Nothing is uploaded.
   and goes fullscreen — both desktop only, where there is a fixed-height column
   to break pages in
 - Interface in Chinese or English, Chinese by default
+- Bookmarks: keep a spot, and find it again in the sidebar under the contents
 - Ambiguous characters (发 → 發 or 髮) are underlined — click to cycle, and the
   choice carries into the export
 - Drops embedded fonts that can't render the converted text

@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.26.0</p>
+    <p class="hint build">v1.27.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -45,6 +45,13 @@
               aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
       <button id="toggleSidebar" type="button" aria-expanded="true"
               aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
+      <!-- Next to 目錄 because it belongs to the same question -- where am I,
+           and where do I want to get back to -- and because the list it adds
+           to lives in the panel 目錄 opens. On the bar rather than in a panel
+           because this one IS needed on sight: the whole gesture is "mark
+           this, now", and it is worth nothing behind two clicks. -->
+      <button id="toggleBookmark" type="button" aria-pressed="false"
+              data-i18n-title="bar.bookmark.title" data-i18n="bar.bookmark">書籤</button>
       <span class="title" id="bookTitle"></span>
       <!-- Order follows the surfaces: 書架 and 目錄 open panels anchored to the
            left edge, so they sit left of the title; Aa and 轉換 open panels
@@ -157,6 +164,13 @@
       <aside id="sidebar" class="sidebar">
         <h2 data-i18n="sidebar.toc">目錄</h2>
         <nav id="toc" class="toc"></nav>
+        <!-- Under the contents, and hidden until there is one: an empty
+             heading on every book would be a standing reminder of a feature
+             most readers never use. -->
+        <section id="bookmarks" class="bookmarks hidden">
+          <h2 data-i18n="sidebar.bookmarks">書籤</h2>
+          <div id="bookmarkList"></div>
+        </section>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>

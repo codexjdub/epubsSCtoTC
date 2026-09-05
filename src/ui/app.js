@@ -189,6 +189,68 @@
     if (current && current.scrollIntoView) current.scrollIntoView({ block: 'nearest' });
   }
 
+  /* ---- bookmarks ---- */
+
+  /* The chapter's name as the table of contents gives it, since that is the
+     name the reader has already been shown. Read off the built list rather
+     than from book.toc, which is a tree and would need walking. */
+  function chapterName(path) {
+    var link = el.toc.querySelector('a[data-path="' + (window.CSS && CSS.escape
+      ? CSS.escape(path) : path) + '"]');
+    return link ? link.textContent : '';
+  }
+
+  function renderBookmarks() {
+    if (!el.bookmarks) return;
+    var marks = current.reader ? current.reader.bookmarks() : [];
+    show(el.bookmarks, marks.length > 0);
+    el.bookmarkList.textContent = '';
+    marks.forEach(function (bm) {
+      var row = document.createElement('div');
+      row.className = 'bookmark-row';
+
+      var go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'go';
+      var label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = bm.label || S('bookmark.unlabelled');
+      var where = document.createElement('span');
+      where.className = 'where';
+      where.textContent = chapterName(bm.path);
+      go.appendChild(label);
+      go.appendChild(where);
+      go.addEventListener('click', function () {
+        current.reader.goToBookmark(bm);
+        if (isNarrowScreen() && api.setDrawer) api.setDrawer(false);
+      });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'drop';
+      drop.textContent = '×';
+      drop.title = S('bookmark.removeNamed', { label: bm.label || S('bookmark.unlabelled') });
+      drop.setAttribute('aria-label', drop.title);
+      drop.addEventListener('click', function () {
+        current.reader.removeBookmark(bm);
+      });
+
+      row.appendChild(go);
+      row.appendChild(drop);
+      el.bookmarkList.appendChild(row);
+    });
+  }
+
+  /* Whether the spot on screen is one of them. Asked on every scroll, with the
+     progress figure, so the button is right without anyone pressing it. */
+  function syncBookmark() {
+    if (!el.toggleBookmark) return;
+    var on = !!(current.reader && current.reader.bookmarkAt());
+    el.toggleBookmark.classList.toggle('active', on);
+    el.toggleBookmark.setAttribute('aria-pressed', String(on));
+    el.toggleBookmark.title = S(on ? 'bar.bookmark.remove.title' : 'bar.bookmark.title');
+  }
+
   /* ---- report ---- */
 
   function renderReport(book, fontReport) {
@@ -316,6 +378,7 @@
       if (!current.reader) return;
       el.prev.disabled = current.reader.atBookStart();
       el.next.disabled = current.reader.atBookEnd();
+      syncBookmark();
     }
 
     reader.on('chapter', function (e) {
@@ -330,8 +393,12 @@
       lastViewerScroll = 0;
       renderPosition();
       highlightToc(e.path);
+      renderBookmarks();
     });
     reader.on('progress', renderPosition);
+    /* The list changes only when a bookmark does; the BUTTON changes as the
+       reader moves, which is why the two are separate. */
+    reader.on('bookmarks', function () { renderBookmarks(); syncBookmark(); });
     /* Only offered once a link has actually been followed -- a button that is
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
@@ -610,6 +677,9 @@
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
+    el.bookmarks = $('bookmarks');
+    el.bookmarkList = $('bookmarkList');
+    el.toggleBookmark = $('toggleBookmark');
     el.shelfPanel = $('shelfPanel');
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
@@ -1137,6 +1207,7 @@
     syncVim();
 
     api.drawerOpen = drawerOpen;
+    api.setDrawer = setDrawer;
 
     populateFontStyles('', current.presetId);
     el.fontStyle.addEventListener('change', function () {
@@ -1192,6 +1263,8 @@
         if (wasFont) el.fontStyle.value = wasFont;
       }
       if (current.book) renderReport(current.book, current.fontReport);
+      renderBookmarks();
+      syncBookmark();
       renderLibrary();
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
@@ -1247,6 +1320,17 @@
       await current.reader.setSource(next);
       syncSource();
     });
+    /* One button both ways. The list it feeds is in the sidebar, usually shut,
+       so the press has to say what it did somewhere the reader is looking:
+       the status line, which sits in the pager beside the position. */
+    el.toggleBookmark.addEventListener('click', function () {
+      if (!current.reader) return;
+      var result = current.reader.toggleBookmark();
+      if (!result) return;
+      setStatus(S(result.added ? 'bookmark.added' : 'bookmark.removed'));
+      setTimeout(function () { setStatus(''); }, 1600);
+    });
+
     $('toggleMarks').addEventListener('click', function () {
       var next = !current.reader.state.showMarks;
       current.reader.setShowMarks(next);

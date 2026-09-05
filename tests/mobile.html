@@ -755,6 +755,35 @@
       t.eq('and switching back restores Chinese',
            LD.getElementById('toggleShelf').textContent, '書架');
 
+      /* ---- bookmarks ----
+         The word 書籤 on the bar cost the title 56px on a phone and all of it
+         at 320px, so below the breakpoint the button wears a glyph instead.
+         The text stays in the element and only its size goes, so what a screen
+         reader announces is unchanged -- asserted here, because a CSS trick
+         that quietly removed the name would be worse than the wasted width. */
+      var bmBar = LD.getElementById('toggleBookmark');
+      t.eq('the bookmark button is on the bar', !!bmBar, true);
+      t.eq('and starts unpressed', bmBar.getAttribute('aria-pressed'), 'false');
+      t.check('with the section hidden while there are none',
+              LD.getElementById('bookmarks').classList.contains('hidden'),
+              'an empty bookmarks heading on every book');
+      bmBar.click();
+      await wait(120);
+      t.eq('pressing it marks the spot', bmBar.getAttribute('aria-pressed'), 'true');
+      t.eq('and the list shows one', LD.querySelectorAll('.bookmark-row').length, 1);
+      var bmRow = LD.querySelector('.bookmark-row');
+      t.check('labelled with the opening words',
+              bmRow.querySelector('.label').textContent.length > 0, 'no label');
+      t.check('and with the chapter it is in',
+              bmRow.querySelector('.where').textContent.length > 0,
+              'no chapter name, so two bookmarks in one book look alike');
+      /* One button both ways. */
+      bmBar.click();
+      await wait(120);
+      t.eq('pressing again takes it away', LD.querySelectorAll('.bookmark-row').length, 0);
+      t.check('and the heading goes with it',
+              LD.getElementById('bookmarks').classList.contains('hidden'), 'heading stayed');
+
       /* The other direction, which is the one that was broken and the one most
          readers see: Chinese is the default, and everything built in JS rather
          than marked up with data-i18n stayed English in it. The conversion
@@ -814,6 +843,38 @@
       var ep = enPhone.contentDocument;
       ep.getElementById('lang').click();
       await wait(400);
+      /* The bar must stay on ONE row with the bookmark button on it, and the
+         title must keep some width. Measured when the button was added: spelled
+         out as 書籤 it took the title from 90px to 34px on this screen, and the
+         glyph gives most of that back. The title is what tells you which book
+         you are in, and this bar was trimmed to the controls that earn their
+         width precisely so it could have some. */
+      var epBar = ep.getElementById('topbar');
+      function barRows() {
+        var tops = {};
+        Array.prototype.forEach.call(epBar.querySelectorAll(':scope > button'),
+          function (b) { tops[Math.round(px(b).top)] = 1; });
+        return Object.keys(tops).length;
+      }
+      t.eq('the phone bar stays on one row in English', barRows(), 1);
+      t.check('the bookmark button wears a glyph, not the word',
+              px(ep.getElementById('toggleBookmark')).width < 44,
+              Math.round(px(ep.getElementById('toggleBookmark')).width) + 'px wide');
+
+      /* The title is asserted in CHINESE, which is the default and the language
+         this bar was laid out for. In English the five labels are words rather
+         than two characters each and the title was already down to 15px before
+         this button existed -- a separate problem, not one to hide behind a
+         threshold low enough to pass. */
+      ep.getElementById('lang').click();
+      await wait(400);
+      t.eq('and on one row in Chinese', barRows(), 1);
+      t.check('where the book title keeps room to be read',
+              px(ep.getElementById('bookTitle')).width >= 40,
+              Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
+      ep.getElementById('lang').click();
+      await wait(400);
+
       t.eq('the phone pager speaks English', ep.getElementById('next').textContent,
            'Chapter →');
       /* The readout has to be the widest a real book produces, or this proves

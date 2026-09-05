@@ -198,6 +198,33 @@ button:disabled { opacity: .5; cursor: default; }
 .toc a:hover { background: var(--bg); }
 .toc a.current { background: var(--accent); color: var(--accent-fg); }
 
+/* Under the contents, and separated from it: the two lists are both "places in
+   this book", and without a rule between them the second reads as more of the
+   first. */
+.bookmarks { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.bookmark-row { display: flex; align-items: flex-start; gap: 4px; }
+.bookmark-row .go {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0;
+  padding: 5px 6px; border-radius: 6px; color: inherit; cursor: pointer;
+  font: inherit; display: block;
+}
+.bookmark-row .go:hover { background: var(--bg); }
+/* The opening words, on one line. Two bookmarks in the same paragraph would
+   otherwise be told apart only by reading to the end of both. */
+.bookmark-row .label {
+  display: block; font-size: 13px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bookmark-row .where {
+  display: block; font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bookmark-row .drop {
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 6px 4px; border-radius: 6px;
+}
+.bookmark-row .drop:hover { color: var(--accent); background: var(--bg); }
+
 .viewer { flex: 1; overflow: auto; min-width: 0; }
 .reader-mount { min-height: 100%; }
 
@@ -485,6 +512,16 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
 
+  /* A glyph here, the word on desktop. Measured: spelled out, 書籤 took 56px
+     off the title on a 375px screen and all 35px of it at 320px, where the
+     book you are reading stopped being named at all -- and this bar was
+     trimmed to the controls that earn their width precisely so the title could
+     keep some. The text stays in the button rather than being replaced, so the
+     accessible name and the tooltip are unchanged; only its size goes. */
+  #toggleBookmark { font-size: 0; padding-left: 9px; padding-right: 9px; }
+  #toggleBookmark::before { content: "\2606" / ""; font-size: 17px; line-height: 1; }
+  #toggleBookmark.active::before { content: "\2605" / ""; }
+
   /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
      chrome in response to the root scroller moving and ignore an overflow
      container entirely, so this is the only way to get the URL bar out of the
@@ -614,7 +651,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.26.0</p>
+    <p class="hint build">v1.27.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -625,6 +662,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
               aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
       <button id="toggleSidebar" type="button" aria-expanded="true"
               aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
+      <!-- Next to 目錄 because it belongs to the same question -- where am I,
+           and where do I want to get back to -- and because the list it adds
+           to lives in the panel 目錄 opens. On the bar rather than in a panel
+           because this one IS needed on sight: the whole gesture is "mark
+           this, now", and it is worth nothing behind two clicks. -->
+      <button id="toggleBookmark" type="button" aria-pressed="false"
+              data-i18n-title="bar.bookmark.title" data-i18n="bar.bookmark">書籤</button>
       <span class="title" id="bookTitle"></span>
       <!-- Order follows the surfaces: 書架 and 目錄 open panels anchored to the
            left edge, so they sit left of the title; Aa and 轉換 open panels
@@ -737,6 +781,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <aside id="sidebar" class="sidebar">
         <h2 data-i18n="sidebar.toc">目錄</h2>
         <nav id="toc" class="toc"></nav>
+        <!-- Under the contents, and hidden until there is one: an empty
+             heading on every book would be a standing reminder of a feature
+             most readers never use. -->
+        <section id="bookmarks" class="bookmarks hidden">
+          <h2 data-i18n="sidebar.bookmarks">書籤</h2>
+          <div id="bookmarkList"></div>
+        </section>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>
@@ -2883,6 +2934,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          width, and a phone has no fixed-height box to break them in. */
       paged: !!opts.paged,
       overrides: saved.overrides || {},
+      /* Spots the reader chose, as against the one the reader is at, which is
+         `anchor` and moves by itself. Each is the same {index, id, fraction}
+         shape, which is why this costs nothing: a bookmark is a POINT, and the
+         anchor already survives everything the text does -- a re-render, the
+         原文 toggle, an override, a change of preset. Conversion rewrites
+         characters, never the block structure the anchor names. */
+      bookmarks: Array.isArray(saved.bookmarks) ? saved.bookmarks : [],
       listeners: {}
     };
 
@@ -3027,6 +3085,102 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return captureAnchor() || lastAnchor;
     }
 
+    /* ---- bookmarks ----
+     *
+     * A spot the reader chose, kept as the anchor already in use everywhere
+     * else. Two bookmarks are the same one when they name the same block of
+     * the same chapter: the fraction is how far INTO that block the reader
+     * happened to be, which is not what they were pointing at.
+     */
+    var LABEL_CHARS = 20;
+
+    function sameSpot(a, b) {
+      return a && b && a.chapter === b.chapter && a.anchor.index === b.anchor.index;
+    }
+
+    /* The opening words of the block, so the list can be read. Unlabelled
+     * bookmarks all look alike and you end up opening every one. Taken from
+     * what is ON SCREEN, so it is in the script the reader is reading -- a
+     * bookmark made in the converted text is labelled in traditional. */
+    function labelFor(anchor) {
+      var block = anchor && content.children[anchor.index];
+      var text = block ? (block.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      if (!text) return '';
+      var chars = Array.from(text);
+      return chars.length > LABEL_CHARS
+        ? chars.slice(0, LABEL_CHARS).join('') + '…' : text;
+    }
+
+    function bookmarkHere() {
+      var anchor = captureAnchor();
+      if (!anchor) return null;
+      return {
+        chapter: state.index,
+        /* A spine entry is {idref, item, linear}; the path is the manifest
+           item's, which is also what goToPath matches and what the table of
+           contents carries, so the list can name the chapter. */
+        path: ((spineItems()[state.index] || {}).item || {}).path || '',
+        anchor: anchor,
+        label: labelFor(anchor),
+        at: Date.now()
+      };
+    }
+
+    /* Which stored bookmark, if any, names the spot on screen. Drives the
+       button's pressed state, so it has to be cheap enough to ask on every
+       scroll -- captureAnchor is the only real work, and the app already
+       calls it that often to draw the progress figure. */
+    function bookmarkAt() {
+      var here = bookmarkHere();
+      if (!here) return null;
+      for (var i = 0; i < state.bookmarks.length; i++) {
+        if (sameSpot(state.bookmarks[i], here)) return state.bookmarks[i];
+      }
+      return null;
+    }
+
+    /* One gesture, both ways: press it where there is no bookmark and one is
+       made, press it where there is and it goes. Returns what happened so the
+       caller can say so -- the list lives in the sidebar, which is usually
+       shut, and a button that appears to do nothing is worse than no button. */
+    function toggleBookmark() {
+      var existing = bookmarkAt();
+      if (existing) {
+        state.bookmarks = state.bookmarks.filter(function (b) { return b !== existing; });
+        persist();
+        emit('bookmarks', state.bookmarks);
+        return { added: false, bookmark: existing };
+      }
+      var made = bookmarkHere();
+      if (!made) return null;
+      state.bookmarks = state.bookmarks.concat([made]);
+      /* In reading order, not the order they were made: the list sits under
+         the table of contents and is read the same way. */
+      state.bookmarks.sort(function (a, b) {
+        return a.chapter - b.chapter || a.anchor.index - b.anchor.index;
+      });
+      persist();
+      emit('bookmarks', state.bookmarks);
+      return { added: true, bookmark: made };
+    }
+
+    function removeBookmark(target) {
+      var before = state.bookmarks.length;
+      state.bookmarks = state.bookmarks.filter(function (b) {
+        return !(b.chapter === target.chapter && b.at === target.at);
+      });
+      if (state.bookmarks.length === before) return false;
+      persist();
+      emit('bookmarks', state.bookmarks);
+      return true;
+    }
+
+    function goToBookmark(target) {
+      navigated();
+      restoreScroll = target.anchor;
+      return show(target.chapter);
+    }
+
     function emit(name, payload) {
       (state.listeners[name] || []).forEach(function (fn) { fn(payload); });
     }
@@ -3060,7 +3214,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         showMarks: state.showMarks,
         source: state.source,
         anchor: lastAnchor,
-        overrides: state.overrides
+        overrides: state.overrides,
+        bookmarks: state.bookmarks
       });
     }
 
@@ -3488,6 +3643,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       scrollerKind: function () { return scroll.kind; },
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
+      bookmarks: function () { return state.bookmarks.slice(); },
+      bookmarkAt: bookmarkAt,
+      toggleBookmark: toggleBookmark,
+      removeBookmark: removeBookmark,
+      goToBookmark: goToBookmark,
       progress: progress,
       back: back,
       trailDepth: function () { return trail.length; },
@@ -4345,6 +4505,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'panel.marks.show': ['顯示標記', 'Show marks'],
     'panel.marks.hide': ['隱藏標記', 'Hide marks'],
     'panel.report': ['轉換報告', 'Conversion report'],
+    'bar.bookmark': ['書籤', 'Bookmark'],
+    'bar.bookmark.title': ['把讀到的地方記下來', 'Keep this spot'],
+    'bar.bookmark.remove.title': ['移除這裡的書籤', 'Remove the bookmark here'],
+    'sidebar.bookmarks': ['書籤', 'Bookmarks'],
+    'bookmark.added': ['已加入書籤', 'Bookmark added'],
+    'bookmark.removed': ['已移除書籤', 'Bookmark removed'],
+    'bookmark.empty': ['還沒有書籤。讀到想記住的地方，按上面的「書籤」。',
+                       'No bookmarks yet. Press Bookmark to keep the spot you are reading.'],
+    'bookmark.removeNamed': ['移除書籤：{label}', 'Remove bookmark: {label}'],
+    /* A bookmark on a block with no text of its own -- a picture, or a page
+       break. Rare, but a blank row in the list is unreadable. */
+    'bookmark.unlabelled': ['（沒有文字）', '(no text)'],
     'report.title': ['轉換報告', 'Conversion report'],
     'report.target': ['轉換目標', 'Target'],
     'report.documents': ['已轉換文件', 'Documents converted'],
@@ -5048,6 +5220,68 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (current && current.scrollIntoView) current.scrollIntoView({ block: 'nearest' });
   }
 
+  /* ---- bookmarks ---- */
+
+  /* The chapter's name as the table of contents gives it, since that is the
+     name the reader has already been shown. Read off the built list rather
+     than from book.toc, which is a tree and would need walking. */
+  function chapterName(path) {
+    var link = el.toc.querySelector('a[data-path="' + (window.CSS && CSS.escape
+      ? CSS.escape(path) : path) + '"]');
+    return link ? link.textContent : '';
+  }
+
+  function renderBookmarks() {
+    if (!el.bookmarks) return;
+    var marks = current.reader ? current.reader.bookmarks() : [];
+    show(el.bookmarks, marks.length > 0);
+    el.bookmarkList.textContent = '';
+    marks.forEach(function (bm) {
+      var row = document.createElement('div');
+      row.className = 'bookmark-row';
+
+      var go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'go';
+      var label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = bm.label || S('bookmark.unlabelled');
+      var where = document.createElement('span');
+      where.className = 'where';
+      where.textContent = chapterName(bm.path);
+      go.appendChild(label);
+      go.appendChild(where);
+      go.addEventListener('click', function () {
+        current.reader.goToBookmark(bm);
+        if (isNarrowScreen() && api.setDrawer) api.setDrawer(false);
+      });
+
+      var drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'drop';
+      drop.textContent = '×';
+      drop.title = S('bookmark.removeNamed', { label: bm.label || S('bookmark.unlabelled') });
+      drop.setAttribute('aria-label', drop.title);
+      drop.addEventListener('click', function () {
+        current.reader.removeBookmark(bm);
+      });
+
+      row.appendChild(go);
+      row.appendChild(drop);
+      el.bookmarkList.appendChild(row);
+    });
+  }
+
+  /* Whether the spot on screen is one of them. Asked on every scroll, with the
+     progress figure, so the button is right without anyone pressing it. */
+  function syncBookmark() {
+    if (!el.toggleBookmark) return;
+    var on = !!(current.reader && current.reader.bookmarkAt());
+    el.toggleBookmark.classList.toggle('active', on);
+    el.toggleBookmark.setAttribute('aria-pressed', String(on));
+    el.toggleBookmark.title = S(on ? 'bar.bookmark.remove.title' : 'bar.bookmark.title');
+  }
+
   /* ---- report ---- */
 
   function renderReport(book, fontReport) {
@@ -5175,6 +5409,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (!current.reader) return;
       el.prev.disabled = current.reader.atBookStart();
       el.next.disabled = current.reader.atBookEnd();
+      syncBookmark();
     }
 
     reader.on('chapter', function (e) {
@@ -5189,8 +5424,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       lastViewerScroll = 0;
       renderPosition();
       highlightToc(e.path);
+      renderBookmarks();
     });
     reader.on('progress', renderPosition);
+    /* The list changes only when a bookmark does; the BUTTON changes as the
+       reader moves, which is why the two are separate. */
+    reader.on('bookmarks', function () { renderBookmarks(); syncBookmark(); });
     /* Only offered once a link has actually been followed -- a button that is
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
@@ -5469,6 +5708,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.title = $('bookTitle');
     el.viewer = $('viewer');
     el.toc = $('toc');
+    el.bookmarks = $('bookmarks');
+    el.bookmarkList = $('bookmarkList');
+    el.toggleBookmark = $('toggleBookmark');
     el.shelfPanel = $('shelfPanel');
     el.shelfList = $('shelfList');
     el.shelfNote = $('shelfNote');
@@ -5996,6 +6238,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     syncVim();
 
     api.drawerOpen = drawerOpen;
+    api.setDrawer = setDrawer;
 
     populateFontStyles('', current.presetId);
     el.fontStyle.addEventListener('change', function () {
@@ -6051,6 +6294,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         if (wasFont) el.fontStyle.value = wasFont;
       }
       if (current.book) renderReport(current.book, current.fontReport);
+      renderBookmarks();
+      syncBookmark();
       renderLibrary();
       renderShelf();
       if (!current.reader) document.title = '繁花似錦 — ' + S('app.tagline');
@@ -6106,6 +6351,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       await current.reader.setSource(next);
       syncSource();
     });
+    /* One button both ways. The list it feeds is in the sidebar, usually shut,
+       so the press has to say what it did somewhere the reader is looking:
+       the status line, which sits in the pager beside the position. */
+    el.toggleBookmark.addEventListener('click', function () {
+      if (!current.reader) return;
+      var result = current.reader.toggleBookmark();
+      if (!result) return;
+      setStatus(S(result.added ? 'bookmark.added' : 'bookmark.removed'));
+      setTimeout(function () { setStatus(''); }, 1600);
+    });
+
     $('toggleMarks').addEventListener('click', function () {
       var next = !current.reader.state.showMarks;
       current.reader.setShowMarks(next);

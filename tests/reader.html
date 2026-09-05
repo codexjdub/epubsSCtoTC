@@ -894,6 +894,88 @@
       rzHost.remove();
 
 
+      /* ---- bookmarks ----
+       *
+       * A bookmark is a POINT, kept as the same {index, id, fraction} anchor
+       * used everywhere else, which is the whole reason it costs so little.
+       * The claim that makes that true is tested below: conversion rewrites
+       * CHARACTERS and never the block structure the anchor names, so the spot
+       * survives a re-render, the 原文 toggle, and an override. If that ever
+       * stops holding, this feature is broken and these should say so. */
+      var bmHost = document.createElement('div');
+      bmHost.style.cssText =
+        'position:absolute;left:-9999px;width:700px;height:400px;overflow:auto';
+      document.body.appendChild(bmHost);
+      var bm = App.reader.create(bmHost, longBook);
+      await bm.show(0);
+      t.eq('a fresh book has no bookmarks', bm.bookmarks().length, 0);
+      t.eq('and nothing is bookmarked here', bm.bookmarkAt(), null);
+
+      bm.scrollBy(1200);
+      var madeAt = bm.captureAnchor().index;
+      var made = bm.toggleBookmark();
+      t.check('pressing it makes one', made && made.added === true, JSON.stringify(made));
+      t.eq('and there is one to show', bm.bookmarks().length, 1);
+      t.check('which names the spot on screen', !!bm.bookmarkAt(),
+              'the reader is not standing on its own new bookmark');
+      t.check('and carries the opening words as its label',
+              (bm.bookmarks()[0].label || '').length > 0, 'no label');
+      t.check('trimmed rather than the whole paragraph',
+              Array.from(bm.bookmarks()[0].label).length <= 21,
+              bm.bookmarks()[0].label);
+      t.check('and names the chapter it is in',
+              !!bm.bookmarks()[0].path, 'no path, so the list cannot say where');
+
+      /* The gesture is one button both ways. */
+      var undone = bm.toggleBookmark();
+      t.check('pressing it again takes it away', undone && undone.added === false,
+              JSON.stringify(undone));
+      t.eq('leaving none', bm.bookmarks().length, 0);
+
+      /* The claim under test. */
+      bm.toggleBookmark();
+      await bm.show(0);
+      t.eq('a bookmark survives a re-render', bm.bookmarks().length, 1);
+      t.eq('and still names the same block', bm.bookmarks()[0].anchor.index, madeAt);
+      await bm.setShowMarks(true);
+      t.eq('and turning the marks on', bm.bookmarks()[0].anchor.index, madeAt);
+      await bm.setSource('original');
+      t.eq('and reading the untouched original', bm.bookmarks()[0].anchor.index, madeAt);
+      await bm.setSource('converted');
+
+      /* Going to one puts the reader back on the block, from anywhere. */
+      bm.scrollToStart();
+      t.eq('moved away first', bm.scrollPosition(), 0);
+      await bm.goToBookmark(bm.bookmarks()[0]);
+      t.eq('going to a bookmark lands on its block',
+           bm.captureAnchor().index, madeAt);
+
+      /* Read in reading order, not the order they were made -- the list sits
+         under the table of contents and is read the same way. */
+      await bm.show(1);
+      bm.toggleBookmark();
+      await bm.show(0);
+      bm.scrollToStart();
+      bm.toggleBookmark();
+      var order = bm.bookmarks().map(function (x) {
+        return x.chapter + ':' + x.anchor.index;
+      });
+      var sorted = order.slice().sort(function (a, b) {
+        var pa = a.split(':').map(Number), pb = b.split(':').map(Number);
+        return pa[0] - pb[0] || pa[1] - pb[1];
+      });
+      t.eq('the list reads in book order', order.join(' '), sorted.join(' '));
+      t.eq('three of them by now', bm.bookmarks().length, 3);
+
+      /* Kept with the book, so they are there next time it is opened. */
+      var reopened = App.reader.create(bmHost, longBook);
+      await reopened.show(0);
+      t.eq('and they come back with the book', reopened.bookmarks().length, 3);
+      reopened.destroy();
+      bm.destroy();
+      bmHost.remove();
+
+
       // ---- line width ----
       /* The measure is the reader's, not the book's, and it has to move both
          layouts: in pages it also sets the page width and therefore the
