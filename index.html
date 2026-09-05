@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.30.0</p>
+    <p class="hint build">v1.31.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -170,15 +170,20 @@
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <h2 data-i18n="sidebar.toc">目錄</h2>
-        <nav id="toc" class="toc"></nav>
-        <!-- Under the contents, and hidden until there is one: an empty
-             heading on every book would be a standing reminder of a feature
-             most readers never use. -->
+        <!-- ABOVE the contents, and hidden until there is one. Underneath, it
+             was unreachable: measured on a 60-chapter book, the table of
+             contents ran 1823px in a 643px panel and put this section 1240px
+             below the fold, so finding a bookmark meant scrolling past every
+             chapter to reach the handful of places you had marked yourself.
+             A short list you made deliberately comes before a long one the
+             publisher made. Hidden while empty, so a reader who never makes
+             one still sees the contents first. -->
         <section id="bookmarks" class="bookmarks hidden">
           <h2 data-i18n="sidebar.bookmarks">書籤</h2>
           <div id="bookmarkList"></div>
         </section>
+        <h2 data-i18n="sidebar.toc">目錄</h2>
+        <nav id="toc" class="toc"></nav>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>

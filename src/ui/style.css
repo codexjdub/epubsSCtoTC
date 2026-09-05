@@ -191,10 +191,26 @@ button:disabled { opacity: .5; cursor: default; }
 .toc a:hover { background: var(--bg); }
 .toc a.current { background: var(--accent); color: var(--accent-fg); }
 
-/* Under the contents, and separated from it: the two lists are both "places in
+/* Above the contents, and separated from it: the two lists are both "places in
    this book", and without a rule between them the second reads as more of the
-   first. */
-.bookmarks { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+   first. The rule is BELOW this section, since this one now comes first. */
+.bookmarks {
+  margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px;
+  /* Stuck to the top, because moving it up is not enough on its own: the panel
+     scrolls itself to the chapter you are reading, so at chapter 52 of 60 it
+     sat at scrollTop 1212 and this section was off-screen ABOVE instead of
+     below. Sticky, it stays put while the contents scroll under it.
+
+     Needs the panel's own background -- it is transparent by default and the
+     contents would show through it -- and a cap, so twenty bookmarks take a
+     share of the panel rather than all of it, scrolling within themselves. */
+  position: sticky; top: -12px; z-index: 1;
+  background: var(--panel);
+  max-height: 45%; overflow-y: auto;
+}
+/* The first heading in the panel sits tight to the top; the contents heading
+   needs its own space once something is above it. */
+.bookmarks + h2 { margin-top: 0; }
 .bookmark-row { display: flex; align-items: flex-start; gap: 4px; }
 .bookmark-row .go {
   flex: 1; min-width: 0; text-align: left; background: none; border: 0;

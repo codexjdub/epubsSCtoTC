@@ -198,10 +198,26 @@ button:disabled { opacity: .5; cursor: default; }
 .toc a:hover { background: var(--bg); }
 .toc a.current { background: var(--accent); color: var(--accent-fg); }
 
-/* Under the contents, and separated from it: the two lists are both "places in
+/* Above the contents, and separated from it: the two lists are both "places in
    this book", and without a rule between them the second reads as more of the
-   first. */
-.bookmarks { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+   first. The rule is BELOW this section, since this one now comes first. */
+.bookmarks {
+  margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px;
+  /* Stuck to the top, because moving it up is not enough on its own: the panel
+     scrolls itself to the chapter you are reading, so at chapter 52 of 60 it
+     sat at scrollTop 1212 and this section was off-screen ABOVE instead of
+     below. Sticky, it stays put while the contents scroll under it.
+
+     Needs the panel's own background -- it is transparent by default and the
+     contents would show through it -- and a cap, so twenty bookmarks take a
+     share of the panel rather than all of it, scrolling within themselves. */
+  position: sticky; top: -12px; z-index: 1;
+  background: var(--panel);
+  max-height: 45%; overflow-y: auto;
+}
+/* The first heading in the panel sits tight to the top; the contents heading
+   needs its own space once something is above it. */
+.bookmarks + h2 { margin-top: 0; }
 .bookmark-row { display: flex; align-items: flex-start; gap: 4px; }
 .bookmark-row .go {
   flex: 1; min-width: 0; text-align: left; background: none; border: 0;
@@ -657,7 +673,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.30.0</p>
+    <p class="hint build">v1.31.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -793,15 +809,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
     <div class="main">
       <aside id="sidebar" class="sidebar">
-        <h2 data-i18n="sidebar.toc">目錄</h2>
-        <nav id="toc" class="toc"></nav>
-        <!-- Under the contents, and hidden until there is one: an empty
-             heading on every book would be a standing reminder of a feature
-             most readers never use. -->
+        <!-- ABOVE the contents, and hidden until there is one. Underneath, it
+             was unreachable: measured on a 60-chapter book, the table of
+             contents ran 1823px in a 643px panel and put this section 1240px
+             below the fold, so finding a bookmark meant scrolling past every
+             chapter to reach the handful of places you had marked yourself.
+             A short list you made deliberately comes before a long one the
+             publisher made. Hidden while empty, so a reader who never makes
+             one still sees the contents first. -->
         <section id="bookmarks" class="bookmarks hidden">
           <h2 data-i18n="sidebar.bookmarks">書籤</h2>
           <div id="bookmarkList"></div>
         </section>
+        <h2 data-i18n="sidebar.toc">目錄</h2>
+        <nav id="toc" class="toc"></nav>
       </aside>
       <div id="viewer" class="viewer"></div>
     </div>

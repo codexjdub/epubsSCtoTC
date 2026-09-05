@@ -836,6 +836,32 @@
       t.check('and the heading goes with it',
               LD.getElementById('bookmarks').classList.contains('hidden'), 'heading stayed');
 
+      /* Where the list SITS, which is what made it unfindable. Measured on a
+         60-chapter book: underneath the contents it started 1240px below the
+         fold of a 643px panel, so reaching three places you marked yourself
+         meant scrolling past sixty the publisher named.
+
+         Two properties, because moving it up was not enough on its own -- the
+         panel scrolls itself to the chapter being read, and at chapter 52 of
+         60 that put the section off-screen ABOVE instead of below. It has to
+         come first AND stay put. This fixture's two chapters cannot make the
+         panel overflow, so the properties are asserted rather than the
+         symptom; the symptom is what they were derived from. */
+      var bmSection = LD.getElementById('bookmarks');
+      var tocNav = LD.getElementById('toc');
+      t.check('the bookmark list comes before the contents',
+              !!(bmSection.compareDocumentPosition(tocNav) &
+                 LD.defaultView.Node.DOCUMENT_POSITION_FOLLOWING),
+              'the contents still come first');
+      t.eq('and stays put while the contents scroll under it',
+           LD.defaultView.getComputedStyle(bmSection).position, 'sticky');
+      t.check('with a ceiling, so a long list cannot take the whole panel',
+              /%|px/.test(LD.defaultView.getComputedStyle(bmSection).maxHeight),
+              'no max-height: twenty bookmarks would leave no contents');
+      t.check('and its own background, or the contents show through it',
+              LD.defaultView.getComputedStyle(bmSection).backgroundColor !== 'rgba(0, 0, 0, 0)',
+              'transparent while sticky');
+
       /* The other direction, which is the one that was broken and the one most
          readers see: Chinese is the default, and everything built in JS rather
          than marked up with data-i18n stayed English in it. The conversion
