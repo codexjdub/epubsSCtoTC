@@ -384,6 +384,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px; min-width: 220px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+  /* A ceiling, and its own scroll under it. Aa is eleven controls and 544px
+     tall; on a 560px screen it ran 44px past the bottom with Vim 模式 off it
+     entirely, and nothing could reach it -- the panel hangs off the bar, which
+     does not scroll on a phone, and while paginating nothing scrolls at all.
+     The subtraction is roughly the bar plus this panel's own offset from it,
+     which is conservative on a desktop where the bar is shorter. */
+  max-height: calc(100vh - 64px);
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
 }
 .bar-panel:not(.hidden) { display: flex; }
 .bar-panel select { width: 100%; }
@@ -705,6 +714,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .report { max-height: 55vh; max-height: 55dvh; }
   .keyhelp-panel { padding: 16px; }
 
+
+  /* 行寬 asks for a line between 26 and 50em, which at the reading size is
+     416 to 800px. The screen is 390. It is the narrower limit across the whole
+     range, so the control has nothing to do here unless the text has already
+     been made smaller -- and a slider that moves without changing anything
+     reads as broken, which is how it was reported. Hidden rather than
+     disabled: 行距 sits directly above it and a greyed twin invites another
+     try at the wrong one. */
+  .bar-panel .ranges label.measure { display: none; }
 
   /* Touch targets inside the panels and lists, folded in from blocks that
      used to trail this one. */

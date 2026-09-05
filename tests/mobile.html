@@ -518,7 +518,7 @@
       DD.getElementById('aaBtn').click();
       await wait(60);
       t.check('and the rest are one click away',
-              ['fontStyle', 'theme', 'align'].every(function (id) {
+              ['fontStyle', 'theme', 'align', 'measure'].every(function (id) {
                 var e = DD.getElementById(id);
                 return e && e.getClientRects().length > 0;
               }), 'a control is unreachable on desktop');
@@ -887,10 +887,29 @@
       var pgMount = function () { return PD.querySelector('.reader-mount'); };
       var pgLeft = function () { return Math.round(pgMount().scrollLeft); };
 
+      /* Where the text sits inside the screen, read off the rendered
+         paragraph rather than off any stylesheet: the point is that the reader
+         sees the same margin in both modes, and comparing the two modes says
+         that without naming a number. */
+      var pgInset = function () {
+        var host = pgMount().shadowRoot, p = host && host.querySelector('p');
+        return p ? Math.round(p.getBoundingClientRect().left) : null;
+      };
+      var scrollingInset = pgInset();
+
       t.eq('翻頁 is offered on a phone', pgBtn.disabled, false);
       t.eq('and starts off', PW.App.ui.current.reader.scrollerKind(), 'document');
       pgBtn.click();
       await wait(700);
+
+      /* The paged sheet used to set no horizontal padding at all, so the lines
+         ran to both edges of the screen. The space cannot come from padding on
+         the page either: one page is clientWidth plus the gutter, clientWidth
+         counts padding, and the columns lay out inside it -- so the page has
+         to be narrower than the box instead. */
+      t.check('the page keeps the margin it had while scrolling',
+              scrollingInset > 0 && Math.abs(pgInset() - scrollingInset) <= 1,
+              'scrolling ' + scrollingInset + ', paged ' + pgInset());
 
       t.eq('pressing it paginates', PW.App.ui.current.reader.scrollerKind(), 'paged');
       /* The three facts that make a column possible here, and that the
@@ -943,6 +962,38 @@
 
       pg.remove();
       window.localStorage.removeItem('epub-tc:paged');
+
+      /* ---- the tallest panel on the shortest screen ----
+         Aa is eleven controls. On a 560px screen it stood 544px tall and ran
+         off the bottom with Vim 模式 past the edge, and nothing could reach it:
+         it hangs off the bar, the bar does not scroll on a phone, and while
+         paginating nothing scrolls at all. It needs a ceiling and a scroll of
+         its own. */
+      var short = await mount(PHONE, 560);
+      await loadBook(short);
+      var SW = short.contentWindow, SD = short.contentDocument;
+      SD.getElementById('aaBtn').click();
+      await wait(250);
+      var aaPan = SD.getElementById('aaPanel');
+      t.check('the reading panel stops at the bottom of the screen',
+              aaPan.getBoundingClientRect().bottom <= SW.innerHeight + 1,
+              Math.round(aaPan.getBoundingClientRect().bottom) + ' of ' + SW.innerHeight);
+      /* And the part below the fold is reachable, which the ceiling alone does
+         not give: without a scroller of its own the ceiling would simply cut
+         the last controls off instead of pushing them past the edge. */
+      aaPan.scrollTop = aaPan.scrollHeight;
+      await wait(120);
+      var lastCtl = SD.getElementById('toggleVim').getBoundingClientRect();
+      t.check('and its last control can be scrolled to',
+              lastCtl.height > 0 && lastCtl.bottom <= SW.innerHeight + 1 && lastCtl.top >= 0,
+              'bottom ' + Math.round(lastCtl.bottom) + ' of ' + SW.innerHeight);
+
+      /* 行寬 asks for 26 to 50em -- 416 to 800px at the reading size -- and the
+         screen is narrower than all of it, so the slider moved and nothing
+         happened. Hidden here, and only here. */
+      t.eq('行寬 is not offered on a phone',
+           SD.getElementById('measure').getBoundingClientRect().height, 0);
+      short.remove();
 
       /* ---- bookmarks ----
          The word 書籤 on the bar cost the title 56px on a phone and all of it

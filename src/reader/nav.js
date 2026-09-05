@@ -51,6 +51,14 @@
   }
 
   var PAGE_GAP = 48;          // gutter between one page and the next, in px
+  /* The clear space either side of the page, and the same 16px the scrolling
+     mode keeps. It has to come from the page being NARROWER than the box it
+     sits in rather than from padding on the page: the scroller takes one page
+     to be clientWidth plus the gutter, clientWidth counts padding, and columns
+     lay out in the content box -- so padding would leave every page after the
+     first out by twice this. Narrower plus the auto margins it already has
+     puts the space outside the page, where the desktop has always had it. */
+  var PAGE_SIDE = 16;
 
   /* Paged layout.
    *
@@ -87,7 +95,7 @@
     var parent = mount.parentNode;
     var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
     var avail = parent.clientWidth || 600;
-    var width = Math.max(240, Math.min(measure * base * scale, avail));
+    var width = Math.max(240, Math.min(measure * base * scale, avail - PAGE_SIDE * 2));
     var col = Math.max(160, width - PAGE_GAP);
     /* The band the page keeps clear of each screen edge, and what the chrome
        already contributes to it. In focus mode the strips are out of the flow,

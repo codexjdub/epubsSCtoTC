@@ -391,6 +391,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px; min-width: 220px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+  /* A ceiling, and its own scroll under it. Aa is eleven controls and 544px
+     tall; on a 560px screen it ran 44px past the bottom with Vim 模式 off it
+     entirely, and nothing could reach it -- the panel hangs off the bar, which
+     does not scroll on a phone, and while paginating nothing scrolls at all.
+     The subtraction is roughly the bar plus this panel's own offset from it,
+     which is conservative on a desktop where the bar is shorter. */
+  max-height: calc(100vh - 64px);
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
 }
 .bar-panel:not(.hidden) { display: flex; }
 .bar-panel select { width: 100%; }
@@ -713,6 +722,15 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .keyhelp-panel { padding: 16px; }
 
 
+  /* 行寬 asks for a line between 26 and 50em, which at the reading size is
+     416 to 800px. The screen is 390. It is the narrower limit across the whole
+     range, so the control has nothing to do here unless the text has already
+     been made smaller -- and a slider that moves without changing anything
+     reads as broken, which is how it was reported. Hidden rather than
+     disabled: 行距 sits directly above it and a greyed twin invites another
+     try at the wrong one. */
+  .bar-panel .ranges label.measure { display: none; }
+
   /* Touch targets inside the panels and lists, folded in from blocks that
      used to trail this one. */
   .bar-panel input[type="range"] { min-height: 44px; }
@@ -755,7 +773,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.34.0</p>
+    <p class="hint build">v1.34.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -815,7 +833,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
                the text is enlarged. Below the breakpoint the screen is the
                narrower limit for most of this range, and the control simply has
                nothing to do. -->
-          <label class="range"><span data-i18n="panel.measure">行寬</span>
+          <label class="range measure"><span data-i18n="panel.measure">行寬</span>
             <input type="range" id="measure" min="26" max="50" step="2"/>
           </label>
         </div>
@@ -2680,6 +2698,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   }
 
   var PAGE_GAP = 48;          // gutter between one page and the next, in px
+  /* The clear space either side of the page, and the same 16px the scrolling
+     mode keeps. It has to come from the page being NARROWER than the box it
+     sits in rather than from padding on the page: the scroller takes one page
+     to be clientWidth plus the gutter, clientWidth counts padding, and columns
+     lay out in the content box -- so padding would leave every page after the
+     first out by twice this. Narrower plus the auto margins it already has
+     puts the space outside the page, where the desktop has always had it. */
+  var PAGE_SIDE = 16;
 
   /* Paged layout.
    *
@@ -2716,7 +2742,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var parent = mount.parentNode;
     var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
     var avail = parent.clientWidth || 600;
-    var width = Math.max(240, Math.min(measure * base * scale, avail));
+    var width = Math.max(240, Math.min(measure * base * scale, avail - PAGE_SIDE * 2));
     var col = Math.max(160, width - PAGE_GAP);
     /* The band the page keeps clear of each screen edge, and what the chrome
        already contributes to it. In focus mode the strips are out of the flow,
