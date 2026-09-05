@@ -939,6 +939,16 @@
         var GD = frame.contentDocument;
         t.eq('at ' + wide + 'px, in Chinese, the bookmark follows the contents button',
              isGlyph(GD, 'toggleBookmark'), isGlyph(GD, 'toggleSidebar'));
+        /* And is the same SIZE as it. Following the same gate is not enough on
+           its own: the ribbon was drawn 15px wide in a button sized for a 22px
+           glyph, so it filled 37% of it against every neighbour's 55% -- which
+           is what "empty space in the buttons" looked like, twice. */
+        if (isGlyph(GD, 'toggleBookmark')) {
+          var bmBox = px(GD.getElementById('toggleBookmark'));
+          var tocBox = px(GD.getElementById('toggleSidebar'));
+          t.eq('and is the same width', Math.round(bmBox.width), Math.round(tocBox.width));
+          t.eq('and the same height', Math.round(bmBox.height), Math.round(tocBox.height));
+        }
         frame.remove();
       }
       try {

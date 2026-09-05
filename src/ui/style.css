@@ -528,9 +528,16 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      empty box. English never showed it, because at those widths its neighbours
      are glyphs too. */
   #toggleBookmark::before {
-    display: inline-block; width: 15px; height: 21px; vertical-align: middle;
+    /* The same 22px box the three text glyphs get, so all four buttons come
+       out one width, with the ribbon inset inside it rather than filling it --
+       a bookmark is a tall narrow shape and a square one is not a bookmark.
+       Drawn 15px wide in a 22px box, it read as 37% of its button against
+       every neighbour's 55%, which is the space you could see. 24px tall, not
+       26: the button's 10px of vertical padding would take 26 past the 44px
+       the others stand at. */
+    display: inline-block; width: 22px; height: 24px; vertical-align: middle;
     background: currentColor;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 66%, 0 100%);
+    clip-path: polygon(12% 0, 88% 0, 88% 100%, 50% 70%, 12% 100%);
   }
 
   /* English words are three or four times the width of the two characters
@@ -551,7 +558,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     font-size: 0; padding-left: 8px; padding-right: 8px;
   }
   :root[lang="en"] #toggleBookmark {
-    font-size: 0; padding-left: 12px; padding-right: 12px;
+    /* 9px top and bottom, not the 10 the other buttons take: the ribbon is
+       taller than a glyph and 10 would stand this button 46px against their
+       44. */
+    font-size: 0; padding: 9px 8px;
   }
   :root[lang="en"] #toggleBookmark::before { content: "" / ""; }
   :root[lang="en"] #toggleSidebar::before { content: "\2261" / ""; }
@@ -681,7 +691,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   #toggleSidebar, #toggleShelf, #exportBtn {
     font-size: 0; padding-left: 8px; padding-right: 8px;
   }
-  #toggleBookmark { font-size: 0; padding-left: 12px; padding-right: 12px; }
+  #toggleBookmark { font-size: 0; padding: 9px 8px; }
   #toggleBookmark::before { content: "" / ""; }
   #toggleSidebar::before { content: "\2261" / ""; }
   #toggleShelf::before { content: "\25A4" / ""; }
