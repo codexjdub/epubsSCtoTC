@@ -477,15 +477,14 @@
          sequence, since the order IS the grouping. */
       DD.getElementById('aaBtn').click();
       await wait(80);
-      t.eq('the reading panel runs looks-then-behaviour',
+      t.eq('the reading panel runs app, page, reading',
            Array.prototype.map.call(
              DD.getElementById('aaPanel').querySelectorAll('button,select,input'),
              function (e) { return e.id; }).join(','),
-           'fontStyle,fontSmaller,fontBigger,lineHeight,measure,align,theme,' +
-           'togglePaged,toggleFocus,lang,toggleVim');
-      t.check('with a rule drawn where the two meet',
-              !!DD.querySelector('#aaPanel .split'),
-              'the split is not shown, so the grouping is invisible');
+           'lang,toggleVim,fontStyle,fontSmaller,fontBigger,lineHeight,measure,' +
+           'align,theme,togglePaged,toggleFocus');
+      t.eq('with a rule between each pair of sections',
+           DD.querySelectorAll('#aaPanel .split').length, 2);
       DD.getElementById('aaBtn').click();
       await wait(60);
 

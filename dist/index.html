@@ -791,7 +791,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.35.4</p>
+    <p class="hint build">v1.35.5</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -834,6 +834,30 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
               data-i18n="bar.doc">文稿</button>
 
       <div class="bar-panel hidden" id="aaPanel">
+        <!-- Three kinds of thing, in three sections: the app, the page, the
+             reading. They used to be ten controls in a flat column with
+             identical gaps, and the one grouping that got drawn first left a
+             mix behind it -- two reading modes and two app preferences sharing
+             a section because none of them was appearance.
+
+             The app comes first because 語言 relabels this panel itself: it is
+             the only control here whose effect is on the controls around it,
+             rather than on the book. It costs the top of the panel, where the
+             eye lands, to two things set once and then left alone -- which is
+             the opposite of ordering by use, and the trade taken knowingly. -->
+        <!-- The interface language follows the READER, not the book: switching
+             titles from the shelf must never relabel the app. The button names
+             the language it would switch TO, so it needs no state of its own
+             and apply() can fill it like any other label. -->
+        <button id="lang" type="button"
+                data-i18n-title="panel.lang.title" data-i18n="panel.lang">English</button>
+        <!-- Kept here rather than moved to the ? overlay: that overlay only
+             answers ? once vim is already on, so a button is still the only
+             way to switch it on in the first place. -->
+        <button id="toggleVim" type="button" aria-pressed="false"
+                data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
+
+        <div class="split"></div>
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
         <!-- data-keep-open: these are meant to be pressed repeatedly, so the
              panel must not close under the cursor after the first press. -->
@@ -857,18 +881,12 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
         </div>
         <label><select id="align" data-i18n-title="panel.align.title"></select></label>
         <label><select id="theme"></select></label>
-        <!-- Above: what the page looks like. Below: how you read it, and how
-             the app behaves. The line was already where the order fell -- ten
-             controls in a flat column with identical gaps, and nothing drawn
-             to say the last four are a different kind of thing. 語言 was on
-             the wrong side of it, sitting between 主題 and 專注閱讀 in the
-             middle of the reading controls. -->
+
         <div class="split"></div>
         <!-- A reading setting in its own right, not a corner of focus mode.
              Works at every width now: below the breakpoint the shell takes a
              fixed height while pages are on, so the column has a box to break
-             into. First below the line because it is the one here you actually
-             switch while reading. -->
+             into. -->
         <button id="togglePaged" type="button" aria-pressed="false"
                 data-i18n-title="panel.paged.title" data-i18n="panel.paged">翻頁</button>
         <!-- Not on the bar: that bar was cleared of everything not needed on
@@ -876,21 +894,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              the panel should get out of the way once it is pressed. Hidden
              below the breakpoint, where it cannot work at all: it hides the
              chrome and waits for a pointer to approach an edge to bring it
-             back. -->
+             back -- which leaves 翻頁 alone in this section on a phone. A
+             single control at the END of a panel reads as a section; one
+             stranded between two rules would not. -->
         <button id="toggleFocus" type="button" aria-pressed="false"
                 data-i18n-title="panel.focus.title" data-i18n="panel.focus">專注閱讀</button>
-        <!-- The interface language follows the READER, not the book: switching
-             titles from the shelf must never relabel the app. The button names
-             the language it would switch TO, so it needs no state of its own
-             and apply() can fill it like any other label. Down here with Vim
-             because both are set once and then left alone. -->
-        <button id="lang" type="button"
-                data-i18n-title="panel.lang.title" data-i18n="panel.lang">English</button>
-        <!-- Kept here rather than moved to the ? overlay: that overlay only
-             answers ? once vim is already on, so a button is still the only
-             way to switch it on in the first place. -->
-        <button id="toggleVim" type="button" aria-pressed="false"
-                data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
       </div>
 
       <!-- In reading order. Above the rule, what this book IS -- which form
