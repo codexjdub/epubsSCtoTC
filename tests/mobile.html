@@ -915,69 +915,7 @@
          an empty button. English never showed it, because at those widths its
          neighbours are glyphs too. Asserted as "no button is much narrower
          than the widest of them", which is the thing you actually see. */
-      function isGlyph(doc, id) {
-        return doc.defaultView.getComputedStyle(doc.getElementById(id)).fontSize === '0px';
-      }
-      /* In CHINESE, which is where the bug was: English glyphs all five from
-         700px down, so the bookmark agreed with its neighbours there by
-         accident and the check passed on the buggy code. The stored language
-         is English by this point in the file, so it has to be put aside and
-         handed back.
-
-         Three widths: 560 is the band where Chinese keeps its words and
-         English has already gone to glyphs, 375 is where both are glyphs,
-         1200 is where both are words. */
-      var langWas = null;
-      try {
-        langWas = window.localStorage.getItem('epub-tc:lang');
-        window.localStorage.removeItem('epub-tc:lang');
-      } catch (e) { /* ignore */ }
-      for (var bw = 0; bw < 3; bw++) {
-        var wide = [375, 560, DESKTOP][bw];
-        var frame = await mount(wide, 700);
-        await loadBook(frame);
-        var GD = frame.contentDocument;
-        t.eq('at ' + wide + 'px, in Chinese, the bookmark follows the contents button',
-             isGlyph(GD, 'toggleBookmark'), isGlyph(GD, 'toggleSidebar'));
-        /* And is the same SIZE as it. Following the same gate is not enough on
-           its own: the ribbon was drawn 15px wide in a button sized for a 22px
-           glyph, so it filled 37% of it against every neighbour's 55% -- which
-           is what "empty space in the buttons" looked like, twice. */
-        /* And no glyph is a CHARACTER any more. The three that were -- ≡ ▤ ⇩ --
-           sit in ranges the CJK fonts also cover, and font fallback is chosen
-           by language: where the interface font lacked one, lang="zh-Hant"
-           sent it to a CJK face that draws it full-width, small ink in a wide
-           box. That is why the space showed in Chinese and never in English,
-           and why measuring on one machine could not find it. Drawn shapes
-           take no font, so the guard is simply that none of them has one. */
-        if (isGlyph(GD, 'toggleSidebar')) {
-          ['toggleShelf', 'toggleSidebar', 'exportBtn', 'toggleBookmark']
-            .forEach(function (id) {
-              var be = GD.defaultView.getComputedStyle(GD.getElementById(id), '::before');
-              /* Empty content, with or without the `/ ""` alt text that keeps
-                 the shape out of the accessible name. Anything else is a
-                 character, and a character brings a font with it. */
-              var glyphText = be.content.replace(/\s*\/\s*""$/, '');
-              t.eq(id + ' is drawn, not set in a font', glyphText, '""');
-            });
-        }
-        if (isGlyph(GD, 'toggleBookmark')) {
-          var bmBox = px(GD.getElementById('toggleBookmark'));
-          var tocBox = px(GD.getElementById('toggleSidebar'));
-          t.eq('and is the same width', Math.round(bmBox.width), Math.round(tocBox.width));
-          t.eq('and the same height', Math.round(bmBox.height), Math.round(tocBox.height));
-        }
-        frame.remove();
-      }
-      try {
-        if (langWas === null) window.localStorage.removeItem('epub-tc:lang');
-        else window.localStorage.setItem('epub-tc:lang', langWas);
-      } catch (e) { /* ignore */ }
-
       t.eq('the phone bar stays on one row in English', barRows(), 1);
-      t.check('the bookmark button wears a glyph, not the word',
-              px(ep.getElementById('toggleBookmark')).width < 44,
-              Math.round(px(ep.getElementById('toggleBookmark')).width) + 'px wide');
 
       /* An English label is three or four times the width of the two characters
          saying the same thing, and this bar has five of them: the title was
@@ -985,26 +923,28 @@
          nothing after. Contents, Shelf and Export wear glyphs in English for
          that reason, which is why the title can be asserted in BOTH languages
          now rather than only in the one the bar was laid out for. */
-      t.check('and the book title keeps room to be read in English',
-              px(ep.getElementById('bookTitle')).width >= 40,
-              Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
-      t.check('the contents button wears a glyph in English',
-              px(ep.getElementById('toggleSidebar')).width < 46,
-              Math.round(px(ep.getElementById('toggleSidebar')).width) + 'px wide');
+      /* No title assertion in English, and that is a known cost rather than an
+         oversight. Five English labels plus 書籤 leave nothing for it on a
+         375px screen -- it was 15px before the bookmark button existed and is
+         0 with it. Glyphs bought it back and were reverted: on a device whose
+         interface font lacks one of the characters, the CJK fallback drew it
+         full-width and the icons sat in visibly empty buttons. Words are wrong
+         about the title; glyphs were wrong about the icons. The bar not
+         WRAPPING is the invariant either way, and that is what is asserted. */
 
       ep.getElementById('lang').click();
       await wait(400);
       t.eq('and on one row in Chinese', barRows(), 1);
-      t.check('where the title has room too',
-              px(ep.getElementById('bookTitle')).width >= 40,
+      /* Chinese keeps some, its labels being two characters rather than words.
+         Low threshold on purpose: this records what the layout actually gives
+         a phone, so a future change that takes the rest of it fails here. */
+      t.check('where the title still gets a little room',
+              px(ep.getElementById('bookTitle')).width >= 25,
               Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
       /* Chinese wears the glyphs here too. 書架 and 目錄 DO fit at 375px where
          Shelf and Contents do not -- but fitting left the title 47px, about
          two characters of the book you are reading, and glyphs take it to 92,
          more than this bar ever gave it. */
-      t.check('and Chinese wears the glyphs at this width too',
-              px(ep.getElementById('toggleSidebar')).width < 46,
-              Math.round(px(ep.getElementById('toggleSidebar')).width) + 'px wide');
       ep.getElementById('lang').click();
       await wait(400);
 
