@@ -861,17 +861,31 @@
               px(ep.getElementById('toggleBookmark')).width < 44,
               Math.round(px(ep.getElementById('toggleBookmark')).width) + 'px wide');
 
-      /* The title is asserted in CHINESE, which is the default and the language
-         this bar was laid out for. In English the five labels are words rather
-         than two characters each and the title was already down to 15px before
-         this button existed -- a separate problem, not one to hide behind a
-         threshold low enough to pass. */
+      /* An English label is three or four times the width of the two characters
+         saying the same thing, and this bar has five of them: the title was
+         down to 15px here before there was even a bookmark button, and to
+         nothing after. Contents, Shelf and Export wear glyphs in English for
+         that reason, which is why the title can be asserted in BOTH languages
+         now rather than only in the one the bar was laid out for. */
+      t.check('and the book title keeps room to be read in English',
+              px(ep.getElementById('bookTitle')).width >= 40,
+              Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
+      t.check('the contents button wears a glyph in English',
+              px(ep.getElementById('toggleSidebar')).width < 46,
+              Math.round(px(ep.getElementById('toggleSidebar')).width) + 'px wide');
+
       ep.getElementById('lang').click();
       await wait(400);
       t.eq('and on one row in Chinese', barRows(), 1);
-      t.check('where the book title keeps room to be read',
+      t.check('where the title has room too',
               px(ep.getElementById('bookTitle')).width >= 40,
               Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
+      /* Chinese keeps its WORDS at this width: 書架 and 目錄 fit where Shelf
+         and Contents do not, and are worth more than the glyphs that would
+         replace them. Below 360px neither fits and both go. */
+      t.check('and keeps 目錄 as a word, not a glyph',
+              px(ep.getElementById('toggleSidebar')).width >= 46,
+              Math.round(px(ep.getElementById('toggleSidebar')).width) + 'px wide');
       ep.getElementById('lang').click();
       await wait(400);
 

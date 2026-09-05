@@ -522,6 +522,30 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   #toggleBookmark::before { content: "\2606" / ""; font-size: 17px; line-height: 1; }
   #toggleBookmark.active::before { content: "\2605" / ""; }
 
+  /* English words are three or four times the width of the two characters
+     that say the same thing, and this bar has five of them. Measured at
+     375px: Shelf/Contents/Convert/Export left the title 15px before there
+     was even a bookmark button, and nothing at all after. Chinese needs none
+     of this -- 書架 and 目錄 fit -- so it is keyed on the interface language,
+     which markDocument() has already stamped on <html>.
+
+     Only the three with a settled convention: a list for the contents, a
+     tray for the shelf, a downward arrow for export. 轉換 stays a word,
+     because it is the thing this app does that a reader is least likely to
+     guess from a picture. Each keeps its text, and so its accessible name
+     and tooltip; only the size goes. */
+  :root[lang="en"] #toggleSidebar,
+  :root[lang="en"] #toggleShelf,
+  :root[lang="en"] #exportBtn {
+    font-size: 0; padding-left: 10px; padding-right: 10px;
+  }
+  :root[lang="en"] #toggleSidebar::before { content: "\2261" / ""; }
+  :root[lang="en"] #toggleShelf::before { content: "\25A4" / ""; }
+  :root[lang="en"] #exportBtn::before { content: "\21E9" / ""; }
+  :root[lang="en"] #toggleSidebar::before,
+  :root[lang="en"] #toggleShelf::before,
+  :root[lang="en"] #exportBtn::before { font-size: 16px; line-height: 1; }
+
   /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
      chrome in response to the root scroller moving and ignore an overflow
      container entirely, so this is the only way to get the URL bar out of the
@@ -621,6 +645,25 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .topbar .title { font-size: 13px; }
 }
 
+/* Below THIS width the same three go to glyphs in either language. Two Chinese
+   characters fit where an English word does not, which is why the rule above
+   is keyed on the language -- but at 320px nothing fits: six controls took the
+   whole bar and the title, which names the book you are reading, measured
+   zero. Set where Chinese actually runs out rather than at the 420px the title
+   already uses: at 375px, the common phone, 書架 and 目錄 still fit and are
+   worth more than any glyph. */
+@media (max-width: 360px) {
+  #toggleSidebar, #toggleShelf, #exportBtn {
+    font-size: 0; padding-left: 10px; padding-right: 10px;
+  }
+  #toggleSidebar::before { content: "\2261" / ""; }
+  #toggleShelf::before { content: "\25A4" / ""; }
+  #exportBtn::before { content: "\21E9" / ""; }
+  #toggleSidebar::before, #toggleShelf::before, #exportBtn::before {
+    font-size: 16px; line-height: 1;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -651,7 +694,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.0</p>
+    <p class="hint build">v1.27.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
