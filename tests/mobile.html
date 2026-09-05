@@ -943,6 +943,24 @@
            its own: the ribbon was drawn 15px wide in a button sized for a 22px
            glyph, so it filled 37% of it against every neighbour's 55% -- which
            is what "empty space in the buttons" looked like, twice. */
+        /* And no glyph is a CHARACTER any more. The three that were -- ≡ ▤ ⇩ --
+           sit in ranges the CJK fonts also cover, and font fallback is chosen
+           by language: where the interface font lacked one, lang="zh-Hant"
+           sent it to a CJK face that draws it full-width, small ink in a wide
+           box. That is why the space showed in Chinese and never in English,
+           and why measuring on one machine could not find it. Drawn shapes
+           take no font, so the guard is simply that none of them has one. */
+        if (isGlyph(GD, 'toggleSidebar')) {
+          ['toggleShelf', 'toggleSidebar', 'exportBtn', 'toggleBookmark']
+            .forEach(function (id) {
+              var be = GD.defaultView.getComputedStyle(GD.getElementById(id), '::before');
+              /* Empty content, with or without the `/ ""` alt text that keeps
+                 the shape out of the accessible name. Anything else is a
+                 character, and a character brings a font with it. */
+              var glyphText = be.content.replace(/\s*\/\s*""$/, '');
+              t.eq(id + ' is drawn, not set in a font', glyphText, '""');
+            });
+        }
         if (isGlyph(GD, 'toggleBookmark')) {
           var bmBox = px(GD.getElementById('toggleBookmark'));
           var tocBox = px(GD.getElementById('toggleSidebar'));

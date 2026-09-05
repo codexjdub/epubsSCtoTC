@@ -534,6 +534,40 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      label is a word, and a lone ribbon sat among word buttons looking like an
      empty box. English never showed it, because at those widths its neighbours
      are glyphs too. */
+  /* All three DRAWN, like the ribbon, rather than set as characters.
+     ≡ ▤ ⇩ live in ranges the CJK fonts also cover, and font fallback is
+     LANGUAGE-dependent by specification: where the interface font lacks one,
+     lang="zh-Hant" sends it to PingFang or Noto CJK, which draw it full-width
+     -- small ink centred in a wide em box. That is the space that kept showing
+     in the Chinese interface and never in the English one, and it depends on
+     which fonts a given machine has, so it cannot be reproduced by measuring
+     on one. Drawn shapes take no font, so both languages get the same picture
+     on every device. Sized and coloured like the ribbon: currentColor, and a
+     22px box so every button comes out one width. */
+  #toggleShelf::before,
+  #toggleSidebar::before,
+  #exportBtn::before {
+    display: inline-block; width: 22px; height: 22px; vertical-align: middle;
+  }
+  /* Books standing on a shelf. Three bars of unequal height, which reads as a
+     shelf rather than as another stack of lines -- ▤ and ≡ side by side were
+     close enough to be told apart only by looking twice. */
+  #toggleShelf::before {
+    background:
+      linear-gradient(currentColor, currentColor) 1px 100% / 4px 16px no-repeat,
+      linear-gradient(currentColor, currentColor) 8px 100% / 4px 21px no-repeat,
+      linear-gradient(currentColor, currentColor) 15px 100% / 4px 13px no-repeat;
+  }
+  /* A list. */
+  #toggleSidebar::before {
+    background: repeating-linear-gradient(
+      to bottom, currentColor 0 3px, transparent 3px 8px) 0 2px / 22px 19px no-repeat;
+  }
+  /* Out and down: a stem with an arrowhead. */
+  #exportBtn::before {
+    background: currentColor;
+    clip-path: polygon(38% 0, 62% 0, 62% 52%, 92% 52%, 50% 100%, 8% 52%, 38% 52%);
+  }
   #toggleBookmark::before {
     /* The same 22px box the three text glyphs get, so all four buttons come
        out one width, with the ribbon inset inside it rather than filling it --
@@ -571,9 +605,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     font-size: 0; padding: 9px 8px;
   }
   :root[lang="en"] #toggleBookmark::before { content: "" / ""; }
-  :root[lang="en"] #toggleSidebar::before { content: "\2261" / ""; }
-  :root[lang="en"] #toggleShelf::before { content: "\25A4" / ""; }
-  :root[lang="en"] #exportBtn::before { content: "\21E9" / ""; }
+  :root[lang="en"] #toggleSidebar::before { content: "" / ""; }
+  :root[lang="en"] #toggleShelf::before { content: "" / ""; }
+  :root[lang="en"] #exportBtn::before { content: "" / ""; }
   /* 22px, not the 16px that first looked right in isolation: these sit in a
      44px touch target beside two-character CJK labels, and at 16px they read
      as small marks adrift in empty buttons rather than as controls. Sized
@@ -583,12 +617,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      31px against the shelf's 37 -- which reads as a mistake. Sized on the
      glyph rather than as a min-width on the button, because a 42px button
      costs the title 25px and this costs it nine. */
-  :root[lang="en"] #toggleSidebar::before,
-  :root[lang="en"] #toggleShelf::before,
-  :root[lang="en"] #exportBtn::before {
-    font-size: 22px; line-height: 1;
-    display: inline-block; width: 22px; text-align: center;
-  }
+
 
   /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
      chrome in response to the root scroller moving and ignore an overflow
@@ -700,13 +729,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
   #toggleBookmark { font-size: 0; padding: 9px 8px; }
   #toggleBookmark::before { content: "" / ""; }
-  #toggleSidebar::before { content: "\2261" / ""; }
-  #toggleShelf::before { content: "\25A4" / ""; }
-  #exportBtn::before { content: "\21E9" / ""; }
-  #toggleSidebar::before, #toggleShelf::before, #exportBtn::before {
-    font-size: 22px; line-height: 1;
-    display: inline-block; width: 22px; text-align: center;
-  }
+  #toggleSidebar::before { content: "" / ""; }
+  #toggleShelf::before { content: "" / ""; }
+  #exportBtn::before { content: "" / ""; }
+
 }
 
 /* Something has to leave the bar down here. Six controls and a title do not fit
@@ -753,7 +779,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.28.2</p>
+    <p class="hint build">v1.29.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
