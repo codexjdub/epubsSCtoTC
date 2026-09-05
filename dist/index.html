@@ -531,10 +531,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      second signal in the glyph would say the same thing twice. An outline
      version also loses the notch -- the clip cuts the bottom border away and
      leaves it reading as ⊓ rather than a ribbon. */
-  #toggleBookmark { font-size: 0; padding-left: 11px; padding-right: 11px; }
+  #toggleBookmark { font-size: 0; padding-left: 12px; padding-right: 12px; }
   #toggleBookmark::before {
     content: "" / "";
-    display: inline-block; width: 11px; height: 15px; vertical-align: middle;
+    display: inline-block; width: 15px; height: 21px; vertical-align: middle;
     background: currentColor;
     clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 66%, 0 100%);
   }
@@ -554,14 +554,26 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   :root[lang="en"] #toggleSidebar,
   :root[lang="en"] #toggleShelf,
   :root[lang="en"] #exportBtn {
-    font-size: 0; padding-left: 10px; padding-right: 10px;
+    font-size: 0; padding-left: 8px; padding-right: 8px;
   }
   :root[lang="en"] #toggleSidebar::before { content: "\2261" / ""; }
   :root[lang="en"] #toggleShelf::before { content: "\25A4" / ""; }
   :root[lang="en"] #exportBtn::before { content: "\21E9" / ""; }
+  /* 22px, not the 16px that first looked right in isolation: these sit in a
+     44px touch target beside two-character CJK labels, and at 16px they read
+     as small marks adrift in empty buttons rather than as controls. Sized
+     against 轉換 next to them rather than against nothing. */
+  /* A common box for the three, so the buttons come out the same width. Left
+     to shrink-wrap, ≡ is narrower than ▤ and the contents button came out
+     31px against the shelf's 37 -- which reads as a mistake. Sized on the
+     glyph rather than as a min-width on the button, because a 42px button
+     costs the title 25px and this costs it nine. */
   :root[lang="en"] #toggleSidebar::before,
   :root[lang="en"] #toggleShelf::before,
-  :root[lang="en"] #exportBtn::before { font-size: 16px; line-height: 1; }
+  :root[lang="en"] #exportBtn::before {
+    font-size: 22px; line-height: 1;
+    display: inline-block; width: 22px; text-align: center;
+  }
 
   /* The DOCUMENT scrolls here, not an inner box. Browsers collapse their own
      chrome in response to the root scroller moving and ignore an overflow
@@ -669,13 +681,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      the bar ever gave it. Same trade as the rule above, made at the width the
      title already shrinks at rather than at a sixth breakpoint of its own. */
   #toggleSidebar, #toggleShelf, #exportBtn {
-    font-size: 0; padding-left: 10px; padding-right: 10px;
+    font-size: 0; padding-left: 8px; padding-right: 8px;
   }
   #toggleSidebar::before { content: "\2261" / ""; }
   #toggleShelf::before { content: "\25A4" / ""; }
   #exportBtn::before { content: "\21E9" / ""; }
   #toggleSidebar::before, #toggleShelf::before, #exportBtn::before {
-    font-size: 16px; line-height: 1;
+    font-size: 22px; line-height: 1;
+    display: inline-block; width: 22px; text-align: center;
   }
 }
 
@@ -709,7 +722,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.3</p>
+    <p class="hint build">v1.27.4</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
