@@ -83,6 +83,38 @@ check('every label key in the markup exists in the table',
         stray ? stray + ' stray closing brace(s)' : depth + ' block(s) left open');
 }
 
+/* Comment delimiters must balance too. An unbalanced close is as silent as a
+   stray brace and worse to spot: everything after it, up to the next one, is
+   parsed as CSS, so an edit that lands its text after a comment has already
+   ended turns the prose into a rule and the parser drops what follows. Not
+   hypothetical: it happened while writing the ribbon rule in style.css, and
+   the brace check sailed through, because nothing about it is unbalanced.
+
+   Writing this comment did it a second time, in JavaScript -- quoting the
+   delimiter inside a block comment ends the block comment. Hence the wording
+   here, which never spells either one out. */
+{
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const opens = (css.match(/\/\*/g) || []).length;
+  const closes = (css.match(/\*\//g) || []).length;
+  check('stylesheet comments balance', opens === closes,
+        opens + ' opened, ' + closes + ' closed');
+  /* And no declaration outside a rule. Keyed on the semicolon, not the colon:
+     an at-rule prelude like `@media (max-width: 340px)` has one of those and
+     is perfectly legal. This is the weaker of the two checks -- the accident
+     above carried no semicolon and only the delimiter count caught it -- but
+     it is the one that catches a declaration left stranded by a deleted
+     selector. */
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0, orphan = '';
+  for (const part of bare.split(/([{}])/)) {
+    if (part === '{') depth++;
+    else if (part === '}') depth--;
+    else if (depth === 0 && part.includes(';') && part.trim()) orphan = part.trim().slice(0, 60);
+  }
+  check('no declarations outside a rule', !orphan, orphan);
+}
+
 /* The one breakpoint, spelled in two languages that cannot share a constant.
    JS names it as max-width, the phone block matches, and the focus block takes
    the complement -- so the two numbers must stay exactly one apart. A drift of

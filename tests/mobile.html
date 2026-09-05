@@ -908,6 +908,44 @@
           function (b) { tops[Math.round(px(b).top)] = 1; });
         return Object.keys(tops).length;
       }
+      /* Words with words, glyphs with glyphs. The bookmark button was gated on
+         its own rather than with the other three, so between 421 and 700px in
+         CHINESE it was the one glyph in a row of word buttons -- a small
+         ribbon in a box two thirds the width of its neighbours, which reads as
+         an empty button. English never showed it, because at those widths its
+         neighbours are glyphs too. Asserted as "no button is much narrower
+         than the widest of them", which is the thing you actually see. */
+      function isGlyph(doc, id) {
+        return doc.defaultView.getComputedStyle(doc.getElementById(id)).fontSize === '0px';
+      }
+      /* In CHINESE, which is where the bug was: English glyphs all five from
+         700px down, so the bookmark agreed with its neighbours there by
+         accident and the check passed on the buggy code. The stored language
+         is English by this point in the file, so it has to be put aside and
+         handed back.
+
+         Three widths: 560 is the band where Chinese keeps its words and
+         English has already gone to glyphs, 375 is where both are glyphs,
+         1200 is where both are words. */
+      var langWas = null;
+      try {
+        langWas = window.localStorage.getItem('epub-tc:lang');
+        window.localStorage.removeItem('epub-tc:lang');
+      } catch (e) { /* ignore */ }
+      for (var bw = 0; bw < 3; bw++) {
+        var wide = [375, 560, DESKTOP][bw];
+        var frame = await mount(wide, 700);
+        await loadBook(frame);
+        var GD = frame.contentDocument;
+        t.eq('at ' + wide + 'px, in Chinese, the bookmark follows the contents button',
+             isGlyph(GD, 'toggleBookmark'), isGlyph(GD, 'toggleSidebar'));
+        frame.remove();
+      }
+      try {
+        if (langWas === null) window.localStorage.removeItem('epub-tc:lang');
+        else window.localStorage.setItem('epub-tc:lang', langWas);
+      } catch (e) { /* ignore */ }
+
       t.eq('the phone bar stays on one row in English', barRows(), 1);
       t.check('the bookmark button wears a glyph, not the word',
               px(ep.getElementById('toggleBookmark')).width < 44,
