@@ -75,6 +75,20 @@
              clipped: x0 <= 0 || x1 >= c.width - 1 };
   }
 
+  /* What a mark inks on screen is its stroke times the fraction of the line it
+     is drawn at -- so the stroke alone says nothing, and three marks can carry
+     three different numbers and still be one weight, or share a number and
+     not be. The shelf shipped at 1.9 against the others' 2.0 and 2.3, which
+     reads as 6% light rather than as 0.1 of anything. */
+  function markWeight(doc, id) {
+    var cs = doc.defaultView.getComputedStyle(doc.getElementById(id), '::before');
+    var raw = cs.maskImage;
+    if (!raw || raw === 'none') raw = cs.webkitMaskImage;
+    var stroke = /stroke-width='([\d.]+)'/.exec(String(raw));
+    var fraction = parseFloat(cs.getPropertyValue('--mark-of-line'));
+    return stroke && fraction ? parseFloat(stroke[1]) * fraction : null;
+  }
+
   function padOf(doc, id) {
     var cs = doc.defaultView.getComputedStyle(doc.getElementById(id));
     return [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].join(' ');
@@ -1093,6 +1107,21 @@
       await checkMarkFits(t, LD, 'toggleBookmark', 'the ribbon', '');
       await checkMarkFits(t, LD, 'toggleSidebar', 'the contents mark', '');
       await checkMarkFits(t, LD, 'toggleShelf', 'the shelf mark', '');
+
+      /* Heaviest against lightest, not each against the mean. Written the second
+         way first, it passed with the shelf back at 1.9: three marks pull the
+         mean towards the odd one, so a mark 6.8% lighter than its heaviest
+         neighbour sits only 3.9% off the average and slips under any tolerance
+         loose enough to allow the ribbon's own 2.7%. */
+      var weights = ['toggleShelf', 'toggleSidebar', 'toggleBookmark']
+        .map(function (id) { return markWeight(LD, id); });
+      var spread = weights.every(function (w) { return w; })
+        ? Math.max.apply(null, weights) / Math.min.apply(null, weights) : 0;
+      t.check('the three marks are drawn at one weight',
+              spread && spread < 1.04,
+              weights.map(function (w) { return w === null ? '?' : w.toFixed(3); }).join(', ') +
+              ' -- stroke times the fraction of the line each is drawn at, ' +
+              'spread ' + ((spread - 1) * 100).toFixed(1) + '%');
       t.check('with the section hidden while there are none',
               LD.getElementById('bookmarks').classList.contains('hidden'),
               'an empty bookmarks heading on every book');
