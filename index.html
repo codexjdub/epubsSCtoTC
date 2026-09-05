@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.4</p>
+    <p class="hint build">v1.28.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -149,6 +149,14 @@
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
           <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
+          <!-- Export's way in on the smallest screens, where 匯出 comes off the
+               bar: six controls and a title do not fit 320px, and exporting is
+               the one thing here you do once at the end rather than while
+               reading. This panel is already the one about books as FILES --
+               open one, drag one in, remove one -- so making one belongs with
+               them. Shown by CSS only at that width. -->
+          <button id="exportFromShelf" type="button" class="open-new"
+                  data-i18n="shelf.export">匯出這本書…</button>
           <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>

@@ -442,6 +442,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   border-style: dashed; font-weight: 600;
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
+/* Only for the width where 匯出 comes off the bar; see the 340px block. */
+#exportFromShelf { display: none; }
 .shelf-panel .drag-hint {
   margin: 6px 2px 0; text-align: center; font-size: 11px;
 }
@@ -692,6 +694,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   }
 }
 
+/* Something has to leave the bar down here. Six controls and a title do not fit
+   320px: with the glyphs as large as they need to be to read, English had no
+   title left at all and Chinese had 18px of one -- and the title is what says
+   which book you are in.
+
+   匯出 is the one to go. Everything else on this bar is used WHILE reading --
+   where am I, what does it look like, keep this spot -- and exporting is done
+   once, at the end. It moves into the shelf panel, which is already the panel
+   about books as files: open one, drag one in, remove one, make one. */
+@media (max-width: 340px) {
+  #exportBtn { display: none; }
+  #exportFromShelf { display: block; }
+}
+
 </style>
 </head>
 <body>
@@ -722,7 +738,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.4</p>
+    <p class="hint build">v1.28.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -837,6 +853,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
           <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
+          <!-- Export's way in on the smallest screens, where 匯出 comes off the
+               bar: six controls and a title do not fit 320px, and exporting is
+               the one thing here you do once at the end rather than while
+               reading. This panel is already the one about books as FILES --
+               open one, drag one in, remove one -- so making one belongs with
+               them. Shown by CSS only at that width. -->
+          <button id="exportFromShelf" type="button" class="open-new"
+                  data-i18n="shelf.export">匯出這本書…</button>
           <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>
@@ -4632,6 +4656,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* ---- the shelf ---- */
     'shelf.open': ['開啟新書…', 'Open a book…'],
+    'shelf.export': ['匯出這本書…', 'Export this book…'],
     'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB anywhere on this page'],
     'shelf.count': ['這部裝置存了 {n} 本書。', '{n} books saved on this device.'],
     'shelf.count.one': ['這部裝置存了 1 本書。', '1 book saved on this device.'],
@@ -5787,6 +5812,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
     el.openNew = $('openNew');
+    el.exportFromShelf = $('exportFromShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
@@ -5932,6 +5958,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       entry.panel.addEventListener('click', function (ev) { ev.stopPropagation(); });
     });
     document.addEventListener('click', function () { closeDropdowns(null); });
+
+    /* The second way into the export panel, for the widths where 匯出 is not on
+       the bar. The panel is anchored to the BAR rather than to whatever opened
+       it, so it lands in the same place either way; all this has to do is shut
+       the shelf on the way, since a click inside a panel is stopped from
+       reaching the document handler that would otherwise close it. */
+    var exportDropdown = dropdowns[dropdowns.length - 1];
+    el.exportFromShelf.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      closeDropdowns(null);
+      setDropdown(exportDropdown, true);
+    });
 
     /* A control that changes what you are looking at closes the panel, so you
        can see what it did. One that is adjusted by degrees -- the font size

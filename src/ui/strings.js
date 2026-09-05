@@ -154,6 +154,7 @@
 
     /* ---- the shelf ---- */
     'shelf.open': ['開啟新書…', 'Open a book…'],
+    'shelf.export': ['匯出這本書…', 'Export this book…'],
     'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB anywhere on this page'],
     'shelf.count': ['這部裝置存了 {n} 本書。', '{n} books saved on this device.'],
     'shelf.count.one': ['這部裝置存了 1 本書。', '1 book saved on this device.'],

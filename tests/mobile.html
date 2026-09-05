@@ -755,6 +755,58 @@
       t.eq('and switching back restores Chinese',
            LD.getElementById('toggleShelf').textContent, '書架');
 
+      /* ---- the smallest bar ----
+         Six controls and a title do not fit 320px, so 匯出 leaves the bar and
+         its way in moves to the shelf panel -- the one already about books as
+         files. Asserted at 320 AND at 375, because a rule that hid it
+         everywhere would pass the first half of this on its own. */
+      var tiny = await mount(320, 700);
+      await loadBook(tiny);
+      var TD = tiny.contentDocument;
+      function shown(doc, id) {
+        var e = doc.getElementById(id);
+        return !!(e && e.offsetParent !== null);
+      }
+      t.check('at 320px the export button leaves the bar',
+              !shown(TD, 'exportBtn'), 'export still on the bar');
+      var tinyRows = {};
+      Array.prototype.forEach.call(TD.querySelectorAll('#topbar > button'), function (b) {
+        if (b.offsetParent !== null) tinyRows[Math.round(px(b).top)] = 1;
+      });
+      t.eq('and the bar fits on one row', Object.keys(tinyRows).length, 1);
+      t.check('leaving the title something to say',
+              px(TD.getElementById('bookTitle')).width >= 30,
+              Math.round(px(TD.getElementById('bookTitle')).width) + 'px of title');
+
+      /* And it is still reachable, which is the whole point of moving it
+         rather than dropping it. */
+      TD.getElementById('toggleShelf').click();
+      await wait(120);
+      t.check('the shelf offers the way to export instead',
+              shown(TD, 'exportFromShelf'), 'no export route at all at 320px');
+      TD.getElementById('exportFromShelf').click();
+      await wait(150);
+      t.check('and pressing it opens the export panel',
+              !TD.getElementById('exportPanel').classList.contains('hidden'),
+              'export panel stayed shut');
+      t.check('with the shelf out of the way',
+              TD.getElementById('shelfPanel').classList.contains('hidden'),
+              'the shelf stayed open underneath it');
+      tiny.remove();
+
+      /* The other half: a rule that hid export everywhere would satisfy all of
+         the above on its own. */
+      var ordinary = await mount(PHONE, 700);
+      await loadBook(ordinary);
+      var OD = ordinary.contentDocument;
+      t.check('while at 375px export is on the bar as before',
+              shown(OD, 'exportBtn'), 'export left the bar too early');
+      OD.getElementById('toggleShelf').click();
+      await wait(120);
+      t.check('and the shelf does not offer a second one',
+              !shown(OD, 'exportFromShelf'), 'two export routes at once');
+      ordinary.remove();
+
       /* ---- bookmarks ----
          The word 書籤 on the bar cost the title 56px on a phone and all of it
          at 320px, so below the breakpoint the button wears a glyph instead.

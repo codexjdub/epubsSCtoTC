@@ -685,6 +685,7 @@
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
     el.openNew = $('openNew');
+    el.exportFromShelf = $('exportFromShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
@@ -830,6 +831,18 @@
       entry.panel.addEventListener('click', function (ev) { ev.stopPropagation(); });
     });
     document.addEventListener('click', function () { closeDropdowns(null); });
+
+    /* The second way into the export panel, for the widths where 匯出 is not on
+       the bar. The panel is anchored to the BAR rather than to whatever opened
+       it, so it lands in the same place either way; all this has to do is shut
+       the shelf on the way, since a click inside a panel is stopped from
+       reaching the document handler that would otherwise close it. */
+    var exportDropdown = dropdowns[dropdowns.length - 1];
+    el.exportFromShelf.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      closeDropdowns(null);
+      setDropdown(exportDropdown, true);
+    });
 
     /* A control that changes what you are looking at closes the panel, so you
        can see what it did. One that is adjusted by degrees -- the font size
