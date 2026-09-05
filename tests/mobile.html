@@ -963,13 +963,19 @@
       pg.remove();
       window.localStorage.removeItem('epub-tc:paged');
 
-      /* ---- the tallest panel on the shortest screen ----
-         Aa is eleven controls. On a 560px screen it stood 544px tall and ran
-         off the bottom with Vim 模式 past the edge, and nothing could reach it:
-         it hangs off the bar, the bar does not scroll on a phone, and while
+      /* ---- the tallest panel on the shortest window ----
+         Aa stood 544px tall when it held eleven controls. On a 560px screen it
+         ran off the bottom with Vim 模式 past the edge and nothing could reach
+         it: it hangs off the bar, the bar does not scroll here, and while
          paginating nothing scrolls at all. It needs a ceiling and a scroll of
-         its own. */
-      var short = await mount(PHONE, 560);
+         its own.
+
+         Two controls have left it since -- 行寬, which the screen was always
+         narrower than, and 專注閱讀, which cannot run here -- so it no longer
+         overflows 560px and a test at that height would prove nothing. Hence
+         460, which is a window rather than a phone: the rules are keyed to
+         width, and the panel has to survive whatever height comes with it. */
+      var short = await mount(PHONE, 460);
       await loadBook(short);
       var SW = short.contentWindow, SD = short.contentDocument;
       SD.getElementById('aaBtn').click();
@@ -993,6 +999,16 @@
          happened. Hidden here, and only here. */
       t.eq('行寬 is not offered on a phone',
            SD.getElementById('measure').getBoundingClientRect().height, 0);
+      /* Nor 專注閱讀. It hides the chrome and waits for a pointer to approach
+         an edge to bring it back, and setFocus has always refused below this
+         breakpoint -- so it was a greyed control in the one place it can never
+         work. Vim 模式 stays: that one is about a keyboard, and a narrow window
+         on a laptop has one. */
+      t.eq('nor 專注閱讀, which cannot work here',
+           SD.getElementById('toggleFocus').getBoundingClientRect().height, 0);
+      t.check('but Vim 模式 remains, since the breakpoint is a width',
+              SD.getElementById('toggleVim').getBoundingClientRect().height > 0,
+              'vim left with it');
       short.remove();
 
       /* ---- bookmarks ----

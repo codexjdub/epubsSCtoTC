@@ -724,6 +724,17 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      try at the wrong one. */
   .bar-panel .ranges label.measure { display: none; }
 
+  /* 專注閱讀 hides the chrome and goes fullscreen for a mouse to bring back by
+     approaching an edge, which is a gesture a phone does not have -- so
+     setFocus has always refused below this breakpoint. It was offered greyed,
+     which is a control saying "not here" in the one place it is never
+     available. Gone instead.
+
+     Vim 模式 stays. It is about having a keyboard rather than about being a
+     phone, and this breakpoint is a width: a narrow window on a laptop gets
+     these rules too, and there the keys work. */
+  #toggleFocus { display: none; }
+
   /* Touch targets inside the panels and lists, folded in from blocks that
      used to trail this one. */
   .bar-panel input[type="range"] { min-height: 44px; }

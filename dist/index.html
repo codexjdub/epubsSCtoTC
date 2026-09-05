@@ -731,6 +731,17 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      try at the wrong one. */
   .bar-panel .ranges label.measure { display: none; }
 
+  /* 專注閱讀 hides the chrome and goes fullscreen for a mouse to bring back by
+     approaching an edge, which is a gesture a phone does not have -- so
+     setFocus has always refused below this breakpoint. It was offered greyed,
+     which is a control saying "not here" in the one place it is never
+     available. Gone instead.
+
+     Vim 模式 stays. It is about having a keyboard rather than about being a
+     phone, and this breakpoint is a width: a narrow window on a laptop gets
+     these rules too, and there the keys work. */
+  #toggleFocus { display: none; }
+
   /* Touch targets inside the panels and lists, folded in from blocks that
      used to trail this one. */
   .bar-panel input[type="range"] { min-height: 44px; }
@@ -773,7 +784,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.34.1</p>
+    <p class="hint build">v1.34.2</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -6281,10 +6292,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
-      /* setFocus refuses below the breakpoint, so the button says so rather
-         than accepting a press and only closing the panel under the cursor --
-         the same reason 翻頁 beside it is disabled there. */
-      el.toggleFocus.disabled = isNarrow();
+      /* Nothing to disable: the button is not shown below the breakpoint at
+         all. setFocus refuses there in any case, which is the guard that
+         matters -- this only ever dressed the refusal. */
     }
 
     function pagedOn() {

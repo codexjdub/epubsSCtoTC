@@ -1050,10 +1050,9 @@
     function syncFocus() {
       el.toggleFocus.classList.toggle('active', focusMode.on);
       el.toggleFocus.setAttribute('aria-pressed', String(focusMode.on));
-      /* setFocus refuses below the breakpoint, so the button says so rather
-         than accepting a press and only closing the panel under the cursor --
-         the same reason 翻頁 beside it is disabled there. */
-      el.toggleFocus.disabled = isNarrow();
+      /* Nothing to disable: the button is not shown below the breakpoint at
+         all. setFocus refuses there in any case, which is the guard that
+         matters -- this only ever dressed the refusal. */
     }
 
     function pagedOn() {
