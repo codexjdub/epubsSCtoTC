@@ -703,7 +703,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.32.1</p>
+    <p class="hint build">v1.32.2</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -5131,19 +5131,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return false;
   }
 
-  async function usage() {
-    try {
-      if (navigator.storage && navigator.storage.estimate) {
-        var e = await navigator.storage.estimate();
-        return { used: e.usage || 0, quota: e.quota || 0 };
-      }
-    } catch (e) { /* ignore */ }
-    return { used: 0, quota: 0 };
-  }
-
   App.library = {
     available: available, reason: reason, list: list, save: save, load: load,
-    remove: remove, requestPersistence: requestPersistence, usage: usage,
+    remove: remove, requestPersistence: requestPersistence,
     idFor: idFor, MAX_BYTES: MAX_BYTES, DB_NAME: DB_NAME
   };
 })(window.App = window.App || {});
@@ -5718,10 +5708,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       onPick: openStored
     }, books, null);
 
-    var used = await App.library.usage();
+    /* Added up from the rows above, so the total IS the rows and can be
+       checked by eye. It used to come from navigator.storage.estimate(),
+       which answers a different question -- everything this origin has
+       stored, including the 1.6MB app itself and, on WebKit, IndexedDB space
+       the browser has not reclaimed yet. One 382KB book read as 17.2MB under
+       a line that says it is reporting the books. Covers are stored beside a
+       book but are not counted: they are not the book, and counting them
+       would break the match with the rows. */
+    var bytes = books.reduce(function (n, b) { return n + (b.size || 0); }, 0);
     el.libraryNote.textContent = S('library.count', {
       n: books.length,
-      size: used.used ? S('library.usage', { size: formatSize(used.used) }) : ''
+      size: bytes ? S('library.usage', { size: formatSize(bytes) }) : ''
     });
     show(el.library, true);
   }

@@ -209,19 +209,9 @@
     return false;
   }
 
-  async function usage() {
-    try {
-      if (navigator.storage && navigator.storage.estimate) {
-        var e = await navigator.storage.estimate();
-        return { used: e.usage || 0, quota: e.quota || 0 };
-      }
-    } catch (e) { /* ignore */ }
-    return { used: 0, quota: 0 };
-  }
-
   App.library = {
     available: available, reason: reason, list: list, save: save, load: load,
-    remove: remove, requestPersistence: requestPersistence, usage: usage,
+    remove: remove, requestPersistence: requestPersistence,
     idFor: idFor, MAX_BYTES: MAX_BYTES, DB_NAME: DB_NAME
   };
 })(window.App = window.App || {});

@@ -566,10 +566,18 @@
       onPick: openStored
     }, books, null);
 
-    var used = await App.library.usage();
+    /* Added up from the rows above, so the total IS the rows and can be
+       checked by eye. It used to come from navigator.storage.estimate(),
+       which answers a different question -- everything this origin has
+       stored, including the 1.6MB app itself and, on WebKit, IndexedDB space
+       the browser has not reclaimed yet. One 382KB book read as 17.2MB under
+       a line that says it is reporting the books. Covers are stored beside a
+       book but are not counted: they are not the book, and counting them
+       would break the match with the rows. */
+    var bytes = books.reduce(function (n, b) { return n + (b.size || 0); }, 0);
     el.libraryNote.textContent = S('library.count', {
       n: books.length,
-      size: used.used ? S('library.usage', { size: formatSize(used.used) }) : ''
+      size: bytes ? S('library.usage', { size: formatSize(bytes) }) : ''
     });
     show(el.library, true);
   }

@@ -194,6 +194,25 @@
                 return shown && shown !== key;
               }), 'a key was left showing');
 
+      /* The number beside "books stored" has to BE the books. It used to come
+         from navigator.storage.estimate(), which answers a different question
+         -- everything this origin holds, the app's own bytes included, and on
+         WebKit IndexedDB space the browser has not reclaimed yet. One 382KB
+         book reported as 17.2MB on a phone, under a line naming the books.
+         The way to know it is the books is that it equals their own sizes
+         added up, which is also what the rows above it show. The rule is
+         spelled out here rather than borrowed from the app, so the test
+         states it independently. */
+      await W.App.ui.renderLibrary();
+      var stored = await W.App.library.list();
+      var sum = stored.reduce(function (n, b) { return n + b.size; }, 0);
+      var expect = sum >= 1048576 ? (sum / 1048576).toFixed(1) + ' MB'
+                                  : Math.round(sum / 1024) + ' KB';
+      var note = D.getElementById('libraryNote').textContent;
+      t.check('the storage line reports the books, not the whole origin',
+              stored.length === 2 && sum > 0 && note.indexOf(expect) >= 0,
+              stored.length + ' book(s), expected ' + expect + ', note: ' + note);
+
       /* The contents list outruns the sidebar on any real book, so it has to
          follow the reader -- opening 目錄 at chapter 31 used to show the start
          of the book. `nearest` is what keeps it civil: an entry already on
