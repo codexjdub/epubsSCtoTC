@@ -214,21 +214,30 @@ button:disabled { opacity: .5; cursor: default; }
    doubled there. Hence no padding here at all: it takes whatever its
    neighbours take, at either width.
 
-   The box is stated as pixels but nothing about it is font-dependent: a CJK
-   ideograph's advance is its em, so two of them is 2em in any font, and the
-   height is one line of it. 2 x 13px by 1.6 x 13px here, and the phone block
-   restates it at 14px. The mask is `contain`, so the ribbon draws square and
-   centred inside whichever box it is given. */
+   The box is the INK, not the em. Giving it a two-character box was the
+   obvious reading of "match the bar" and it was wrong: a bookmark occupies
+   the middle 60% of its square, so the mark carries 4.5px of empty margin on
+   each side BEFORE the button's padding starts, and widening the button to
+   50px simply moved the ribbon further from its own edges -- 13.3px of air
+   each side became 17.3, against 10.9 for a label. Growing the ribbon cannot
+   fix that either: it is 14.3 by 21.3 in proportion, so 26px of ink across
+   would need 39px down, in a bar 44px tall.
+
+   So the height is a line of text and the width is what that leaves the ink,
+   plus the sliver a label gets inside its own advance. `auto 100%` rather
+   than `contain`: the mark scales by height and keeps its aspect, and the box
+   trims the empty margin off the sides rather than padding it. What lands is
+   10.8px of air each side against a label's 10.9. */
 #toggleBookmark {
   font-size: 0;
   line-height: 0;
 }
 #toggleBookmark::before {
   content: "" / "";
-  display: inline-block; width: 26px; height: 20.8px; vertical-align: middle;
+  display: inline-block; width: 14px; height: 20.8px; vertical-align: middle;
   background: currentColor;
-  -webkit-mask: var(--bookmark-mark) center / contain no-repeat;
-  mask: var(--bookmark-mark) center / contain no-repeat;
+  -webkit-mask: var(--bookmark-mark) center / auto 100% no-repeat;
+  mask: var(--bookmark-mark) center / auto 100% no-repeat;
   --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2.6h12v19l-6-5-6 5z' fill='none' stroke='%23000' stroke-width='2.3' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 #toggleBookmark.active::before {
@@ -601,10 +610,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* CJK labels are two characters wide; a squeezed button wrapped them onto
      a second line and took the whole bar to 80px. */
   .topbar button { white-space: nowrap; }
-  /* The same two characters, at the size they are here: 2 x 14px by
-     1.6 x 14px. Without this the ribbon kept its desktop box while every
-     label around it grew, which is where the 8px came from. */
-  #toggleBookmark::before { width: 28px; height: 22.4px; }
+  /* A line of text tall, at the size text is here, and as wide as that
+     leaves the ink. Without this the ribbon kept its desktop box while the
+     padding around it grew, which is where the original 8px came from. */
+  #toggleBookmark::before { width: 15px; height: 22.4px; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */

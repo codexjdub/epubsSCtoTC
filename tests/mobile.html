@@ -27,6 +27,62 @@
 
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  /* What "it looks like the buttons beside it" actually means: the space
+     between the button's edge and the ink inside it. Comparing BOXES was the
+     mistake that shipped -- a bookmark occupies the middle 60% of its square,
+     so matching the button's width to a two-character label pushed the ribbon
+     further from its own edges rather than closer, and the air each side went
+     from 13.3px to 17.3 against a label's 11.4.
+
+     Asserted as two font-independent facts rather than as a measured air
+     figure, because the label's ink depends on a CJK font this machine may
+     not share with CI: the button takes the same padding as its neighbours,
+     and its box carries the ink rather than empty margin. Those two together
+     ARE the matching air. The ink is measured off the artwork, so redrawing
+     the mark keeps the test honest.
+
+     The mark is drawn into a canvas at 8x and read back, which is also the
+     only way to know it is not being clipped by the narrowed box. */
+  async function markInk(doc, id) {
+    var el = doc.getElementById(id), win = doc.defaultView;
+    var before = win.getComputedStyle(el, '::before');
+    var raw = before.maskImage;
+    if (!raw || raw === 'none') raw = before.webkitMaskImage;
+    var url = String(raw).trim().replace(/^url\((["']?)/, '').replace(/(["']?)\)$/, '');
+    var h = parseFloat(before.height), S = 8;
+    var img = new win.Image();
+    await new Promise(function (res, rej) { img.onload = res; img.onerror = rej; img.src = url; });
+    var c = doc.createElement('canvas');
+    c.width = Math.ceil(h * S); c.height = Math.ceil(h * S);
+    var g = c.getContext('2d');
+    g.drawImage(img, 0, 0, c.width, c.height);
+    var d = g.getImageData(0, 0, c.width, c.height).data;
+    var x0 = 1e9, x1 = -1;
+    for (var y = 0; y < c.height; y++) for (var x = 0; x < c.width; x++) {
+      if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    }
+    return { ink: (x1 - x0 + 1) / S, box: parseFloat(before.width),
+             clipped: x0 <= 0 || x1 >= c.width - 1 };
+  }
+
+  function padOf(doc, id) {
+    var cs = doc.defaultView.getComputedStyle(doc.getElementById(id));
+    return [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].join(' ');
+  }
+
+  async function checkRibbonFits(t, doc, where) {
+    var m = await markInk(doc, 'toggleBookmark');
+    t.eq('the ribbon button is padded like its neighbours' + where,
+         padOf(doc, 'toggleBookmark'), padOf(doc, 'toggleSidebar'));
+    t.check('and its box carries the ink, not empty margin' + where,
+            m.box - m.ink < 3,
+            'box ' + m.box.toFixed(1) + ', ink ' + m.ink.toFixed(1) +
+            ' -> ' + ((m.box - m.ink) / 2).toFixed(1) + 'px of dead space each side');
+    t.check('and the narrowed box does not clip it' + where,
+            !m.clipped, 'the mark reaches the edge of its box');
+  }
+
+
   /* The app is loaded in a real iframe of the target width, so the media
    * queries resolve exactly as they would on a device. */
   function mount(width, height) {
@@ -806,18 +862,11 @@
       t.check('and the shelf does not offer a second one',
               !shown(OD, 'exportFromShelf'), 'two export routes at once');
 
-      /* At the width it was reported from. The desktop copy of this check
-         lives with the rest of the bookmark tests below; this one is here
-         because the gap was twice the size on a phone and for a reason that
-         only exists here -- the touch-target rule enlarges every bar button,
-         and an ID selector on this one made it the exception. */
-      var obm = OD.getElementById('toggleBookmark').getBoundingClientRect();
-      var onb = OD.getElementById('toggleSidebar').getBoundingClientRect();
-      t.check('the ribbon is the size of its neighbours at 375px too',
-              onb.width > 0 && Math.abs(obm.width - onb.width) < 0.5 &&
-              Math.abs(obm.height - onb.height) < 0.5,
-              'bookmark ' + obm.width.toFixed(1) + 'x' + obm.height.toFixed(1) +
-              ', neighbour ' + onb.width.toFixed(1) + 'x' + onb.height.toFixed(1));
+      /* At the width it was reported from, and the reason it was worse here:
+         the touch-target rule enlarges every bar button, and an ID selector
+         on this one made it the exception, so its padding stayed behind while
+         everything around it grew. */
+      await checkRibbonFits(t, OD, ' at 375px');
       ordinary.remove();
 
       /* ---- bookmarks ----
@@ -829,24 +878,9 @@
       var bmBar = LD.getElementById('toggleBookmark');
       t.eq('the bookmark button is on the bar', !!bmBar, true);
       t.eq('and starts unpressed', bmBar.getAttribute('aria-pressed'), 'false');
-      /* And it is the same size as the buttons beside it. Every Chinese label
-         on this bar is two characters, so every other button comes out one
-         width, and one button 8px short of five identical ones is the only
-         thing up there that looks broken -- which is how it was reported,
-         from a phone, in Chinese, with English fine because English labels
-         are all different lengths anyway. The cause was this button pinning
-         its own padding: an ID selector outranks `.topbar button`, so the
-         enlarged touch padding the phone gives every button reached every
-         button but this one. Asserted against a neighbour, not a number: the
-         number depends on the font size in force here, the match does not. */
-      var bmNbr = LD.getElementById('toggleSidebar');
-      var bmBox = bmBar.getBoundingClientRect(), bmNbrBox = bmNbr.getBoundingClientRect();
-      t.check('the ribbon takes the same box as the labels beside it',
-              bmNbrBox.width > 0 &&
-              Math.abs(bmBox.width - bmNbrBox.width) < 0.5 &&
-              Math.abs(bmBox.height - bmNbrBox.height) < 0.5,
-              'bookmark ' + bmBox.width.toFixed(1) + 'x' + bmBox.height.toFixed(1) +
-              ', neighbour ' + bmNbrBox.width.toFixed(1) + 'x' + bmNbrBox.height.toFixed(1));
+      /* The desktop half. It was wrong here too -- by less, which is why it
+         went unreported: 4px across and 3.2px down. */
+      await checkRibbonFits(t, LD, '');
       t.check('with the section hidden while there are none',
               LD.getElementById('bookmarks').classList.contains('hidden'),
               'an empty bookmarks heading on every book');
