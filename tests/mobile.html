@@ -124,6 +124,21 @@
     });
   }
 
+  /* A page turn on a phone is a gesture, so the test has to make one.
+     Constructed rather than emulated: the harness runs a plain browser, and
+     what is being checked is the handler's arithmetic -- the threshold, the
+     axis lock, the edge guard -- not the platform's touch pipeline. */
+  function swipe(doc, x0, y0, x1, y1) {
+    var win = doc.defaultView, el = doc.getElementById('viewer');
+    function ev(name, x, y) {
+      var t = new win.Touch({ identifier: 1, target: el, clientX: x, clientY: y });
+      return new win.TouchEvent(name, { bubbles: true, cancelable: true,
+        touches: name === 'touchend' ? [] : [t], changedTouches: [t] });
+    }
+    el.dispatchEvent(ev('touchstart', x0, y0));
+    el.dispatchEvent(ev('touchend', x1, y1));
+  }
+
   async function loadBook(frame) {
     var W = frame.contentWindow;
     var zip = new W.JSZip();
@@ -706,20 +721,6 @@
       t.eq('and hands back scrolling, which is what was set', kind(), 'element');
       opt.remove();
 
-      /* Below the breakpoint the document scrolls and there is no fixed-height
-         box to break pages in, so the control says so rather than accepting a
-         press and doing nothing. */
-      var pOpt = await mount(PHONE, 812);
-      await loadBook(pOpt);
-      t.check('a phone offers the control disabled',
-              pOpt.contentDocument.getElementById('togglePaged').disabled,
-              'offered as though it would work');
-      pOpt.contentDocument.getElementById('togglePaged').click();
-      await wait(200);
-      t.eq('and pressing it changes nothing',
-           pOpt.contentWindow.App.ui.current.reader.scrollerKind(), 'document');
-      pOpt.remove();
-
       /* The preference outlives the page, the way the font size does. */
       window.localStorage.setItem('epub-tc:paged', '1');
       var kept = await mount(DESKTOP, 800);
@@ -871,6 +872,77 @@
          everything around it grew. */
       await checkRibbonFits(t, OD, ' at 375px');
       ordinary.remove();
+
+      /* ---- pages on a phone ----
+         Paged reading was refused below the breakpoint, and the reason was
+         layout rather than design: everything here grows to its content and
+         the DOCUMENT scrolls, so a column had no box with a height to break
+         into and came out one page as long as the chapter. A phone is where
+         pagination is the norm, so the layout gives way instead. */
+      var pg = await mount(PHONE, 812);
+      await loadBook(pg);
+      var PW = pg.contentWindow, PD = pg.contentDocument;
+      var pgBtn = PD.getElementById('togglePaged');
+      var pgApp = PD.getElementById('app');
+      var pgMount = function () { return PD.querySelector('.reader-mount'); };
+      var pgLeft = function () { return Math.round(pgMount().scrollLeft); };
+
+      t.eq('翻頁 is offered on a phone', pgBtn.disabled, false);
+      t.eq('and starts off', PW.App.ui.current.reader.scrollerKind(), 'document');
+      pgBtn.click();
+      await wait(700);
+
+      t.eq('pressing it paginates', PW.App.ui.current.reader.scrollerKind(), 'paged');
+      /* The three facts that make a column possible here, and that the
+         scrolling layout denies: a shell of a fixed height, a root that does
+         not scroll, and a mount wider than its box. */
+      t.check('the shell becomes exactly one viewport',
+              Math.abs(pgApp.getBoundingClientRect().height - PW.innerHeight) <= 2,
+              Math.round(pgApp.getBoundingClientRect().height) + ' of ' + PW.innerHeight);
+      t.check('the document stops scrolling',
+              PD.documentElement.scrollHeight <= PD.documentElement.clientHeight + 1,
+              PD.documentElement.scrollHeight + ' > ' + PD.documentElement.clientHeight);
+      t.check('and the column has somewhere to break',
+              pgMount().scrollWidth > pgMount().clientWidth + 1,
+              'scrollWidth ' + pgMount().scrollWidth + ', clientWidth ' + pgMount().clientWidth);
+      t.check('the position line counts pages rather than percent',
+              /\d+\/\d+$/.test(PD.getElementById('position').textContent.trim()),
+              PD.getElementById('position').textContent);
+
+      /* The gesture, and the three things that must NOT be one. */
+      t.eq('the browser can build a touch here', typeof PW.TouchEvent, 'function');
+      var midY = Math.round(PW.innerHeight / 2), wide = PW.innerWidth;
+      swipe(PD, 250, midY, 120, midY);
+      await wait(300);
+      var turned = pgLeft();
+      t.check('a swipe turns the page', turned > 0, 'scrollLeft still ' + turned);
+
+      swipe(PD, 12, midY, 200, midY);
+      await wait(250);
+      t.eq('a swipe from the left edge does not -- that is the browser\'s back',
+           pgLeft(), turned);
+      swipe(PD, wide - 10, midY, 150, midY);
+      await wait(250);
+      t.eq('nor one from the right edge', pgLeft(), turned);
+      swipe(PD, 200, 100, 215, 500);
+      await wait(250);
+      t.eq('nor a drag down the page', pgLeft(), turned);
+      swipe(PD, 200, midY, 220, midY);
+      await wait(250);
+      t.eq('nor a nudge shorter than the threshold', pgLeft(), turned);
+
+      /* Taps belong to the text: the marks and the links are tapped, which is
+         why the page turn is a swipe and not a zone over the column. */
+      swipe(PD, 200, midY, 200, midY);
+      await wait(250);
+      t.eq('and a tap turns nothing', pgLeft(), turned);
+
+      swipe(PD, 120, midY, 260, midY);
+      await wait(300);
+      t.eq('a swipe the other way goes back', pgLeft(), 0);
+
+      pg.remove();
+      window.localStorage.removeItem('epub-tc:paged');
 
       /* ---- bookmarks ----
          The word 書籤 on the bar cost the title 56px on a phone and all of it

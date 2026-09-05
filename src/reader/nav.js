@@ -739,6 +739,19 @@
       return Math.min(1, (cur.start + cur.size * frac) / totalChars);
     }
 
+    /* Which page of how many, for the position line. Read off the scroller
+       rather than the paged one directly, so it needs nothing the interface
+       does not already have: the pitch is one page, the content extent is the
+       last page plus the one still visible from it. Null unless paginating,
+       because there are no pages to count otherwise. */
+    function pagePosition() {
+      if (!state.paged) return null;
+      var p = scroll.extent();
+      if (!p) return null;
+      return { page: Math.round(scroll.top() / p) + 1,
+               pages: Math.max(1, Math.round(scroll.contentExtent() / p)) };
+    }
+
     function spineItems() {
       return book.spine.items.filter(function (s) { return s.linear !== false; });
     }
@@ -1134,6 +1147,7 @@
       removeBookmark: removeBookmark,
       goToBookmark: goToBookmark,
       progress: progress,
+      pagePosition: pagePosition,
       back: back,
       trailDepth: function () { return trail.length; },
       resume: function () {

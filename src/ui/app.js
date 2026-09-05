@@ -356,7 +356,11 @@
        only the stored preference built the new reader scrolling while the mode
        was still on, so the chrome stayed hidden over a view with no pages in
        it: the one thing the mode exists to do, gone. */
-    var wantPaged = (pagedPref() || !!(api.focusOn && api.focusOn())) && !isNarrowScreen();
+    var wantPaged = pagedPref() || !!(api.focusOn && api.focusOn());
+    /* Before create(), not after: on a phone this class is what gives the
+       column a box with a height to break into, and the first render measures
+       that box. Set afterwards, the first chapter came up as one tall page. */
+    el.app.classList.toggle('paged', wantPaged);
     var reader = App.reader.create(el.viewer, book, {
       scroller: scrollerFor(),
       paged: wantPaged
@@ -368,8 +372,14 @@
     var pos = { index: 0, total: 0 };
     function renderPosition() {
       var pct = current.reader ? current.reader.progress() : null;
-      el.position.textContent = (pos.index + 1) + ' / ' + pos.total +
-        (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+      var page = current.reader ? current.reader.pagePosition() : null;
+      /* Paginating, how many pages are left in the chapter is the thing you
+         want and a percentage of the book is not -- it is what every reader
+         shows, and it is the only cue a swipe has, since the gesture itself is
+         invisible. Digits only, so it needs no word in either language. */
+      var tail = page ? ' · ' + page.page + '/' + page.pages
+                      : (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+      el.position.textContent = (pos.index + 1) + ' / ' + pos.total + tail;
       /* Here rather than on the chapter event, because paginating, the ends of
          the book are reached by turning a page and no chapter event fires. Left
          on the chapter event with a `!paged` guard, both buttons stayed lit and
@@ -1028,7 +1038,7 @@
          preference is already what the reader is doing, the layout still has to
          be re-broken -- the reading box just changed size around it. */
       if (current.reader) {
-        var want = on ? true : (pagedPref() && !isNarrow());
+        var want = on ? true : pagedPref();
         if (want === pagedOn()) current.reader.repaginate(anchor);
         else current.reader.setPaged(want, anchor);
       }
@@ -1054,9 +1064,13 @@
       var on = pagedOn();
       el.togglePaged.classList.toggle('active', on);
       el.togglePaged.setAttribute('aria-pressed', String(on));
-      /* Nothing below the breakpoint can honour it, so it says so rather than
-         accepting a press and doing nothing. */
-      el.togglePaged.disabled = isNarrow();
+      /* The class the phone layout keys on, kept in step here as well as in
+         applyPaged, because focus mode reaches setPaged directly. */
+      el.app.classList.toggle('paged', on);
+      /* Nothing scrolls while paginating, so a strip tucked on the way in
+         would have no way back. Not in focus mode, which tucks them on
+         purpose and calls this immediately afterwards. */
+      if (on && !focusMode.on) tuckPager(false);
       /* Keyed on the LAYOUT, not on focus mode: pages can be on without it. A
          pager offering 下一章 while the button advances one page would lie. */
       el.prev.textContent = S(on ? 'pager.prevPage' : 'pager.prev');
@@ -1069,14 +1083,16 @@
        answering for the reader. */
     function applyPaged(on) {
       if (!current.reader) return;
-      if (on && isNarrow()) { syncPaged(); return; }
       if (on === pagedOn()) { syncPaged(); return; }
+      /* The class BEFORE the re-render, for the same reason the first one is
+         set before create(): on a phone it decides whether the reading box has
+         a height, and setPaged measures that box as it breaks the column. */
+      el.app.classList.toggle('paged', on);
       var p = current.reader.setPaged(on);
       if (p && p.then) p.then(syncPaged); else syncPaged();
     }
 
     el.togglePaged.addEventListener('click', function () {
-      if (isNarrow()) return;
       var want = !pagedOn();
       storePagedPref(want);
       applyPaged(want);
@@ -1091,6 +1107,41 @@
       if (ev.clientX < box.left) current.reader.prevPage();
       else if (ev.clientX > box.right) current.reader.nextPage();
     });
+
+    /* Turning pages by touch, which the margin click above cannot do: it needs
+       empty space beside the column, and a phone has none -- the mount fills
+       the viewer, and the 48px gutter is the gap BETWEEN pages, off screen.
+
+       A swipe rather than zones over the text. The marks and links in the text
+       are tapped, and the handler above goes out of its way to let a tap reach
+       them; zones would take that back, and a mark near the edge would turn
+       the page instead of opening.
+
+       Touches that BEGIN within a thumb's width of either edge are left alone:
+       iOS Safari owns that strip for back and forward, and a page turn started
+       there leaves the app rather than turning anything. Listeners are passive
+       -- nothing scrolls while paginating, so there is nothing to prevent. */
+    var EDGE_GUARD = 24, SWIPE_MIN = 45;
+    var swipeFrom = null;
+    el.viewer.addEventListener('touchstart', function (ev) {
+      swipeFrom = null;
+      if (!pagedOn() || ev.touches.length !== 1) return;
+      var t = ev.touches[0];
+      if (t.clientX < EDGE_GUARD || t.clientX > window.innerWidth - EDGE_GUARD) return;
+      swipeFrom = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    el.viewer.addEventListener('touchend', function (ev) {
+      var from = swipeFrom;
+      swipeFrom = null;
+      if (!from || !pagedOn() || !current.reader) return;
+      var t = ev.changedTouches && ev.changedTouches[0];
+      if (!t) return;
+      var dx = t.clientX - from.x, dy = t.clientY - from.y;
+      /* Short of the threshold it was a tap, and steeper than 45 degrees it
+         was a drag down the page -- neither is a page turn. */
+      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dy) > Math.abs(dx)) return;
+      if (dx < 0) current.reader.nextPage(); else current.reader.prevPage();
+    }, { passive: true });
 
     /* The way back to the chrome without leaving the mode: approach the edge it
        lives on, as a video player does it. Toggling a class to the value it
@@ -1153,10 +1204,11 @@
       closeDropdowns(null);
       tuckPager(false);
       syncExportLabel();
-      /* The preference outlives the width: crossing down to a phone puts the
-         text back to scrolling, and crossing back up restores what was asked
-         for rather than leaving it off until noticed. */
-      applyPaged(!isNarrow() && pagedPref());
+      /* The preference outlives the width. It used to be dropped on the way
+         down -- a phone could not paginate -- and restored on the way back up;
+         now it simply holds, and the layout either side of the breakpoint
+         gives the column a box to break into. */
+      applyPaged(pagedPref());
       syncFocus();
       el.sidebar.classList.remove('open');
       el.sidebar.classList.remove('hidden');

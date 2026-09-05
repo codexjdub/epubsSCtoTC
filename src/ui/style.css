@@ -597,6 +597,33 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .main { display: block; }
   .viewer { overflow: visible; }
 
+  /* Paginating, none of the above holds -- and worse, it prevents the mode.
+     A column breaks into a box with a HEIGHT, and everything here grows to its
+     content instead: measured on a 120-paragraph chapter, the shell, the main
+     area, the viewer and the mount were all 5787px tall and the document
+     scrolled. The column had nothing to break against and came out as one
+     page as long as the chapter.
+
+     So this puts the desktop's shape back for as long as pages are on: one
+     viewport tall, the viewer bounded, and the two strips back in the flow
+     rather than floating over a page that no longer moves under them. They
+     keep `position: relative` rather than static, because the bar's panels are
+     positioned against it.
+
+     The cost is the browser's own chrome: it collapses only for a scrolling
+     root scroller, so on iOS the URL bar stays out -- about 60px of a phone
+     screen. That is the trade this mode makes, and it is why scrolling remains
+     the default. */
+  .app.paged { height: 100dvh; min-height: 0; overflow: hidden; }
+  .app.paged .main { display: flex; min-height: 0; }
+  .app.paged .viewer { overflow: hidden; }
+  .app.paged .topbar, .app.paged .pager { position: relative; }
+  /* Nothing scrolls, so nothing can bring a tucked strip back. */
+  .app.paged .topbar.tucked, .app.paged .pager.tucked {
+    transform: none; opacity: 1; pointer-events: auto;
+  }
+  .app.paged .reader-mount { padding-top: 0; padding-bottom: 0; }
+
   /* Out of the flow and tuckable, like the pager: together they held 112px of
      a 812px screen. The panels are absolutely positioned against this bar, so
      they travel with it -- which is why a tuck is suppressed while one is
