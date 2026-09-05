@@ -1097,44 +1097,14 @@
       applyPaged(want);
     });
 
-    /* What the text owns, it keeps. A tap on a mark cycles it and a tap on a
-       link follows it -- both handled inside the reader, which does not stop
-       the event, so a page turn would fire on top of either. The same walk it
-       does, done first. */
-    function tappedInteractive(ev) {
-      var path = ev.composedPath ? ev.composedPath() : [ev.target];
-      for (var i = 0; i < path.length; i++) {
-        var node = path[i];
-        if (!node || node.nodeType !== 1) continue;
-        if (node.classList && node.classList.contains('amb-mark')) return true;
-        if (node.localName === 'a' && node.getAttribute('href')) return true;
-      }
-      return false;
-    }
-
     /* The empty margins either side of the page turn it: the only control a
        paged view needs, and the only one it shows. A click inside the column
-       falls through to the reader, where the marks and links live.
-
-       Below the breakpoint those margins are 16px, a third of a touch target,
-       so the zones move INSIDE the column: the outer thirty per cent each side
-       turns and the middle forty does nothing, which keeps a thumb resting
-       mid-screen from moving the book. Only there -- on a desktop, clicking
-       into text means selecting it, not navigating.
-
-       A tap with a panel open belongs to the panel: the document handler is
-       about to close it, and turning a page as it went would make dismissing
-       one cost a page. */
+       falls through to the reader, where the marks and links live. */
     el.viewer.addEventListener('click', function (ev) {
       if (!pagedOn()) return;
       var box = current.reader.mount.getBoundingClientRect();
-      if (ev.clientX < box.left) { current.reader.prevPage(); return; }
-      if (ev.clientX > box.right) { current.reader.nextPage(); return; }
-      if (!isNarrow() || anyDropdownOpen() || tappedInteractive(ev)) return;
-      var view = el.viewer.getBoundingClientRect();
-      var at = (ev.clientX - view.left) / (view.width || 1);
-      if (at < 0.3) current.reader.prevPage();
-      else if (at > 0.7) current.reader.nextPage();
+      if (ev.clientX < box.left) current.reader.prevPage();
+      else if (ev.clientX > box.right) current.reader.nextPage();
     });
 
     /* Turning pages by touch, which the margin click above cannot do: it needs

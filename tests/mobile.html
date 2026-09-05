@@ -960,63 +960,6 @@
       await wait(300);
       t.eq('a swipe the other way goes back', pgLeft(), 0);
 
-      /* And a tap, for the hand that is only holding the phone. The margins
-         are 16px here -- a third of a touch target -- so the zones sit inside
-         the column: outer thirty per cent each side, inert forty in the
-         middle. */
-      function tapAt(x) {
-        PD.getElementById('viewer').dispatchEvent(new PW.MouseEvent('click', {
-          bubbles: true, composed: true, clientX: x, clientY: midY }));
-      }
-      tapAt(Math.round(wide * 0.85));
-      await wait(300);
-      var tapped = pgLeft();
-      t.check('a tap on the right turns forward', tapped > 0, 'scrollLeft ' + tapped);
-      tapAt(Math.round(wide * 0.15));
-      await wait(300);
-      t.eq('and one on the left turns back', pgLeft(), 0);
-      tapAt(Math.round(wide * 0.5));
-      await wait(300);
-      t.eq('the middle does nothing, so a resting thumb costs no page',
-           pgLeft(), 0);
-
-      /* The text keeps its own taps. A mark cycles between the readings of an
-         ambiguous character, and the reader handles that itself without
-         stopping the event, so without a guard the page would turn on top of
-         it. Dispatched FROM the mark, so the composed path is the real one.
-
-         The spans are only put in the document while marks are being shown --
-         renderChapter skips applyMarks otherwise -- so ask for them first.
-         Compared by page number rather than by scrollLeft, because cycling a
-         character re-renders the chapter and the columns settle a pixel or two
-         either way. */
-      var pageNow = function () { return PW.App.ui.current.reader.pagePosition().page; };
-      PD.getElementById('toggleMarks').click();
-      await wait(700);
-      var aMark = pgMount().shadowRoot.querySelector('.amb-mark');
-      t.check('the book has an ambiguous mark to tap', !!aMark, 'no .amb-mark rendered');
-      if (aMark) {
-        /* Dispatched with coordinates in the FORWARD zone, and from page one
-           where forward is available. `aMark.click()` reports clientX 0, which
-           lands in the back zone -- and at page one that turns nothing, so the
-           assertion passed whether the guard was there or not. */
-        var pageBeforeMark = pageNow();
-        aMark.dispatchEvent(new PW.MouseEvent('click', { bubbles: true, composed: true,
-          clientX: Math.round(wide * 0.85), clientY: midY }));
-        await wait(400);
-        t.eq('tapping a mark does not also turn the page', pageNow(), pageBeforeMark);
-      }
-
-      /* A tap that dismisses a panel is spent on the panel: the document
-         handler is about to close it, and turning a page as it went would make
-         dismissing one cost a page. */
-      var pageBeforePanel = pageNow();
-      PD.getElementById('aaBtn').click();
-      await wait(250);
-      tapAt(Math.round(wide * 0.85));
-      await wait(350);
-      t.eq('and a tap that closes a panel turns nothing', pageNow(), pageBeforePanel);
-
       pg.remove();
       window.localStorage.removeItem('epub-tc:paged');
 
