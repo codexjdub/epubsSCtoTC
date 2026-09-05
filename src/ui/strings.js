@@ -38,7 +38,13 @@
     'landing.pick': ['或點一下選擇檔案', 'or click to choose a file'],
     'landing.convertTo': ['轉換為', 'Convert to'],
     'landing.theme': ['主題', 'Theme'],
-    'landing.books': ['你的書', 'Your books'],
+    /* The same 書架 the bar button names, because it is the same list: the
+       landing page and the reader's shelf are one set of books in two sets of
+       clothes. 你的書 named it as if it were something else. English says
+       Bookshelf here and Shelf on the bar -- the heading has room for the
+       whole word and the bar does not, where every label competes with the
+       title for width. */
+    'landing.books': ['書架', 'Bookshelf'],
 
     /* ---- the bar ---- */
     'bar.shelf': ['書架', 'Shelf'],
