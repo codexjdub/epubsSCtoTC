@@ -49,7 +49,13 @@
     var raw = before.maskImage;
     if (!raw || raw === 'none') raw = before.webkitMaskImage;
     var url = String(raw).trim().replace(/^url\((["']?)/, '').replace(/(["']?)\)$/, '');
-    var h = parseFloat(before.height), S = 8;
+    /* At the size the mask is actually PAINTED, which is not the box: the box
+       is a line tall so the button matches its neighbours, and the mark is
+       drawn at a fraction of it. Reading the box height here instead would
+       measure ink that is never on screen. */
+    var lineBox = parseFloat(before.height), S = 8;
+    var sz = String(before.maskSize || before.webkitMaskSize || '').trim().split(/\s+/)[1] || '';
+    var h = /%$/.test(sz) ? lineBox * parseFloat(sz) / 100 : (parseFloat(sz) || lineBox);
     var img = new win.Image();
     await new Promise(function (res, rej) { img.onload = res; img.onerror = rej; img.src = url; });
     var c = doc.createElement('canvas');
@@ -57,11 +63,15 @@
     var g = c.getContext('2d');
     g.drawImage(img, 0, 0, c.width, c.height);
     var d = g.getImageData(0, 0, c.width, c.height).data;
-    var x0 = 1e9, x1 = -1;
+    var x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
     for (var y = 0; y < c.height; y++) for (var x = 0; x < c.width; x++) {
-      if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      if (d[(y * c.width + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
     }
-    return { ink: (x1 - x0 + 1) / S, box: parseFloat(before.width),
+    return { ink: (x1 - x0 + 1) / S, inkH: (y1 - y0 + 1) / S,
+             box: parseFloat(before.width), lineBox: lineBox,
              clipped: x0 <= 0 || x1 >= c.width - 1 };
   }
 
@@ -80,6 +90,15 @@
             ' -> ' + ((m.box - m.ink) / 2).toFixed(1) + 'px of dead space each side');
     t.check('and the narrowed box does not clip it' + where,
             !m.clipped, 'the mark reaches the edge of its box');
+    /* Drawn shorter than the line it sits on. Filling the line put 20.1px of
+       ink beside characters inking 12.9 -- half again as tall, and reported
+       as looking wrong before any of the width work was noticed. Measured
+       against the line box rather than against the text, which would drag a
+       CJK font into the assertion. */
+    t.check('and is drawn shorter than the line it sits on' + where,
+            m.inkH < m.lineBox * 0.8,
+            'ink ' + m.inkH.toFixed(1) + 'px tall in a ' + m.lineBox.toFixed(1) +
+            'px line -- ' + Math.round(m.inkH / m.lineBox * 100) + '%');
   }
 
 

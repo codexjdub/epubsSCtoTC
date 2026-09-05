@@ -223,21 +223,31 @@ button:disabled { opacity: .5; cursor: default; }
    fix that either: it is 14.3 by 21.3 in proportion, so 26px of ink across
    would need 39px down, in a bar 44px tall.
 
-   So the height is a line of text and the width is what that leaves the ink,
-   plus the sliver a label gets inside its own advance. `auto 100%` rather
-   than `contain`: the mark scales by height and keeps its aspect, and the box
-   trims the empty margin off the sides rather than padding it. What lands is
-   10.8px of air each side against a label's 10.9. */
+   So the box is a line of text tall -- which is what keeps the button the
+   same height as its neighbours -- and as wide as that leaves the ink, plus
+   the sliver a label gets inside its own advance. An `auto` width rather than
+   `contain`: the mark scales by height and keeps its aspect, and the box
+   trims the empty margin off the sides rather than padding it out. What lands
+   is 10.8px of air each side against a label's 10.9.
+
+   The mark is drawn at 75% of that line, not all of it. Filling the line made
+   it 20.1px of ink against 12.9px for the characters beside it -- half again
+   as tall, and it read as looming rather than as one control among six. 75%
+   puts it at 14.9px: still the tallest thing on the bar, since a bookmark is
+   a tall shape and shrinking it to the characters' own height made it look
+   timid, but no longer a different order of size. A percentage rather than a
+   pixel height because it then holds at both breakpoints without being said
+   twice. */
 #toggleBookmark {
   font-size: 0;
   line-height: 0;
 }
 #toggleBookmark::before {
   content: "" / "";
-  display: inline-block; width: 14px; height: 20.8px; vertical-align: middle;
+  display: inline-block; width: 10.7px; height: 20.8px; vertical-align: middle;
   background: currentColor;
-  -webkit-mask: var(--bookmark-mark) center / auto 100% no-repeat;
-  mask: var(--bookmark-mark) center / auto 100% no-repeat;
+  -webkit-mask: var(--bookmark-mark) center / auto 75% no-repeat;
+  mask: var(--bookmark-mark) center / auto 75% no-repeat;
   --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2.6h12v19l-6-5-6 5z' fill='none' stroke='%23000' stroke-width='2.3' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 #toggleBookmark.active::before {
@@ -613,7 +623,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* A line of text tall, at the size text is here, and as wide as that
      leaves the ink. Without this the ribbon kept its desktop box while the
      padding around it grew, which is where the original 8px came from. */
-  #toggleBookmark::before { width: 15px; height: 22.4px; }
+  #toggleBookmark::before { width: 11.5px; height: 22.4px; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */
