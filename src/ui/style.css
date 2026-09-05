@@ -191,6 +191,36 @@ button:disabled { opacity: .5; cursor: default; }
 .toc a:hover { background: var(--bg); }
 .toc a.current { background: var(--accent); color: var(--accent-fg); }
 
+/* The bookmark button is a ribbon rather than the word 書籤 / Bookmark.
+   DRAWN, as an SVG mask, not set as a character: ≡ ▤ ⇩ were tried as
+   characters and they sit in ranges the CJK fonts also cover, so font fallback
+   -- which is chosen by LANGUAGE -- rendered them full-width on devices whose
+   interface font lacked one, small ink adrift in a wide button. A mask takes no
+   font, so this looks the same in both interface languages on every machine.
+
+   Hollow while the spot is unmarked, filled once it is. The button also
+   reverses to the accent colour, so the two say the same thing twice -- which
+   is right here, because unlike 轉換 this control has no word left to read.
+
+   The text stays inside the button and only its size goes, so the tooltip and
+   the name a screen reader announces are unchanged. */
+#toggleBookmark {
+  font-size: 0;
+  padding: 7px 9px;
+  line-height: 0;
+}
+#toggleBookmark::before {
+  content: "" / "";
+  display: inline-block; width: 22px; height: 22px; vertical-align: middle;
+  background: currentColor;
+  -webkit-mask: var(--bookmark-mark) center / contain no-repeat;
+  mask: var(--bookmark-mark) center / contain no-repeat;
+  --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2.6h12v19l-6-5-6 5z' fill='none' stroke='%23000' stroke-width='2.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+#toggleBookmark.active::before {
+  --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h12v20l-6-5-6 5z'/%3E%3C/svg%3E");
+}
+
 /* Above the contents, and separated from it: the two lists are both "places in
    this book", and without a rule between them the second reads as more of the
    first. The rule is BELOW this section, since this one now comes first. */

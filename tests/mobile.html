@@ -822,6 +822,29 @@
       bmBar.click();
       await wait(120);
       t.eq('pressing it marks the spot', bmBar.getAttribute('aria-pressed'), 'true');
+
+      /* The button is a ribbon, and the ribbon is DRAWN. Characters were tried
+         on this bar and reverted: ≡ ▤ ⇩ sit in ranges the CJK fonts also
+         cover, so font fallback -- chosen by LANGUAGE -- rendered them
+         full-width on a device whose interface font lacked one, and no
+         measurement taken here could see it. A mask takes no font, so the
+         guard is that the mark carries no character and that the two states
+         are actually different pictures. */
+      var bmBefore = LD.defaultView.getComputedStyle(bmBar, '::before');
+      var bmText = bmBefore.content.replace(/\s*\/\s*""$/, '');
+      t.eq('the mark is drawn, not set in a font', bmText, '""');
+      t.check('and it is a mask rather than a background image',
+              /url\(/.test(bmBefore.maskImage || bmBefore.webkitMaskImage || ''),
+              'no mask: ' + (bmBefore.maskImage || '(none)'));
+      var markedMask = bmBefore.maskImage || bmBefore.webkitMaskImage;
+      bmBar.click();
+      await wait(120);
+      var unmarkedMask = LD.defaultView.getComputedStyle(bmBar, '::before').maskImage
+                      || LD.defaultView.getComputedStyle(bmBar, '::before').webkitMaskImage;
+      t.check('and the hollow one differs from the filled one',
+              markedMask !== unmarkedMask, 'both states draw the same ribbon');
+      bmBar.click();
+      await wait(120);
       t.eq('and the list shows one', LD.querySelectorAll('.bookmark-row').length, 1);
       var bmRow = LD.querySelector('.bookmark-row');
       t.check('labelled with the opening words',
