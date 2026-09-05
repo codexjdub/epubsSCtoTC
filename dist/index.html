@@ -643,16 +643,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
 @media (max-width: 420px) {
   .topbar .title { font-size: 13px; }
-}
 
-/* Below THIS width the same three go to glyphs in either language. Two Chinese
-   characters fit where an English word does not, which is why the rule above
-   is keyed on the language -- but at 320px nothing fits: six controls took the
-   whole bar and the title, which names the book you are reading, measured
-   zero. Set where Chinese actually runs out rather than at the 420px the title
-   already uses: at 375px, the common phone, 書架 and 目錄 still fit and are
-   worth more than any glyph. */
-@media (max-width: 360px) {
+  /* And here the same three go to glyphs in EITHER language, not only in
+     English. Two Chinese characters do fit at 375px where Shelf and Contents
+     do not -- but fitting is not the same as leaving room: with six controls
+     spelled out, the title came to 47px, about two characters and an ellipsis
+     of the book you are reading. Glyphs take it to 92px, which is more than
+     the bar ever gave it. Same trade as the rule above, made at the width the
+     title already shrinks at rather than at a sixth breakpoint of its own. */
   #toggleSidebar, #toggleShelf, #exportBtn {
     font-size: 0; padding-left: 10px; padding-right: 10px;
   }
@@ -694,7 +692,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.1</p>
+    <p class="hint build">v1.27.2</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>

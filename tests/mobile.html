@@ -880,11 +880,12 @@
       t.check('where the title has room too',
               px(ep.getElementById('bookTitle')).width >= 40,
               Math.round(px(ep.getElementById('bookTitle')).width) + 'px of title left');
-      /* Chinese keeps its WORDS at this width: 書架 and 目錄 fit where Shelf
-         and Contents do not, and are worth more than the glyphs that would
-         replace them. Below 360px neither fits and both go. */
-      t.check('and keeps 目錄 as a word, not a glyph',
-              px(ep.getElementById('toggleSidebar')).width >= 46,
+      /* Chinese wears the glyphs here too. 書架 and 目錄 DO fit at 375px where
+         Shelf and Contents do not -- but fitting left the title 47px, about
+         two characters of the book you are reading, and glyphs take it to 92,
+         more than this bar ever gave it. */
+      t.check('and Chinese wears the glyphs at this width too',
+              px(ep.getElementById('toggleSidebar')).width < 46,
               Math.round(px(ep.getElementById('toggleSidebar')).width) + 'px wide');
       ep.getElementById('lang').click();
       await wait(400);
