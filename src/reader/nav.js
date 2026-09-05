@@ -91,7 +91,7 @@
    * both modes hold the same band: the toolbar and pager simply count towards
    * it, and the padding makes up the difference.
    */
-  function pagedCss(mount, scale, measure) {
+  function pagedCss(mount, scale, measure, flat) {
     var parent = mount.parentNode;
     var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
     var avail = parent.clientWidth || 600;
@@ -99,13 +99,24 @@
     var col = Math.max(160, width - PAGE_GAP);
     /* The band the page keeps clear of each screen edge, and what the chrome
        already contributes to it. In focus mode the strips are out of the flow,
-       so both contributions are zero and the padding carries the whole band. */
-    var band = (window.innerHeight || 800) * 0.15;
-    var box = parent.getBoundingClientRect();
-    var above = Math.max(0, box.top);
-    var below = Math.max(0, (window.innerHeight || 800) - box.bottom);
-    var padTop = Math.max(PAGE_GAP, Math.round(band - above));
-    var padBottom = Math.max(PAGE_GAP, Math.round(band - below));
+       so both contributions are zero and the padding carries the whole band.
+
+       `flat` replaces the whole calculation, and the caller asks for it below
+       the breakpoint. Paginating on a phone the bar and the pager are IN the
+       flow -- measured at 57px above and 55px below a 664px screen -- so the
+       band is already satisfied before any padding exists, and the 48px floor
+       then put another 96px of a 551px reading box into margins for nothing. */
+    var padTop, padBottom;
+    if (flat) {
+      padTop = padBottom = flat;
+    } else {
+      var band = (window.innerHeight || 800) * 0.15;
+      var box = parent.getBoundingClientRect();
+      var above = Math.max(0, box.top);
+      var below = Math.max(0, (window.innerHeight || 800) - box.bottom);
+      padTop = Math.max(PAGE_GAP, Math.round(band - above));
+      padBottom = Math.max(PAGE_GAP, Math.round(band - below));
+    }
     return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
            'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
            'height: 100% !important; overflow: hidden !important; ' +
@@ -467,6 +478,9 @@
      * widen the window, use focus mode, and the old code handed back the phone's
      * document scroller on a desktop layout. */
     var scrollerFactory = opts.scroller || null;
+    /* Read at render time rather than stored, so it follows the breakpoint on
+       its own: every resize repaginates, and repagination re-renders. */
+    var pageMargin = opts.pageMargin || null;
     /* Starting paged means starting on the paged scroller. Setting only the
        state left the reader reading a horizontal layout through a vertical
        scroller, which reports the top of the book and never moves. */
@@ -849,7 +863,8 @@
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        (state.paged ? pagedCss(mount, state.fontScale, state.measure)
+        (state.paged ? pagedCss(mount, state.fontScale, state.measure,
+                                pageMargin ? pageMargin() : 0)
                      : modeCss(state.measure)) +
         alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +

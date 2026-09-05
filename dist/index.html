@@ -791,7 +791,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.35.2</p>
+    <p class="hint build">v1.35.3</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -2756,7 +2756,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
    * both modes hold the same band: the toolbar and pager simply count towards
    * it, and the padding makes up the difference.
    */
-  function pagedCss(mount, scale, measure) {
+  function pagedCss(mount, scale, measure, flat) {
     var parent = mount.parentNode;
     var base = parseFloat(window.getComputedStyle(parent).fontSize) || 16;
     var avail = parent.clientWidth || 600;
@@ -2764,13 +2764,24 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var col = Math.max(160, width - PAGE_GAP);
     /* The band the page keeps clear of each screen edge, and what the chrome
        already contributes to it. In focus mode the strips are out of the flow,
-       so both contributions are zero and the padding carries the whole band. */
-    var band = (window.innerHeight || 800) * 0.15;
-    var box = parent.getBoundingClientRect();
-    var above = Math.max(0, box.top);
-    var below = Math.max(0, (window.innerHeight || 800) - box.bottom);
-    var padTop = Math.max(PAGE_GAP, Math.round(band - above));
-    var padBottom = Math.max(PAGE_GAP, Math.round(band - below));
+       so both contributions are zero and the padding carries the whole band.
+
+       `flat` replaces the whole calculation, and the caller asks for it below
+       the breakpoint. Paginating on a phone the bar and the pager are IN the
+       flow -- measured at 57px above and 55px below a 664px screen -- so the
+       band is already satisfied before any padding exists, and the 48px floor
+       then put another 96px of a 551px reading box into margins for nothing. */
+    var padTop, padBottom;
+    if (flat) {
+      padTop = padBottom = flat;
+    } else {
+      var band = (window.innerHeight || 800) * 0.15;
+      var box = parent.getBoundingClientRect();
+      var above = Math.max(0, box.top);
+      var below = Math.max(0, (window.innerHeight || 800) - box.bottom);
+      padTop = Math.max(PAGE_GAP, Math.round(band - above));
+      padBottom = Math.max(PAGE_GAP, Math.round(band - below));
+    }
     return ':host { box-sizing: border-box !important; writing-mode: horizontal-tb; ' +
            'width: ' + Math.round(width) + 'px !important; margin: 0 auto !important; ' +
            'height: 100% !important; overflow: hidden !important; ' +
@@ -3132,6 +3143,9 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * widen the window, use focus mode, and the old code handed back the phone's
      * document scroller on a desktop layout. */
     var scrollerFactory = opts.scroller || null;
+    /* Read at render time rather than stored, so it follows the breakpoint on
+       its own: every resize repaginates, and repagination re-renders. */
+    var pageMargin = opts.pageMargin || null;
     /* Starting paged means starting on the paged scroller. Setting only the
        state left the reader reading a horizontal layout through a vertical
        scroller, which reports the top of the book and never moves. */
@@ -3514,7 +3528,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function styleFor(chapterCss) {
       return BASE_CSS +
         fontCss(fontStack(), state.fontScale, state.lineHeight) +
-        (state.paged ? pagedCss(mount, state.fontScale, state.measure)
+        (state.paged ? pagedCss(mount, state.fontScale, state.measure,
+                                pageMargin ? pageMargin() : 0)
                      : modeCss(state.measure)) +
         alignCss(state.align) +
         (state.showMarks ? '' : '.amb-mark { border-bottom: none; }\n') +
@@ -5316,6 +5331,18 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     };
   }
 
+  /* Decided here for the same reason the scroller is: the breakpoint lives on
+     this side, not in the reader. Paginating on a phone the bar and the pager
+     sit IN the flow, so they are already clear space above and below the text
+     -- 57px and 55px of a 664px screen -- and the band the reader computes for
+     a wider window then added 48 more at each end, spending 96px of a 551px
+     reading box on margins that were already there. Above the breakpoint,
+     zero: the band knows what it is doing when the strips can overlap. */
+  var PHONE_PAGE_MARGIN = 24;
+  function pageMarginFor() {
+    return isNarrowScreen() ? PHONE_PAGE_MARGIN : 0;
+  }
+
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
   /* Written to both lines: the landing page's own, and the reader's, since the
@@ -5612,6 +5639,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.app.classList.toggle('paged', wantPaged);
     var reader = App.reader.create(el.viewer, book, {
       scroller: scrollerFor(),
+      pageMargin: pageMarginFor,
       paged: wantPaged
     });
     current.reader = reader;

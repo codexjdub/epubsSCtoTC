@@ -911,6 +911,17 @@
               scrollingInset > 0 && Math.abs(pgInset() - scrollingInset) <= 1,
               'scrolling ' + scrollingInset + ', paged ' + pgInset());
 
+      /* Above and below, a flat margin rather than the band the reader
+         computes for a wider window. Here the bar and the pager are IN the
+         flow -- measured at 57px above and 55px below a 664px screen -- so
+         they already ARE the clear space the band is for, and the band's 48px
+         floor then spent another 96px of a 551px reading box on margins that
+         existed twice. Asked for by app.js, which is where the breakpoint
+         lives; the reader is told a number, not a width. */
+      var vpadCs = PW.getComputedStyle(pgMount());
+      t.eq('and a flat margin above and below, not the desktop band',
+           [vpadCs.paddingTop, vpadCs.paddingBottom].join(' '), '24px 24px');
+
       t.eq('pressing it paginates', PW.App.ui.current.reader.scrollerKind(), 'paged');
       /* The three facts that make a column possible here, and that the
          scrolling layout denies: a shell of a fixed height, a root that does

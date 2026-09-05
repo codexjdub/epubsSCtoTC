@@ -67,6 +67,18 @@
     };
   }
 
+  /* Decided here for the same reason the scroller is: the breakpoint lives on
+     this side, not in the reader. Paginating on a phone the bar and the pager
+     sit IN the flow, so they are already clear space above and below the text
+     -- 57px and 55px of a 664px screen -- and the band the reader computes for
+     a wider window then added 48 more at each end, spending 96px of a 551px
+     reading box on margins that were already there. Above the breakpoint,
+     zero: the band knows what it is doing when the strips can overlap. */
+  var PHONE_PAGE_MARGIN = 24;
+  function pageMarginFor() {
+    return isNarrowScreen() ? PHONE_PAGE_MARGIN : 0;
+  }
+
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
   /* Written to both lines: the landing page's own, and the reader's, since the
@@ -363,6 +375,7 @@
     el.app.classList.toggle('paged', wantPaged);
     var reader = App.reader.create(el.viewer, book, {
       scroller: scrollerFor(),
+      pageMargin: pageMarginFor,
       paged: wantPaged
     });
     current.reader = reader;
