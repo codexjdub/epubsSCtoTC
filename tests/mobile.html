@@ -469,6 +469,26 @@
            'presetTop,toggleSource,toggleMarks,toggleReport,exportFormat,punctTop,exportRun');
       DD.getElementById('docBtn').click();
       await wait(60);
+
+      /* Aa in two groups: what the page looks like, then how you read it and
+         how the app behaves. Ten controls in a flat column said nothing about
+         which was which, and 語言 sat between 主題 and 專注閱讀 -- an app
+         preference in the middle of the reading controls. Asserted as a
+         sequence, since the order IS the grouping. */
+      DD.getElementById('aaBtn').click();
+      await wait(80);
+      t.eq('the reading panel runs looks-then-behaviour',
+           Array.prototype.map.call(
+             DD.getElementById('aaPanel').querySelectorAll('button,select,input'),
+             function (e) { return e.id; }).join(','),
+           'fontStyle,fontSmaller,fontBigger,lineHeight,measure,align,theme,' +
+           'togglePaged,toggleFocus,lang,toggleVim');
+      t.check('with a rule drawn where the two meet',
+              !!DD.querySelector('#aaPanel .split'),
+              'the split is not shown, so the grouping is invisible');
+      DD.getElementById('aaBtn').click();
+      await wait(60);
+
       t.eq('reading settings are a panel on desktop too',
            DW.getComputedStyle(dAa).display, 'none');
       t.check('the bar itself is a single row',
