@@ -119,6 +119,35 @@
       await App.library.save(await App.parse.load(aCopy), aCopy, 'a-again.epub');
       t.eq('re-adding the same file does not duplicate', (await App.library.list()).length, 2);
 
+      /* And opening a stored book WRITES NOTHING.
+       *
+       * IndexedDB has no partial update -- put() replaces the whole object,
+       * and the object carries the entire EPUB -- so stamping lastOpenedAt on
+       * the record used to write the book again, and save() then wrote it a
+       * second time because it runs on every open. Two whole copies per open.
+       * WebKit does not reclaim the overwritten ones promptly, so on a phone a
+       * 382KB book was reported as 17.2MB and climbed every time it was
+       * opened. Counted here rather than measured, because the growth is the
+       * browser's to reveal and only the writes are ours. */
+      var puts = 0;
+      var realPut = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function () { puts++; return realPut.apply(this, arguments); };
+      try {
+        var idA = App.library.idFor(bookA);
+        await App.library.load(idA);
+        await App.library.save(bookA, a, 'a.epub');
+        t.eq('opening a stored book writes nothing', puts, 0);
+      } finally {
+        IDBObjectStore.prototype.put = realPut;
+      }
+
+      /* The timestamp still moves, which is what the record was being
+         rewritten FOR: the shelf sorts on it and the row reads "today". */
+      var seen = (await App.library.list()).filter(function (x) { return x.id === App.library.idFor(bookA); })[0];
+      t.check('but the book still counts as opened just now',
+              seen && Date.now() - seen.lastOpenedAt < 60000,
+              seen ? String(seen.lastOpenedAt) : 'the book vanished from the list');
+
       var refused = await App.library.save(bookA, { byteLength: App.library.MAX_BYTES + 1 }, 'huge');
       t.check('an oversized book is refused with a reason',
               !refused.saved && /Too large/.test(refused.reason), JSON.stringify(refused));

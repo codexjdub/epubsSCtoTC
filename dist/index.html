@@ -703,7 +703,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.32.0</p>
+    <p class="hint build">v1.32.1</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -4991,14 +4991,61 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     return App.reader.hashKey(book);
   }
 
+  /* When each book was last opened, kept OUT of the book's own record.
+   *
+   * IndexedDB has no partial update: put() replaces the whole object, and the
+   * object carries the entire EPUB. Stamping a timestamp on it therefore wrote
+   * the book again -- and WebKit does not reclaim the overwritten copy
+   * promptly, so on a phone the stored size climbed by a book on every open
+   * and never came back down. Measured against a 382KB book reported as
+   * 17.2MB, and confirmed by the one test that separates the two: refreshing
+   * without opening the book did not move it, opening it did.
+   *
+   * A timestamp does not need to live beside the bytes. It is small, it
+   * changes often, and losing it costs a sort order and a "3 days ago". */
+  var OPENED_KEY = 'epub-tc:opened';
+  var openedMemory = null;
+
+  function openedMap() {
+    if (openedMemory) return openedMemory;
+    try {
+      var raw = window.localStorage.getItem(OPENED_KEY);
+      openedMemory = raw ? JSON.parse(raw) : {};
+    } catch (e) { openedMemory = {}; }
+    return openedMemory;
+  }
+
+  /* Remembered in memory before the write, so a browser that refuses storage
+     still sorts the shelf correctly for this session -- the same shape the
+     reader's own preferences use. */
+  function markOpened(id) {
+    var map = openedMap();
+    map[id] = Date.now();
+    try { window.localStorage.setItem(OPENED_KEY, JSON.stringify(map)); }
+    catch (e) { /* ignore */ }
+  }
+
+  function forgetOpened(id) {
+    var map = openedMap();
+    if (!(id in map)) return;
+    delete map[id];
+    try { window.localStorage.setItem(OPENED_KEY, JSON.stringify(map)); }
+    catch (e) { /* ignore */ }
+  }
+
   async function list() {
     if (!available()) return [];
     var db = await open();
     var rows = await tx(db, 'readonly', function (store) { return store.getAll(); });
     db.close();
+    /* lastOpenedAt is overlaid from the map rather than read off the record,
+       so the shelf subtitle and this sort go on working unchanged. Rows saved
+       before the map existed still carry their own, which is the fallback. */
+    var opened = openedMap();
     return (rows || []).map(function (r) {
       return { id: r.id, title: r.title, creator: r.creator, language: r.language,
-               size: r.size, addedAt: r.addedAt, lastOpenedAt: r.lastOpenedAt,
+               size: r.size, addedAt: r.addedAt,
+               lastOpenedAt: opened[r.id] || r.lastOpenedAt,
                cover: r.cover || null, coverType: r.coverType || '' };
     }).sort(function (a, b) { return (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0); });
   }
@@ -5036,9 +5083,19 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     try {
       var db = await open();
       var existing = await tx(db, 'readonly', function (s) { return s.get(record.id); });
+      /* Already here, so there is nothing to write. The id is a content hash:
+         a row under it holds these exact bytes. This runs on EVERY open --
+         reopening from the shelf comes through here too -- and re-putting the
+         record wrote the whole EPUB again for no change at all. */
+      if (existing && existing.bytes) {
+        db.close();
+        markOpened(record.id);
+        return { saved: true, id: record.id };
+      }
       if (existing && existing.addedAt) record.addedAt = existing.addedAt;
       await tx(db, 'readwrite', function (s) { return s.put(record); });
       db.close();
+      markOpened(record.id);
       return { saved: true, id: record.id };
     } catch (e) {
       return { saved: false, reason: e.message };
@@ -5049,11 +5106,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     if (!available()) return null;
     var db = await open();
     var row = await tx(db, 'readonly', function (s) { return s.get(id); });
-    if (row && row.bytes) {
-      row.lastOpenedAt = Date.now();
-      await tx(db, 'readwrite', function (s) { return s.put(row); });
-    }
     db.close();
+    if (row && row.bytes) markOpened(id);
     return row && row.bytes ? row.bytes : null;
   }
 
@@ -5062,6 +5116,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var db = await open();
     await tx(db, 'readwrite', function (s) { return s.delete(id); });
     db.close();
+    forgetOpened(id);
   }
 
   /* Browsers may evict IndexedDB under storage pressure. This asks for
