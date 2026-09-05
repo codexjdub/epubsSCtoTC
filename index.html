@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.32.5</p>
+    <p class="hint build">v1.33.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -63,11 +63,18 @@
            rows and left the title 77px. -->
       <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
               aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
-      <button id="convBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
-      <button id="exportBtn" class="primary grouped" type="button" aria-expanded="false"
-              aria-controls="exportPanel" data-i18n-title="bar.export.title"
-              data-i18n="bar.export">匯出</button>
+      <!-- 文稿: one button where 轉換 and 匯出 were two. They are one question
+           asked twice -- which written form of this book am I reading, and can
+           I have a copy of it -- and splitting them put the answer on both
+           sides of the title while costing the bar a control at every width.
+           Six and a title did not fit 320px, so 匯出 used to leave the bar
+           there and come back as a second way in from the shelf. Five fit.
+
+           Not .primary any more: the emphasis belongs on the button that
+           writes the file, inside the panel, not on the way in. -->
+      <button id="docBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="docPanel" data-i18n-title="bar.doc.title"
+              data-i18n="bar.doc">文稿</button>
 
       <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
@@ -117,22 +124,20 @@
                 data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
       </div>
 
-      <!-- Everything about producing a file, in one place, at the moment you
-           want one. These used to sit in the 轉換 panel, which is named for
-           the conversion you are reading rather than for the file you are
-           making, and only took effect via a button on the other side of the
-           bar. -->
-      <div class="bar-panel hidden" id="exportPanel">
-        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
-        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
-        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
-      </div>
-
-      <div class="bar-panel hidden" id="convPanel">
+      <!-- In reading order. Above the rule, what this book IS -- which form
+           it was converted to, whether you are looking at the original, what
+           was changed, and the report on it -- all of which you reach for
+           while reading. Below it, the file you take away, which you reach for
+           once, at the end. -->
+      <div class="bar-panel hidden" id="docPanel">
         <label><select id="presetTop"></select></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
         <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>
+        <div class="split"></div>
+        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
+        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
@@ -149,14 +154,6 @@
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
           <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
-          <!-- Export's way in on the smallest screens, where 匯出 comes off the
-               bar: six controls and a title do not fit 320px, and exporting is
-               the one thing here you do once at the end rather than while
-               reading. This panel is already the one about books as FILES --
-               open one, drag one in, remove one -- so making one belongs with
-               them. Shown by CSS only at that width. -->
-          <button id="exportFromShelf" type="button" class="open-new"
-                  data-i18n="shelf.export">匯出這本書…</button>
           <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>

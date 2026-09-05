@@ -238,8 +238,8 @@
       t.check('with room to read some of it',
               px(D.getElementById('bookTitle')).width > 30,
               Math.round(px(D.getElementById('bookTitle')).width) + 'px');
-      t.eq('the export button reads the same on a phone',
-           D.getElementById('exportBtn').textContent, '匯出');
+      t.eq('the document button reads the same on a phone',
+           D.getElementById('docBtn').textContent, '文稿');
 
       t.eq('the pager leaves the flow on a phone',
            W.getComputedStyle(pager).position, 'fixed');
@@ -277,13 +277,13 @@
       await wait(120);
 
       /* A panel hangs off the bar, so tucking would carry it off screen. */
-      D.getElementById('convBtn').click();
+      D.getElementById('docBtn').click();
       await wait(60);
       scrollTo(600);
       await wait(150);
       t.check('an open panel keeps the bar in place',
               !bar.classList.contains('tucked'), 'tucked with a panel open');
-      D.getElementById('convBtn').click();
+      D.getElementById('docBtn').click();
       await wait(60);
       scrollTo(0);
       await wait(120);
@@ -332,11 +332,11 @@
       t.check('panel stays on screen', px(aa).right <= W.innerWidth + 1,
               'overflows by ' + Math.round(px(aa).right - W.innerWidth));
       /* One at a time: opening one panel closes whatever else was open. */
-      D.getElementById('convBtn').click();
+      D.getElementById('docBtn').click();
       await wait(60);
-      t.check('opening 轉換 closes Aa',
+      t.check('opening 文稿 closes Aa',
               W.getComputedStyle(aa).display === 'none', 'both open at once');
-      D.getElementById('convBtn').click();
+      D.getElementById('docBtn').click();
       await wait(60);
       /* Only buttons dismiss the menu, so use one whose effect is trivially
          reversible rather than a control that re-renders the chapter. */
@@ -432,29 +432,27 @@
       /* The panels behave the same at every width now. Fifteen inline controls
          wrapped the bar to two rows at 1280px and left the title 77px, so the
          grouping is not a phone concession. */
-      /* The bar's button is a way into the export options, not the action, so
-         it reads the same at every width; the format is named on the button
-         that actually writes the file, where the format is chosen. */
-      t.eq('the bar button just says 匯出',
-           DD.getElementById('exportBtn').textContent, '匯出');
-      DD.getElementById('exportBtn').click();
+      /* The bar's button is a way into the panel, not the action, so it reads
+         the same at every width; the format is named on the button that
+         actually writes the file, where the format is chosen. */
+      t.eq('the bar button just says 文稿',
+           DD.getElementById('docBtn').textContent, '文稿');
+      DD.getElementById('docBtn').click();
       await wait(80);
-      t.check('pressing it opens the export options',
-              !DD.getElementById('exportPanel').classList.contains('hidden'), 'stayed shut');
-      t.check('which is where the format lives',
-              !!DD.getElementById('exportFormat') && !!DD.getElementById('punctTop'),
-              'export settings are elsewhere');
+      t.check('pressing it opens the document panel',
+              !DD.getElementById('docPanel').classList.contains('hidden'), 'stayed shut');
       t.eq('and the action names the format',
            DD.getElementById('exportRun').textContent, '匯出 EPUB');
-      t.check('the conversion panel keeps only the conversion',
-              Array.prototype.map.call(
-                DD.getElementById('convPanel').querySelectorAll('button,select,input'),
-                function (e) { return e.id; }).join(',') ===
-              'presetTop,toggleSource,toggleMarks,toggleReport',
-              Array.prototype.map.call(
-                DD.getElementById('convPanel').querySelectorAll('button,select,input'),
-                function (e) { return e.id; }).join(','));
-      DD.getElementById('exportBtn').click();
+      /* One panel, in reading order: what this book IS, then -- past the rule
+         -- the file you can take away. They were two buttons on two sides of
+         the title, which is one question asked twice. The order is the whole
+         claim here, so it is asserted as a sequence rather than as a set. */
+      t.eq('and it holds the conversion and the export, in that order',
+           Array.prototype.map.call(
+             DD.getElementById('docPanel').querySelectorAll('button,select,input'),
+             function (e) { return e.id; }).join(','),
+           'presetTop,toggleSource,toggleMarks,toggleReport,exportFormat,punctTop,exportRun');
+      DD.getElementById('docBtn').click();
       await wait(60);
       t.eq('reading settings are a panel on desktop too',
            DW.getComputedStyle(dAa).display, 'none');
@@ -474,7 +472,7 @@
               'a left control is right of the title');
       t.check('右: the settings buttons sit with their panels',
               px(DD.getElementById('aaBtn')).left >= dTitle.right - 1 &&
-              px(DD.getElementById('convBtn')).left >= dTitle.right - 1,
+              px(DD.getElementById('docBtn')).left >= dTitle.right - 1,
               'a right control is left of the title');
       t.check('the contents button overlaps the sidebar it opens',
               px(DD.getElementById('toggleSidebar')).left < px(dSidebar).right,
@@ -497,7 +495,7 @@
       landingStatus.textContent = '';
 
       t.check('the controls that stay on the bar are visible',
-              ['toggleShelf', 'toggleSidebar', 'aaBtn', 'convBtn', 'exportBtn']
+              ['toggleShelf', 'toggleSidebar', 'toggleBookmark', 'aaBtn', 'docBtn']
                 .every(function (id) {
                   var e = DD.getElementById(id);
                   return e && e.getClientRects().length > 0;
@@ -512,10 +510,10 @@
       DD.getElementById('aaBtn').click();
       /* Wrapping is acceptable; losing a control off the right edge is not --
          that was the actual bug when the bar was set to nowrap. */
-      var dExport = px(DD.getElementById('exportBtn'));
-      t.check('export stays fully on screen on desktop',
-              dExport.right <= DW.innerWidth + 1 && dExport.left >= 0,
-              'right edge at ' + Math.round(dExport.right) + ' of ' + DW.innerWidth);
+      var dLast = px(DD.getElementById('docBtn'));
+      t.check('the last control stays fully on screen on desktop',
+              dLast.right <= DW.innerWidth + 1 && dLast.left >= 0,
+              'right edge at ' + Math.round(dLast.right) + ' of ' + DW.innerWidth);
       t.check('toolbar stays a sensible height',
               px(DD.getElementById('topbar')).height <= 110,
               Math.round(px(DD.getElementById('topbar')).height) + 'px');
@@ -752,7 +750,7 @@
 
       t.eq('switching relabels the bar', LD.getElementById('toggleShelf').textContent, 'Shelf');
       t.eq('and the contents button', LD.getElementById('toggleSidebar').textContent, 'Contents');
-      t.eq('and the export button', LD.getElementById('exportBtn').textContent, 'Export');
+      t.eq('and the document button', LD.getElementById('docBtn').textContent, 'Document');
       t.eq('and the action inside it', LD.getElementById('exportRun').textContent, 'Export EPUB');
       t.eq('and the pager', LD.getElementById('next').textContent, 'Chapter →');
       t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
@@ -831,10 +829,11 @@
            LD.getElementById('toggleShelf').textContent, '書架');
 
       /* ---- the smallest bar ----
-         Six controls and a title do not fit 320px, so 匯出 leaves the bar and
-         its way in moves to the shelf panel -- the one already about books as
-         files. Asserted at 320 AND at 375, because a rule that hid it
-         everywhere would pass the first half of this on its own. */
+         Six controls and a title did not fit 320px, so 匯出 used to leave the
+         bar here and come back as a second way in from the shelf. 轉換 and 匯出
+         are one button now, and five fit -- so the media query, the shelf
+         button and its label are all gone, and what stands in their place is
+         the plain claim they were working around. */
       var tiny = await mount(320, 700);
       await loadBook(tiny);
       var TD = tiny.contentDocument;
@@ -842,8 +841,10 @@
         var e = doc.getElementById(id);
         return !!(e && e.offsetParent !== null);
       }
-      t.check('at 320px the export button leaves the bar',
-              !shown(TD, 'exportBtn'), 'export still on the bar');
+      t.check('at 320px every control stays on the bar',
+              ['toggleShelf', 'toggleSidebar', 'toggleBookmark', 'aaBtn', 'docBtn']
+                .every(function (id) { return shown(TD, id); }),
+              'a control left the bar at 320px');
       var tinyRows = {};
       Array.prototype.forEach.call(TD.querySelectorAll('#topbar > button'), function (b) {
         if (b.offsetParent !== null) tinyRows[Math.round(px(b).top)] = 1;
@@ -852,34 +853,17 @@
       t.check('leaving the title something to say',
               px(TD.getElementById('bookTitle')).width >= 30,
               Math.round(px(TD.getElementById('bookTitle')).width) + 'px of title');
-
-      /* And it is still reachable, which is the whole point of moving it
-         rather than dropping it. */
-      TD.getElementById('toggleShelf').click();
-      await wait(120);
-      t.check('the shelf offers the way to export instead',
-              shown(TD, 'exportFromShelf'), 'no export route at all at 320px');
-      TD.getElementById('exportFromShelf').click();
-      await wait(150);
-      t.check('and pressing it opens the export panel',
-              !TD.getElementById('exportPanel').classList.contains('hidden'),
-              'export panel stayed shut');
-      t.check('with the shelf out of the way',
-              TD.getElementById('shelfPanel').classList.contains('hidden'),
-              'the shelf stayed open underneath it');
+      /* The workaround has to go WITH the width that needed it. Left behind,
+         it would be a button in the shelf opening a panel the bar already
+         opens, at every width. */
+      t.check('and the shelf carries no second way to export',
+              !TD.getElementById('exportFromShelf'),
+              'the 340px workaround outlived the width it was for');
       tiny.remove();
 
-      /* The other half: a rule that hid export everywhere would satisfy all of
-         the above on its own. */
       var ordinary = await mount(PHONE, 700);
       await loadBook(ordinary);
       var OD = ordinary.contentDocument;
-      t.check('while at 375px export is on the bar as before',
-              shown(OD, 'exportBtn'), 'export left the bar too early');
-      OD.getElementById('toggleShelf').click();
-      await wait(120);
-      t.check('and the shelf does not offer a second one',
-              !shown(OD, 'exportFromShelf'), 'two export routes at once');
 
       /* At the width it was reported from, and the reason it was worse here:
          the touch-target rule enlarges every bar button, and an ID selector

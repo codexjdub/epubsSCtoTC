@@ -399,6 +399,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel .row button { flex: 1; }
 /* The action inside the export options, set apart from the settings above it. */
 .bar-panel .primary { margin-top: 2px; justify-content: center; text-align: center; }
+/* Divides what this book is from the file you can take away. The panel is a
+   column with a gap, so a bare line is enough; a heading each side would say
+   out loud what the order already says. */
+.bar-panel .split { border-top: 1px solid var(--line); margin: 4px 0 2px; }
 .topbar .grouped[aria-expanded="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
 }
@@ -521,8 +525,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   border-style: dashed; font-weight: 600;
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
-/* Only for the width where 匯出 comes off the bar; see the 340px block. */
-#exportFromShelf { display: none; }
 .shelf-panel .drag-hint {
   margin: 6px 2px 0; text-align: center; font-size: 11px;
 }
@@ -696,20 +698,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .topbar .title { font-size: 13px; }
 }
 
-/* Something has to leave the bar down here. Six controls and a title do not fit
-   320px: with the glyphs as large as they need to be to read, English had no
-   title left at all and Chinese had 18px of one -- and the title is what says
-   which book you are in.
-
-   匯出 is the one to go. Everything else on this bar is used WHILE reading --
-   where am I, what does it look like, keep this spot -- and exporting is done
-   once, at the end. It moves into the shelf panel, which is already the panel
-   about books as files: open one, drag one in, remove one, make one. */
-@media (max-width: 340px) {
-  #exportBtn { display: none; }
-  #exportFromShelf { display: block; }
-}
-
 </style>
 </head>
 <body>
@@ -740,7 +728,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.32.5</p>
+    <p class="hint build">v1.33.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -769,11 +757,18 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
            rows and left the title 77px. -->
       <button id="aaBtn" class="grouped" type="button" aria-expanded="false"
               aria-controls="aaPanel" data-i18n-title="bar.aa.title">Aa</button>
-      <button id="convBtn" class="grouped" type="button" aria-expanded="false"
-              aria-controls="convPanel" data-i18n-title="bar.convert.title" data-i18n="bar.convert">轉換</button>
-      <button id="exportBtn" class="primary grouped" type="button" aria-expanded="false"
-              aria-controls="exportPanel" data-i18n-title="bar.export.title"
-              data-i18n="bar.export">匯出</button>
+      <!-- 文稿: one button where 轉換 and 匯出 were two. They are one question
+           asked twice -- which written form of this book am I reading, and can
+           I have a copy of it -- and splitting them put the answer on both
+           sides of the title while costing the bar a control at every width.
+           Six and a title did not fit 320px, so 匯出 used to leave the bar
+           there and come back as a second way in from the shelf. Five fit.
+
+           Not .primary any more: the emphasis belongs on the button that
+           writes the file, inside the panel, not on the way in. -->
+      <button id="docBtn" class="grouped" type="button" aria-expanded="false"
+              aria-controls="docPanel" data-i18n-title="bar.doc.title"
+              data-i18n="bar.doc">文稿</button>
 
       <div class="bar-panel hidden" id="aaPanel">
         <label><select id="fontStyle" data-i18n-title="panel.typeface.title"></select></label>
@@ -823,22 +818,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
                 data-i18n-title="panel.vim.title" data-i18n="panel.vim">Vim 模式</button>
       </div>
 
-      <!-- Everything about producing a file, in one place, at the moment you
-           want one. These used to sit in the 轉換 panel, which is named for
-           the conversion you are reading rather than for the file you are
-           making, and only took effect via a button on the other side of the
-           bar. -->
-      <div class="bar-panel hidden" id="exportPanel">
-        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
-        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
-        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
-      </div>
-
-      <div class="bar-panel hidden" id="convPanel">
+      <!-- In reading order. Above the rule, what this book IS -- which form
+           it was converted to, whether you are looking at the original, what
+           was changed, and the report on it -- all of which you reach for
+           while reading. Below it, the file you take away, which you reach for
+           once, at the end. -->
+      <div class="bar-panel hidden" id="docPanel">
         <label><select id="presetTop"></select></label>
         <button id="toggleSource" type="button" aria-pressed="false" data-i18n="reader.source.original">原文</button>
         <button id="toggleMarks" type="button" aria-pressed="false" data-i18n="panel.marks.show">顯示標記</button>
         <button id="toggleReport" type="button" data-i18n="panel.report">轉換報告</button>
+        <div class="split"></div>
+        <label><select id="exportFormat" data-i18n-title="panel.format.title"></select></label>
+        <label><input type="checkbox" id="punctTop"/> <span data-i18n="panel.punct">匯出時轉為「 」</span></label>
+        <button id="exportRun" class="primary" type="button" data-i18n="panel.export.run">匯出檔案</button>
       </div>
 
       <div class="shelf-panel hidden" id="shelfPanel">
@@ -855,14 +848,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
              action stays put instead of scrolling out of reach. -->
         <div class="shelf-foot">
           <button id="openNew" type="button" class="open-new" data-i18n="shelf.open">開啟新書…</button>
-          <!-- Export's way in on the smallest screens, where 匯出 comes off the
-               bar: six controls and a title do not fit 320px, and exporting is
-               the one thing here you do once at the end rather than while
-               reading. This panel is already the one about books as FILES --
-               open one, drag one in, remove one -- so making one belongs with
-               them. Shown by CSS only at that width. -->
-          <button id="exportFromShelf" type="button" class="open-new"
-                  data-i18n="shelf.export">匯出這本書…</button>
           <p class="hint drag-hint" data-i18n="shelf.drag">也可以把 EPUB 拖進視窗</p>
         </div>
       </div>
@@ -4554,12 +4539,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'bar.shelf.title': ['已存的書', 'Books saved on this device'],
     'bar.toc': ['目錄', 'Contents'],
     'bar.aa.title': ['閱讀設定', 'Reading settings'],
-    'bar.convert': ['轉換', 'Convert'],
-    'bar.convert.title': ['轉換設定', 'Conversion settings'],
-    /* The bar's button opens the export options; the one inside them does it.
-       The format is chosen there, so the bar's label no longer names it. */
-    'bar.export': ['匯出', 'Export'],
-    'bar.export.title': ['匯出檔案', 'Export a file'],
+    /* One name for the conversion and the export together, since they are one
+       question: what this book is, and what you can take away. 轉換 named
+       only the first half and 匯出 only the second, and neither could hold
+       both. The bar's button opens the panel; the one inside writes the file,
+       and names the format, so this label does not. */
+    'bar.doc': ['文稿', 'Document'],
+    'bar.doc.title': ['轉換與匯出', 'Conversion and export'],
     'panel.export.run': ['匯出 {format}', 'Export {format}'],
     'panel.format.title': ['匯出格式', 'Export format'],
     'format.epub': ['EPUB', 'EPUB'],
@@ -4663,7 +4649,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     /* ---- the shelf ---- */
     'shelf.open': ['開啟新書…', 'Open a book…'],
-    'shelf.export': ['匯出這本書…', 'Export this book…'],
     'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB anywhere on this page'],
     'shelf.count': ['這部裝置存了 {n} 本書。', '{n} books saved on this device.'],
     'shelf.count.one': ['這部裝置存了 1 本書。', '1 book saved on this device.'],
@@ -5872,7 +5857,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
     el.openNew = $('openNew');
-    el.exportFromShelf = $('exportFromShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
@@ -5880,7 +5864,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
-    el.exportBtn = $('exportBtn');
+    el.docBtn = $('docBtn');
     el.reportPanel = $('reportPanel');
     el.reportBody = $('reportBody');
     el.theme = $('theme');
@@ -5899,13 +5883,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.measure = $('measure');
     el.align = $('align');
     el.exportFormat = $('exportFormat');
-    el.exportPanel = $('exportPanel');
+    el.docPanel = $('docPanel');
     el.exportRun = $('exportRun');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
-    el.convBtn = $('convBtn');
-    el.convPanel = $('convPanel');
     el.backdrop = $('drawerBackdrop');
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
@@ -5993,8 +5975,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     var dropdowns = [
       { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
       { btn: el.aaBtn, panel: el.aaPanel },
-      { btn: el.convBtn, panel: el.convPanel },
-      { btn: el.exportBtn, panel: el.exportPanel }
+      { btn: el.docBtn, panel: el.docPanel }
     ];
 
     function setDropdown(entry, open) {
@@ -6019,23 +6000,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
     document.addEventListener('click', function () { closeDropdowns(null); });
 
-    /* The second way into the export panel, for the widths where 匯出 is not on
-       the bar. The panel is anchored to the BAR rather than to whatever opened
-       it, so it lands in the same place either way; all this has to do is shut
-       the shelf on the way, since a click inside a panel is stopped from
-       reaching the document handler that would otherwise close it. */
-    var exportDropdown = dropdowns[dropdowns.length - 1];
-    el.exportFromShelf.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      closeDropdowns(null);
-      setDropdown(exportDropdown, true);
-    });
-
     /* A control that changes what you are looking at closes the panel, so you
        can see what it did. One that is adjusted by degrees -- the font size
        steps, and any select or slider -- leaves it open: closing after the
        first press means aiming at the button again for every step. */
-    [el.aaPanel, el.convPanel, el.exportPanel].forEach(function (panel) {
+    [el.aaPanel, el.docPanel].forEach(function (panel) {
       panel.addEventListener('click', function (ev) {
         if (ev.target.localName !== 'button') return;
         if (ev.target.hasAttribute('data-keep-open')) return;

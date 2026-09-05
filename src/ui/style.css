@@ -392,6 +392,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel .row button { flex: 1; }
 /* The action inside the export options, set apart from the settings above it. */
 .bar-panel .primary { margin-top: 2px; justify-content: center; text-align: center; }
+/* Divides what this book is from the file you can take away. The panel is a
+   column with a gap, so a bare line is enough; a heading each side would say
+   out loud what the order already says. */
+.bar-panel .split { border-top: 1px solid var(--line); margin: 4px 0 2px; }
 .topbar .grouped[aria-expanded="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
 }
@@ -514,8 +518,6 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   border-style: dashed; font-weight: 600;
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
-/* Only for the width where 匯出 comes off the bar; see the 340px block. */
-#exportFromShelf { display: none; }
 .shelf-panel .drag-hint {
   margin: 6px 2px 0; text-align: center; font-size: 11px;
 }
@@ -687,18 +689,4 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 
 @media (max-width: 420px) {
   .topbar .title { font-size: 13px; }
-}
-
-/* Something has to leave the bar down here. Six controls and a title do not fit
-   320px: with the glyphs as large as they need to be to read, English had no
-   title left at all and Chinese had 18px of one -- and the title is what says
-   which book you are in.
-
-   匯出 is the one to go. Everything else on this bar is used WHILE reading --
-   where am I, what does it look like, keep this spot -- and exporting is done
-   once, at the end. It moves into the shelf panel, which is already the panel
-   about books as files: open one, drag one in, remove one, make one. */
-@media (max-width: 340px) {
-  #exportBtn { display: none; }
-  #exportFromShelf { display: block; }
 }

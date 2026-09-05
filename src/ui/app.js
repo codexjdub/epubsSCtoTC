@@ -693,7 +693,6 @@
     el.shelfNote = $('shelfNote');
     el.toggleShelf = $('toggleShelf');
     el.openNew = $('openNew');
-    el.exportFromShelf = $('exportFromShelf');
     el.sidebar = $('sidebar');
     el.prev = $('prev');
     el.pager = document.querySelector('.pager');
@@ -701,7 +700,7 @@
     el.back = $('back');
     el.next = $('next');
     el.position = $('position');
-    el.exportBtn = $('exportBtn');
+    el.docBtn = $('docBtn');
     el.reportPanel = $('reportPanel');
     el.reportBody = $('reportBody');
     el.theme = $('theme');
@@ -720,13 +719,11 @@
     el.measure = $('measure');
     el.align = $('align');
     el.exportFormat = $('exportFormat');
-    el.exportPanel = $('exportPanel');
+    el.docPanel = $('docPanel');
     el.exportRun = $('exportRun');
     el.toggleSidebar = $('toggleSidebar');
     el.aaBtn = $('aaBtn');
     el.aaPanel = $('aaPanel');
-    el.convBtn = $('convBtn');
-    el.convPanel = $('convPanel');
     el.backdrop = $('drawerBackdrop');
     el.toggleMarks = $('toggleMarks');
     el.banner = $('originalBanner');
@@ -814,8 +811,7 @@
     var dropdowns = [
       { btn: el.toggleShelf, panel: el.shelfPanel, onOpen: renderShelf },
       { btn: el.aaBtn, panel: el.aaPanel },
-      { btn: el.convBtn, panel: el.convPanel },
-      { btn: el.exportBtn, panel: el.exportPanel }
+      { btn: el.docBtn, panel: el.docPanel }
     ];
 
     function setDropdown(entry, open) {
@@ -840,23 +836,11 @@
     });
     document.addEventListener('click', function () { closeDropdowns(null); });
 
-    /* The second way into the export panel, for the widths where 匯出 is not on
-       the bar. The panel is anchored to the BAR rather than to whatever opened
-       it, so it lands in the same place either way; all this has to do is shut
-       the shelf on the way, since a click inside a panel is stopped from
-       reaching the document handler that would otherwise close it. */
-    var exportDropdown = dropdowns[dropdowns.length - 1];
-    el.exportFromShelf.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      closeDropdowns(null);
-      setDropdown(exportDropdown, true);
-    });
-
     /* A control that changes what you are looking at closes the panel, so you
        can see what it did. One that is adjusted by degrees -- the font size
        steps, and any select or slider -- leaves it open: closing after the
        first press means aiming at the button again for every step. */
-    [el.aaPanel, el.convPanel, el.exportPanel].forEach(function (panel) {
+    [el.aaPanel, el.docPanel].forEach(function (panel) {
       panel.addEventListener('click', function (ev) {
         if (ev.target.localName !== 'button') return;
         if (ev.target.hasAttribute('data-keep-open')) return;

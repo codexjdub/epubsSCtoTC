@@ -45,12 +45,13 @@
     'bar.shelf.title': ['已存的書', 'Books saved on this device'],
     'bar.toc': ['目錄', 'Contents'],
     'bar.aa.title': ['閱讀設定', 'Reading settings'],
-    'bar.convert': ['轉換', 'Convert'],
-    'bar.convert.title': ['轉換設定', 'Conversion settings'],
-    /* The bar's button opens the export options; the one inside them does it.
-       The format is chosen there, so the bar's label no longer names it. */
-    'bar.export': ['匯出', 'Export'],
-    'bar.export.title': ['匯出檔案', 'Export a file'],
+    /* One name for the conversion and the export together, since they are one
+       question: what this book is, and what you can take away. 轉換 named
+       only the first half and 匯出 only the second, and neither could hold
+       both. The bar's button opens the panel; the one inside writes the file,
+       and names the format, so this label does not. */
+    'bar.doc': ['文稿', 'Document'],
+    'bar.doc.title': ['轉換與匯出', 'Conversion and export'],
     'panel.export.run': ['匯出 {format}', 'Export {format}'],
     'panel.format.title': ['匯出格式', 'Export format'],
     'format.epub': ['EPUB', 'EPUB'],
@@ -154,7 +155,6 @@
 
     /* ---- the shelf ---- */
     'shelf.open': ['開啟新書…', 'Open a book…'],
-    'shelf.export': ['匯出這本書…', 'Export this book…'],
     'shelf.drag': ['也可以把 EPUB 拖進視窗', 'You can also drop an EPUB anywhere on this page'],
     'shelf.count': ['這部裝置存了 {n} 本書。', '{n} books saved on this device.'],
     'shelf.count.one': ['這部裝置存了 1 本書。', '1 book saved on this device.'],
