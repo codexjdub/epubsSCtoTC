@@ -268,6 +268,35 @@ button:disabled { opacity: .5; cursor: default; }
   mask: var(--bookmark-mark) center / auto 75% no-repeat;
   --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2.6h12v19l-6-5-6 5z' fill='none' stroke='%23000' stroke-width='2.3' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+/* The contents button, drawn for the same reason the bookmark is: a character
+   would be picked by font fallback, and fallback follows the interface
+   LANGUAGE, so the same glyph is a different picture in the two locales and a
+   full-width one on any device whose interface font lacks it.
+
+   Three lines of unequal length, because a table of contents is a list of
+   titles and titles are not all one length. That is the whole idea of the
+   mark, and it is the part most at risk from the size: at 15px the difference
+   between the longest and shortest line is about 3px of ink.
+
+   Drawn at 85% of the line rather than the ribbon's 75%. Not an inconsistency
+   -- the constraint is the ink, not the box, and these are opposite shapes.
+   The ribbon is tall and narrow and 75% is what stopped it towering over the
+   characters; this mark is wide and short, so the same fraction would have
+   left it 9.8px tall against text inking 12.9. 85% puts it at 11.1 by 14.3,
+   which sits with the ribbon's 13.5 by 15 rather than under it. */
+#toggleSidebar {
+  font-size: 0;
+  line-height: 0;
+}
+#toggleSidebar::before {
+  content: "" / "";
+  display: inline-block; width: 14.8px; height: 20.8px; vertical-align: middle;
+  background: currentColor;
+  -webkit-mask: var(--toc-mark) center / auto 85% no-repeat;
+  mask: var(--toc-mark) center / auto 85% no-repeat;
+  --toc-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 5h16'/%3E%3Cpath d='M4 11h11'/%3E%3Cpath d='M4 17h14'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 #toggleBookmark.active::before {
   --bookmark-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h12v20l-6-5-6 5z'/%3E%3C/svg%3E");
 }
@@ -680,6 +709,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      leaves the ink. Without this the ribbon kept its desktop box while the
      padding around it grew, which is where the original 8px came from. */
   #toggleBookmark::before { width: 11.5px; height: 22.4px; }
+  #toggleSidebar::before { width: 15.8px; height: 22.4px; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */
@@ -802,7 +832,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.35.7</p>
+    <p class="hint build">v1.36.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -811,8 +841,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <div class="topbar" id="topbar">
       <button id="toggleShelf" type="button" aria-expanded="false"
               aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
+      <!-- A mark rather than the word, like the bookmark beside it. The text
+           stays in the element and only its size goes, so the accessible name
+           is unchanged; the title repeats it for a pointer, using the same key
+           rather than inventing a second phrase to keep in step. -->
       <button id="toggleSidebar" type="button" aria-expanded="true"
-              aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
+              aria-controls="sidebar" data-i18n-title="bar.toc"
+              data-i18n="bar.toc">目錄</button>
       <!-- Next to 目錄 because it belongs to the same question -- where am I,
            and where do I want to get back to -- and because the list it adds
            to lives in the panel 目錄 opens. On the bar rather than in a panel

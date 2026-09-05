@@ -34,7 +34,7 @@
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.35.7</p>
+    <p class="hint build">v1.36.0</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -43,8 +43,13 @@
     <div class="topbar" id="topbar">
       <button id="toggleShelf" type="button" aria-expanded="false"
               aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
+      <!-- A mark rather than the word, like the bookmark beside it. The text
+           stays in the element and only its size goes, so the accessible name
+           is unchanged; the title repeats it for a pointer, using the same key
+           rather than inventing a second phrase to keep in step. -->
       <button id="toggleSidebar" type="button" aria-expanded="true"
-              aria-controls="sidebar" data-i18n="bar.toc">目錄</button>
+              aria-controls="sidebar" data-i18n-title="bar.toc"
+              data-i18n="bar.toc">目錄</button>
       <!-- Next to 目錄 because it belongs to the same question -- where am I,
            and where do I want to get back to -- and because the list it adds
            to lives in the panel 目錄 opens. On the bar rather than in a panel

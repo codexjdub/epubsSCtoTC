@@ -80,25 +80,32 @@
     return [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].join(' ');
   }
 
-  async function checkRibbonFits(t, doc, where) {
-    var m = await markInk(doc, 'toggleBookmark');
-    t.eq('the ribbon button is padded like its neighbours' + where,
-         padOf(doc, 'toggleBookmark'), padOf(doc, 'toggleSidebar'));
-    t.check('and its box carries the ink, not empty margin' + where,
+  async function checkMarkFits(t, doc, id, name, where) {
+    var m = await markInk(doc, id);
+    /* Against 書架, which is still a word. Comparing one mark to another would
+       pass with both of them wrong in the same way. */
+    t.eq(name + ' is padded like the labels beside it' + where,
+         padOf(doc, id), padOf(doc, 'toggleShelf'));
+    t.check(name + '\'s box carries the ink, not empty margin' + where,
             m.box - m.ink < 3,
             'box ' + m.box.toFixed(1) + ', ink ' + m.ink.toFixed(1) +
             ' -> ' + ((m.box - m.ink) / 2).toFixed(1) + 'px of dead space each side');
-    t.check('and the narrowed box does not clip it' + where,
+    t.check('and the narrowed box does not clip ' + name + where,
             !m.clipped, 'the mark reaches the edge of its box');
     /* Drawn shorter than the line it sits on. Filling the line put 20.1px of
        ink beside characters inking 12.9 -- half again as tall, and reported
        as looking wrong before any of the width work was noticed. Measured
        against the line box rather than against the text, which would drag a
        CJK font into the assertion. */
-    t.check('and is drawn shorter than the line it sits on' + where,
+    t.check('and ' + name + ' is drawn shorter than the line it sits on' + where,
             m.inkH < m.lineBox * 0.8,
             'ink ' + m.inkH.toFixed(1) + 'px tall in a ' + m.lineBox.toFixed(1) +
             'px line -- ' + Math.round(m.inkH / m.lineBox * 100) + '%');
+    /* The reason both of these are drawn at all: a character would be chosen
+       by font fallback, and fallback follows the interface LANGUAGE. */
+    var before = doc.defaultView.getComputedStyle(doc.getElementById(id), '::before');
+    t.eq(name + ' is drawn, not set in a font' + where,
+         before.content.replace(/\s*\/\s*""$/, ''), '""');
   }
 
 
@@ -899,7 +906,8 @@
          the touch-target rule enlarges every bar button, and an ID selector
          on this one made it the exception, so its padding stayed behind while
          everything around it grew. */
-      await checkRibbonFits(t, OD, ' at 375px');
+      await checkMarkFits(t, OD, 'toggleBookmark', 'the ribbon', ' at 375px');
+      await checkMarkFits(t, OD, 'toggleSidebar', 'the contents mark', ' at 375px');
       ordinary.remove();
 
       /* ---- pages on a phone ----
@@ -1081,7 +1089,8 @@
       t.eq('and starts unpressed', bmBar.getAttribute('aria-pressed'), 'false');
       /* The desktop half. It was wrong here too -- by less, which is why it
          went unreported: 4px across and 3.2px down. */
-      await checkRibbonFits(t, LD, '');
+      await checkMarkFits(t, LD, 'toggleBookmark', 'the ribbon', '');
+      await checkMarkFits(t, LD, 'toggleSidebar', 'the contents mark', '');
       t.check('with the section hidden while there are none',
               LD.getElementById('bookmarks').classList.contains('hidden'),
               'an empty bookmarks heading on every book');
