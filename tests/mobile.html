@@ -924,9 +924,28 @@
       t.check('and the column has somewhere to break',
               pgMount().scrollWidth > pgMount().clientWidth + 1,
               'scrollWidth ' + pgMount().scrollWidth + ', clientWidth ' + pgMount().clientWidth);
-      t.check('the position line counts pages rather than percent',
-              /\d+\/\d+$/.test(PD.getElementById('position').textContent.trim()),
+      /* The page counts this chapter, the percentage measures the book. They
+         are different facts and paginating showed only the first for a while,
+         which took away the one number that says how much is left. */
+      t.check('the position line carries the page AND the percentage',
+              /\d+\/\d+ · \d+%$/.test(PD.getElementById('position').textContent.trim()),
               PD.getElementById('position').textContent);
+
+      /* The two page buttons take the slack rather than hugging their labels:
+         84px each with 121px of the strip going spare is a small target for
+         the control pressed most while reading. Asserted as the strip being
+         used end to end, which is what flex:1 does here -- a width in pixels
+         would be a claim about this machine's font. */
+      var pgrBox = PD.querySelector('.pager').getBoundingClientRect();
+      var pvBox = PD.getElementById('prev').getBoundingClientRect();
+      var nxBox = PD.getElementById('next').getBoundingClientRect();
+      t.check('the page buttons are the same size as each other',
+              Math.abs(pvBox.width - nxBox.width) < 1,
+              Math.round(pvBox.width) + ' and ' + Math.round(nxBox.width));
+      t.check('and between them they use the strip end to end',
+              pvBox.left - pgrBox.left <= 20 && pgrBox.right - nxBox.right <= 20,
+              'left gap ' + Math.round(pvBox.left - pgrBox.left) +
+              ', right gap ' + Math.round(pgrBox.right - nxBox.right));
 
       /* The gesture, and the three things that must NOT be one. */
       t.eq('the browser can build a touch here', typeof PW.TouchEvent, 'function');

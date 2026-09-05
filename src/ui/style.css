@@ -710,6 +710,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .pager.tucked { transform: translateY(100%); opacity: 0; pointer-events: none; }
   .reader-mount { padding-bottom: 58px; }
   .pager .pos { font-size: 12px; min-width: 6ch; }
+  /* The page buttons take the slack. Measured at 390px they were 84px each
+     with 121px of the strip going spare -- a small target for the control
+     pressed most while reading, and the one a thumb reaches for without
+     looking. flex:1 splits whatever the position line does not need, about
+     127px each. The cap only bites at the top of this range, where a 700px
+     window still gets these rules and an unbounded pair would look silly. */
+  .pager button { flex: 1; max-width: 220px; }
 
   .report { max-height: 55vh; max-height: 55dvh; }
   .keyhelp-panel { padding: 16px; }

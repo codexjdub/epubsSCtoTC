@@ -717,6 +717,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .pager.tucked { transform: translateY(100%); opacity: 0; pointer-events: none; }
   .reader-mount { padding-bottom: 58px; }
   .pager .pos { font-size: 12px; min-width: 6ch; }
+  /* The page buttons take the slack. Measured at 390px they were 84px each
+     with 121px of the strip going spare -- a small target for the control
+     pressed most while reading, and the one a thumb reaches for without
+     looking. flex:1 splits whatever the position line does not need, about
+     127px each. The cap only bites at the top of this range, where a 700px
+     window still gets these rules and an unbounded pair would look silly. */
+  .pager button { flex: 1; max-width: 220px; }
 
   .report { max-height: 55vh; max-height: 55dvh; }
   .keyhelp-panel { padding: 16px; }
@@ -784,7 +791,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.35.1</p>
+    <p class="hint build">v1.35.2</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -5615,12 +5622,13 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function renderPosition() {
       var pct = current.reader ? current.reader.progress() : null;
       var page = current.reader ? current.reader.pagePosition() : null;
-      /* Paginating, how many pages are left in the chapter is the thing you
-         want and a percentage of the book is not -- it is what every reader
-         shows, and it is the only cue a swipe has, since the gesture itself is
-         invisible. Digits only, so it needs no word in either language. */
-      var tail = page ? ' · ' + page.page + '/' + page.pages
-                      : (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+      /* Three facts, not two spellings of one. The page counts this CHAPTER
+         and the percentage measures the whole BOOK, so showing pages instead
+         of the percentage -- which is what paginating did at first -- quietly
+         took away the only number that says how much of the book is left.
+         Digits either way, so neither needs a word in either language. */
+      var tail = (page ? ' · ' + page.page + '/' + page.pages : '') +
+                 (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
       el.position.textContent = (pos.index + 1) + ' / ' + pos.total + tail;
       /* Here rather than on the chapter event, because paginating, the ends of
          the book are reached by turning a page and no chapter event fires. Left

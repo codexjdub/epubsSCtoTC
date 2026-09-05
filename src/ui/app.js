@@ -373,12 +373,13 @@
     function renderPosition() {
       var pct = current.reader ? current.reader.progress() : null;
       var page = current.reader ? current.reader.pagePosition() : null;
-      /* Paginating, how many pages are left in the chapter is the thing you
-         want and a percentage of the book is not -- it is what every reader
-         shows, and it is the only cue a swipe has, since the gesture itself is
-         invisible. Digits only, so it needs no word in either language. */
-      var tail = page ? ' · ' + page.page + '/' + page.pages
-                      : (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
+      /* Three facts, not two spellings of one. The page counts this CHAPTER
+         and the percentage measures the whole BOOK, so showing pages instead
+         of the percentage -- which is what paginating did at first -- quietly
+         took away the only number that says how much of the book is left.
+         Digits either way, so neither needs a word in either language. */
+      var tail = (page ? ' · ' + page.page + '/' + page.pages : '') +
+                 (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
       el.position.textContent = (pos.index + 1) + ' / ' + pos.total + tail;
       /* Here rather than on the chapter event, because paginating, the ends of
          the book are reached by turning a page and no chapter event fires. Left
