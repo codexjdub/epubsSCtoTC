@@ -256,6 +256,16 @@
       t.eq('the document button reads the same on a phone',
            D.getElementById('docBtn').textContent, '文稿');
 
+      /* Turning a page is a repeated press, and so is A- / A+. Without this
+         the browser holds each tap to see whether a second is coming and reads
+         a quick pair as a zoom, so every other press goes missing. The effect
+         cannot be measured here -- headless has no double-tap -- so the
+         property is what gets asserted, which is also the whole of the fix. */
+      ['next', 'prev', 'fontBigger', 'aaBtn'].forEach(function (id) {
+        t.eq(id + ' gives up double-tap zoom so a fast second press lands',
+             W.getComputedStyle(D.getElementById(id)).touchAction, 'manipulation');
+      });
+
       t.eq('the pager leaves the flow on a phone',
            W.getComputedStyle(pager).position, 'fixed');
       t.eq('and so does the bar', W.getComputedStyle(bar).position, 'fixed');

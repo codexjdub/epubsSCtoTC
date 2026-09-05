@@ -154,6 +154,17 @@ select, button {
   font: inherit; font-size: 14px; padding: 7px 11px;
   border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--fg); cursor: pointer;
+  /* A second press within the double-tap window is a press, not a zoom
+     gesture. Two controls here are pressed in quick succession by design --
+     下一頁, which is how a page is turned once the pager is the way through a
+     book, and A- / A+, whose markup says outright that they are meant to be
+     pressed repeatedly -- and on a touch device the browser holds each of
+     those to see whether a second is coming, then treats the pair as a zoom.
+     `manipulation` keeps panning and pinch, and gives up only the double-tap.
+
+     Not in the phone block: this is about touch, not about width, and a
+     touch-capable laptop gets it too. It costs a desktop nothing. */
+  touch-action: manipulation;
 }
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
