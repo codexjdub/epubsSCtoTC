@@ -518,9 +518,26 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      trimmed to the controls that earn their width precisely so the title could
      keep some. The text stays in the button rather than being replaced, so the
      accessible name and the tooltip are unchanged; only its size goes. */
-  #toggleBookmark { font-size: 0; padding-left: 9px; padding-right: 9px; }
-  #toggleBookmark::before { content: "\2606" / ""; font-size: 17px; line-height: 1; }
-  #toggleBookmark.active::before { content: "\2605" / ""; }
+  /* The ribbon is DRAWN rather than borrowed from a font. Unicode's nearest
+     characters all say something else: ☆ is a favourite, ⚑ is "look at this
+     later", ▽ is nothing at all. The one character actually named BOOKMARK is
+     emoji, so it arrives in colour and sits badly next to three monochrome
+     glyphs -- and on the pressed button it lands on a dark ground and turns to
+     mud. A rectangle with a notch clipped out of the bottom is the whole
+     shape.
+
+     One ribbon, not a hollow and a filled one: the button already reverses to
+     the accent colour when the spot is marked, the way 轉換 and 原文 do, so a
+     second signal in the glyph would say the same thing twice. An outline
+     version also loses the notch -- the clip cuts the bottom border away and
+     leaves it reading as ⊓ rather than a ribbon. */
+  #toggleBookmark { font-size: 0; padding-left: 11px; padding-right: 11px; }
+  #toggleBookmark::before {
+    content: "" / "";
+    display: inline-block; width: 11px; height: 15px; vertical-align: middle;
+    background: currentColor;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 66%, 0 100%);
+  }
 
   /* English words are three or four times the width of the two characters
      that say the same thing, and this bar has five of them. Measured at
@@ -692,7 +709,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.27.2</p>
+    <p class="hint build">v1.27.3</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
