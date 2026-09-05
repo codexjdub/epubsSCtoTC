@@ -210,15 +210,29 @@ button:disabled { opacity: .5; cursor: default; }
    is right here, because unlike 轉換 this control has no word left to read.
 
    The text stays inside the button and only its size goes, so the tooltip and
-   the name a screen reader announces are unchanged. */
+   the name a screen reader announces are unchanged.
+
+   It takes the same box as the labels beside it, because on this bar every
+   Chinese label is exactly two characters and so every other button is
+   exactly one width -- one button 8px short of five identical ones is the
+   only thing on the bar that looks broken. It used to pin its own padding,
+   and an ID selector outranks `.topbar button`, so the enlarged touch padding
+   the phone gives every other button never reached this one and the gap
+   doubled there. Hence no padding here at all: it takes whatever its
+   neighbours take, at either width.
+
+   The box is stated as pixels but nothing about it is font-dependent: a CJK
+   ideograph's advance is its em, so two of them is 2em in any font, and the
+   height is one line of it. 2 x 13px by 1.6 x 13px here, and the phone block
+   restates it at 14px. The mask is `contain`, so the ribbon draws square and
+   centred inside whichever box it is given. */
 #toggleBookmark {
   font-size: 0;
-  padding: 7px 9px;
   line-height: 0;
 }
 #toggleBookmark::before {
   content: "" / "";
-  display: inline-block; width: 22px; height: 22px; vertical-align: middle;
+  display: inline-block; width: 26px; height: 20.8px; vertical-align: middle;
   background: currentColor;
   -webkit-mask: var(--bookmark-mark) center / contain no-repeat;
   mask: var(--bookmark-mark) center / contain no-repeat;
@@ -594,6 +608,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   /* CJK labels are two characters wide; a squeezed button wrapped them onto
      a second line and took the whole bar to 80px. */
   .topbar button { white-space: nowrap; }
+  /* The same two characters, at the size they are here: 2 x 14px by
+     1.6 x 14px. Without this the ribbon kept its desktop box while every
+     label around it grew, which is where the 8px came from. */
+  #toggleBookmark::before { width: 28px; height: 22.4px; }
 
   /* Sidebar leaves the flow entirely and slides over the text.
      Higher specificity than the global .hidden rule, which is !important. */
@@ -703,7 +721,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.32.2</p>
+    <p class="hint build">v1.32.3</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
