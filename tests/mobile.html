@@ -82,10 +82,10 @@
 
   async function checkMarkFits(t, doc, id, name, where) {
     var m = await markInk(doc, id);
-    /* Against 書架, which is still a word. Comparing one mark to another would
-       pass with both of them wrong in the same way. */
+    /* Against 文稿, which is still a word -- 書架 is a mark now too. Comparing
+       one mark to another would pass with both of them wrong the same way. */
     t.eq(name + ' is padded like the labels beside it' + where,
-         padOf(doc, id), padOf(doc, 'toggleShelf'));
+         padOf(doc, id), padOf(doc, 'docBtn'));
     t.check(name + '\'s box carries the ink, not empty margin' + where,
             m.box - m.ink < 3,
             'box ' + m.box.toFixed(1) + ', ink ' + m.ink.toFixed(1) +
@@ -908,6 +908,7 @@
          everything around it grew. */
       await checkMarkFits(t, OD, 'toggleBookmark', 'the ribbon', ' at 375px');
       await checkMarkFits(t, OD, 'toggleSidebar', 'the contents mark', ' at 375px');
+      await checkMarkFits(t, OD, 'toggleShelf', 'the shelf mark', ' at 375px');
       ordinary.remove();
 
       /* ---- pages on a phone ----
@@ -1091,6 +1092,7 @@
          went unreported: 4px across and 3.2px down. */
       await checkMarkFits(t, LD, 'toggleBookmark', 'the ribbon', '');
       await checkMarkFits(t, LD, 'toggleSidebar', 'the contents mark', '');
+      await checkMarkFits(t, LD, 'toggleShelf', 'the shelf mark', '');
       t.check('with the section hidden while there are none',
               LD.getElementById('bookmarks').classList.contains('hidden'),
               'an empty bookmarks heading on every book');
