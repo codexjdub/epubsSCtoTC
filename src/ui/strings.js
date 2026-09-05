@@ -15,7 +15,8 @@
  * abroad on an English-language browser is the ordinary case here, not the
  * exception, and greeting them in English would be the wrong guess.
  *
- * Markup carries data-i18n / data-i18n-title and is filled by apply(). Code
+ * Markup carries data-i18n / data-i18n-title / data-i18n-label and is filled
+ * by apply(); the last is for the bar's marks, which have no word to show. Code
  * asks for text through get(), which interpolates {placeholders}. Changing the
  * locale means re-running both, plus every option list built in JS -- see
  * relabel() in ui/app.js, which is the one place that knows the whole set.
@@ -369,6 +370,19 @@
     for (var j = 0; j < titled.length; j++) {
       var title = get(titled[j].getAttribute('data-i18n-title'));
       if (fillable(title)) titled[j].setAttribute('title', title);
+    }
+    /* For a control whose label is a drawn mark rather than a word. The name
+       used to sit in the button as text with its size zeroed, which kept it
+       for a screen reader but left it in the LAYOUT -- and a hidden word still
+       in the layout is a word that can come back: iOS inflates text to a
+       minimum size, and an inflated label takes width after the mark, which is
+       a gap on its right and nowhere else. Reported twice from a phone and not
+       reproducible on any desktop engine, because text autosizing is not one
+       of the things a desktop engine does. */
+    var labelled = scope.querySelectorAll('[data-i18n-label]');
+    for (var k = 0; k < labelled.length; k++) {
+      var label = get(labelled[k].getAttribute('data-i18n-label'));
+      if (fillable(label)) labelled[k].setAttribute('aria-label', label);
     }
   }
 

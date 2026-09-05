@@ -276,8 +276,8 @@
       t.check('with room to read some of it',
               px(D.getElementById('bookTitle')).width > 30,
               Math.round(px(D.getElementById('bookTitle')).width) + 'px');
-      t.eq('the document button reads the same on a phone',
-           D.getElementById('docBtn').textContent, '文稿');
+      t.eq('the document button is named the same on a phone',
+           D.getElementById('docBtn').getAttribute('aria-label'), '文稿');
 
       /* Turning a page is a repeated press, and so is A- / A+. Without this
          the browser holds each tap to see whether a second is coming and reads
@@ -483,8 +483,8 @@
       /* The bar's button is a way into the panel, not the action, so it reads
          the same at every width; the format is named on the button that
          actually writes the file, where the format is chosen. */
-      t.eq('the bar button just says 文稿',
-           DD.getElementById('docBtn').textContent, '文稿');
+      t.eq('the bar button is named 文稿',
+           DD.getElementById('docBtn').getAttribute('aria-label'), '文稿');
       DD.getElementById('docBtn').click();
       await wait(80);
       t.check('pressing it opens the document panel',
@@ -794,16 +794,24 @@
       t.check('the language control is offered', !!pick, 'no control');
       t.eq('Chinese is the default', LW.App.strings.locale(), 'zh');
       t.eq('and the document says so', LD.documentElement.getAttribute('lang'), 'zh-Hant');
-      t.eq('the bar starts Chinese', LD.getElementById('toggleShelf').textContent, '書架');
+      t.eq('the bar starts Chinese',
+           LD.getElementById('toggleShelf').getAttribute('aria-label'), '書架');
       /* The button names the way OUT, not the room you are in. */
       t.eq('and the switch offers the other language', pick.textContent, 'English');
 
       pick.click();
       await wait(350);
 
-      t.eq('switching relabels the bar', LD.getElementById('toggleShelf').textContent, 'Shelf');
-      t.eq('and the contents button', LD.getElementById('toggleSidebar').textContent, 'Contents');
-      t.eq('and the document button', LD.getElementById('docBtn').textContent, 'Document');
+      /* A mark has no word to relabel, so what has to follow the language is
+         the name a screen reader reads and the title a pointer is given. */
+      t.eq('switching renames the bar',
+           LD.getElementById('toggleShelf').getAttribute('aria-label'), 'Shelf');
+      t.eq('and the contents button',
+           LD.getElementById('toggleSidebar').getAttribute('aria-label'), 'Contents');
+      t.eq('and the document button',
+           LD.getElementById('docBtn').getAttribute('aria-label'), 'Document');
+      t.eq('and the title a pointer is given',
+           LD.getElementById('toggleShelf').getAttribute('title'), 'Books saved on this device');
       t.eq('and the action inside it', LD.getElementById('exportRun').textContent, 'Export EPUB');
       t.eq('and the pager', LD.getElementById('next').textContent, 'Chapter →');
       t.eq('and the reading settings', LD.getElementById('toggleFocus').textContent, 'Focus');
@@ -879,7 +887,7 @@
       pick.click();
       await wait(350);
       t.eq('and switching back restores Chinese',
-           LD.getElementById('toggleShelf').textContent, '書架');
+           LD.getElementById('toggleShelf').getAttribute('aria-label'), '書架');
 
       /* ---- the smallest bar ----
          Six controls and a title did not fit 320px, so 匯出 used to leave the
@@ -1238,7 +1246,7 @@
       var keptLang = await mount(DESKTOP, 800);
       await loadBook(keptLang);
       t.eq('a remembered language opens in it',
-           keptLang.contentDocument.getElementById('toggleShelf').textContent, 'Shelf');
+           keptLang.contentDocument.getElementById('toggleShelf').getAttribute('aria-label'), 'Shelf');
       keptLang.remove();
       window.localStorage.removeItem('epub-tc:lang');
 

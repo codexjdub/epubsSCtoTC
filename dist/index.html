@@ -858,7 +858,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.4</p>
+    <p class="hint build">v1.36.5</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -866,21 +866,22 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   <div id="chrome" class="hidden" style="display:contents">
     <div class="topbar" id="topbar">
       <button id="toggleShelf" type="button" aria-expanded="false"
-              aria-controls="shelfPanel" data-i18n-title="bar.shelf.title" data-i18n="bar.shelf">書架</button>
+              aria-controls="shelfPanel" data-i18n-title="bar.shelf.title"
+              data-i18n-label="bar.shelf"></button>
       <!-- A mark rather than the word, like the bookmark beside it. The text
            stays in the element and only its size goes, so the accessible name
            is unchanged; the title repeats it for a pointer, using the same key
            rather than inventing a second phrase to keep in step. -->
       <button id="toggleSidebar" type="button" aria-expanded="true"
               aria-controls="sidebar" data-i18n-title="bar.toc"
-              data-i18n="bar.toc">目錄</button>
+              data-i18n-label="bar.toc"></button>
       <!-- Next to 目錄 because it belongs to the same question -- where am I,
            and where do I want to get back to -- and because the list it adds
            to lives in the panel 目錄 opens. On the bar rather than in a panel
            because this one IS needed on sight: the whole gesture is "mark
            this, now", and it is worth nothing behind two clicks. -->
       <button id="toggleBookmark" type="button" aria-pressed="false"
-              data-i18n-title="bar.bookmark.title" data-i18n="bar.bookmark">書籤</button>
+              data-i18n-title="bar.bookmark.title" data-i18n-label="bar.bookmark"></button>
       <span class="title" id="bookTitle"></span>
       <!-- Order follows the surfaces: 書架 and 目錄 open panels anchored to the
            left edge, so they sit left of the title; Aa and 轉換 open panels
@@ -903,7 +904,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
            writes the file, inside the panel, not on the way in. -->
       <button id="docBtn" class="grouped" type="button" aria-expanded="false"
               aria-controls="docPanel" data-i18n-title="bar.doc.title"
-              data-i18n="bar.doc">文稿</button>
+              data-i18n-label="bar.doc"></button>
 
       <div class="bar-panel hidden" id="aaPanel">
         <!-- Three kinds of thing, in three sections: the app, the page, the
@@ -4701,7 +4702,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
  * abroad on an English-language browser is the ordinary case here, not the
  * exception, and greeting them in English would be the wrong guess.
  *
- * Markup carries data-i18n / data-i18n-title and is filled by apply(). Code
+ * Markup carries data-i18n / data-i18n-title / data-i18n-label and is filled
+ * by apply(); the last is for the bar's marks, which have no word to show. Code
  * asks for text through get(), which interpolates {placeholders}. Changing the
  * locale means re-running both, plus every option list built in JS -- see
  * relabel() in ui/app.js, which is the one place that knows the whole set.
@@ -5055,6 +5057,19 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     for (var j = 0; j < titled.length; j++) {
       var title = get(titled[j].getAttribute('data-i18n-title'));
       if (fillable(title)) titled[j].setAttribute('title', title);
+    }
+    /* For a control whose label is a drawn mark rather than a word. The name
+       used to sit in the button as text with its size zeroed, which kept it
+       for a screen reader but left it in the LAYOUT -- and a hidden word still
+       in the layout is a word that can come back: iOS inflates text to a
+       minimum size, and an inflated label takes width after the mark, which is
+       a gap on its right and nowhere else. Reported twice from a phone and not
+       reproducible on any desktop engine, because text autosizing is not one
+       of the things a desktop engine does. */
+    var labelled = scope.querySelectorAll('[data-i18n-label]');
+    for (var k = 0; k < labelled.length; k++) {
+      var label = get(labelled[k].getAttribute('data-i18n-label'));
+      if (fillable(label)) labelled[k].setAttribute('aria-label', label);
     }
   }
 

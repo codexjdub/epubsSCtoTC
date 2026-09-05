@@ -184,15 +184,35 @@
          questions, and nesting one inside the other hid the first. */
       /* Labels come from one table: the markup carries keys and apply() fills
          them, so a second language is a column rather than a hunt. */
-      var keyed = D.querySelectorAll('[data-i18n], [data-i18n-title]');
+      var keyed = D.querySelectorAll('[data-i18n], [data-i18n-title], [data-i18n-label]');
       t.check('the app markup carries keys', keyed.length >= 15, String(keyed.length));
       t.check('and every one of them was filled in',
               Array.prototype.every.call(keyed, function (node) {
+                /* Three kinds of key, and one node may carry two: a mark on the
+                   bar has a title and a label and no text at all. */
                 var key = node.getAttribute('data-i18n');
-                if (!key) return !!node.getAttribute('title');
-                var shown = node.textContent.trim();
-                return shown && shown !== key;
+                if (key) {
+                  var shown = node.textContent.trim();
+                  if (!shown || shown === key) return false;
+                }
+                if (node.hasAttribute('data-i18n-title') && !node.getAttribute('title')) return false;
+                if (node.hasAttribute('data-i18n-label') && !node.getAttribute('aria-label')) return false;
+                return true;
               }), 'a key was left showing');
+
+      /* The four marks carry no word at all. It moved to aria-label, so a name
+         kept for a screen reader is not also a box in the layout: on iOS a
+         zeroed font size is not a promise -- text inflates to a minimum, and
+         an inflated label sits AFTER the mark, which is a gap on its right and
+         nowhere else. Reported twice from a phone, reproducible on no desktop
+         engine, because text autosizing is not something a desktop engine
+         does. */
+      ['toggleShelf', 'toggleSidebar', 'toggleBookmark', 'docBtn'].forEach(function (id) {
+        var marked = D.getElementById(id);
+        t.eq(id + ' carries no text that could inflate', marked.textContent.trim(), '');
+        t.check(id + ' is still named for a screen reader',
+                !!marked.getAttribute('aria-label'), 'no accessible name');
+      });
 
       /* The number beside "books stored" has to BE the books. It used to come
          from navigator.storage.estimate(), which answers a different question

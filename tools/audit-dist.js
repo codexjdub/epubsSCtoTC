@@ -50,7 +50,7 @@ check('the dev page and the bundle load the same scripts, in the same order',
 /* A label key with no entry renders as the key itself -- deliberate, so it is
    visible rather than blank, but nothing stops one shipping. */
 const usedKeys = [...new Set((read('index.html')
-  .match(/data-i18n(?:-title)?="[^"]+"/g) || [])
+  .match(/data-i18n(?:-title|-label)?="[^"]+"/g) || [])
   .map(a => a.slice(a.indexOf('"') + 1, -1)))];
 const definedKeys = new Set((read('src/ui/strings.js').match(/^\s*'[a-z][\w.]*':/gm) || [])
   .map(k => k.trim().slice(1, k.trim().indexOf(':') - 1)));
