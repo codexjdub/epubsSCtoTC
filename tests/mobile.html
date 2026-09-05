@@ -96,10 +96,12 @@
 
   async function checkMarkFits(t, doc, id, name, where) {
     var m = await markInk(doc, id);
-    /* Against 文稿, which is still a word -- 書架 is a mark now too. Comparing
-       one mark to another would pass with both of them wrong the same way. */
+    /* Against Aa, which is the last control on this bar still setting its own
+       width from text -- 書架 and then 文稿 were the earlier bases and are
+       marks themselves now. Comparing one mark to another would pass with
+       both of them wrong the same way. */
     t.eq(name + ' is padded like the labels beside it' + where,
-         padOf(doc, id), padOf(doc, 'docBtn'));
+         padOf(doc, id), padOf(doc, 'aaBtn'));
     t.check(name + '\'s box carries the ink, not empty margin' + where,
             m.box - m.ink < 3,
             'box ' + m.box.toFixed(1) + ', ink ' + m.ink.toFixed(1) +
@@ -923,6 +925,7 @@
       await checkMarkFits(t, OD, 'toggleBookmark', 'the ribbon', ' at 375px');
       await checkMarkFits(t, OD, 'toggleSidebar', 'the contents mark', ' at 375px');
       await checkMarkFits(t, OD, 'toggleShelf', 'the shelf mark', ' at 375px');
+      await checkMarkFits(t, OD, 'docBtn', 'the document mark', ' at 375px');
       ordinary.remove();
 
       /* ---- pages on a phone ----
@@ -1107,13 +1110,14 @@
       await checkMarkFits(t, LD, 'toggleBookmark', 'the ribbon', '');
       await checkMarkFits(t, LD, 'toggleSidebar', 'the contents mark', '');
       await checkMarkFits(t, LD, 'toggleShelf', 'the shelf mark', '');
+      await checkMarkFits(t, LD, 'docBtn', 'the document mark', '');
 
       /* Heaviest against lightest, not each against the mean. Written the second
          way first, it passed with the shelf back at 1.9: three marks pull the
          mean towards the odd one, so a mark 6.8% lighter than its heaviest
          neighbour sits only 3.9% off the average and slips under any tolerance
          loose enough to allow the ribbon's own 2.7%. */
-      var weights = ['toggleShelf', 'toggleSidebar', 'toggleBookmark']
+      var weights = ['toggleShelf', 'toggleSidebar', 'toggleBookmark', 'docBtn']
         .map(function (id) { return markWeight(LD, id); });
       var spread = weights.every(function (w) { return w; })
         ? Math.max.apply(null, weights) / Math.min.apply(null, weights) : 0;
