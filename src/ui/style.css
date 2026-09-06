@@ -562,12 +562,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
 
 /* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
-   the background shows while a large JPEG decodes. */
-.library-row .cover, .shelf-row .cover {
+   the background shows while a large JPEG decodes.
+
+   Unscoped, so the SIZE travels with the class. renderRows is deliberately one
+   function serving two lists, and it hard-codes class="cover" with no size of
+   its own; when the dimensions lived only under .library-row and .shelf-row, a
+   third list using that same function would have got a placeholder collapsed
+   to nothing and the misalignment back, with nothing in the JS to say why. The
+   row rule below only ADJUSTS the default. */
+.cover {
   flex: 0 0 auto; object-fit: cover; border-radius: 3px;
   background: var(--bg); border: 1px solid var(--line);
+  width: 36px; height: 52px;
 }
-.library-row .cover { width: 36px; height: 52px; }
 .shelf-row .cover { width: 26px; height: 38px; }
 
 /* No cover: the same frame with the title's first character in it, so a mixed
@@ -575,9 +582,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    a box this small -- the bar's marks were exactly that bug. */
 .cover.blank {
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; line-height: 1; font-weight: 600; color: var(--muted);
+  overflow: hidden; font-weight: 600; color: var(--muted);
+  font-size: 16px;
 }
-.library-row .cover.blank { font-size: 16px; }
 .shelf-row .cover.blank { font-size: 12px; }
 
 /* The reader's own status line. Empty most of the time, so it must not

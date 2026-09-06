@@ -164,8 +164,14 @@
       /* Already here, so there is nothing to write. The id is a content hash:
          a row under it holds these exact bytes. This runs on EVERY open --
          reopening from the shelf comes through here too -- and re-putting the
-         record wrote the whole EPUB again for no change at all. */
-      if (existing && existing.bytes) {
+         record wrote the whole EPUB again for no change at all.
+
+         The exception is a row stored before covers were kept at all. It would
+         carry its missing cover forever, and a missing cover is now DRAWN --
+         so the shelf would state, in a frame of its own, that a book with
+         artwork has none. Worth one rewrite to correct. */
+      var missingCover = existing && !existing.cover && cover;
+      if (existing && existing.bytes && !missingCover) {
         db.close();
         markOpened(record.id);
         return { saved: true, id: record.id };

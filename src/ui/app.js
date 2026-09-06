@@ -509,31 +509,80 @@
     try { return await App.library.list(); } catch (e) { return []; }
   }
 
-  /* The character that stands in for a missing cover. Leading brackets and
-     quotes are decoration -- 《圍城》 would otherwise be filed under 《 -- and
-     an English title beginning with an article gives away nothing: "The Left
-     Hand of Darkness" and "The Dispossessed" both come out as T, which is the
-     one thing a placeholder must not do. Articles are stripped for English
-     only, the language this app actually has an opinion about; the alternative
-     is a list that grows by a language at a time and is never finished. A
-     title that survives none of this leaves the frame empty, which is still
-     the right width. */
-  function initialOf(title) {
-    var t = String(title || '').replace(/^[\s"'“‘《「〈(\[]+/, '');
-    return t.replace(/^(the|a|an)\s+/i, '').charAt(0).toUpperCase();
+  /* The character that stands in for a missing cover.
+   *
+   * Leading decoration is stripped, because 《圍城》 filed under 《 distinguishes
+   * nothing -- and neither does 【完結】圍城 under 【. Matching "not a letter or
+   * a digit" rather than listing the brackets is what keeps that true: the
+   * enumerated list this started as held 《「〈 and missed 【『〔（, which are the
+   * ones a scraped Chinese title actually carries.
+   *
+   * A whole bracketed GROUP goes too, but only when something follows it, and
+   * that condition is the entire rule: 【完結】圍城 is a tag stuck in front of a
+   * title, so a shelf of them would otherwise agree on 完 instead of agreeing
+   * on 【 -- the same collapse, one character along -- while 《圍城》 is the
+   * title itself wearing brackets and must keep 圍.
+   *
+   * Brackets only, never quotation marks: 【】（）〔〕 tag a title from outside,
+   * but “ ” open a word INSIDE one, so `The “Genius” Myth` belongs to G and
+   * not to M. Those fall to the character strip above instead.
+   *
+   * An English article is stripped too, since "The Left Hand of Darkness" and
+   * "The Dispossessed" both coming out as T is the one thing a placeholder
+   * must not do. It needs the book's LANGUAGE: a leading "A" is an article in
+   * English and a preposition in Spanish, so "A sangre fría" would file under
+   * S. Only a book that says it is English gets the rule.
+   *
+   * The two strips alternate until the string stops changing. Running either
+   * once leaves the other's leftovers: brackets-then-article sent
+   * `The “Genius” Myth` to “, and article-then-brackets would send
+   * `《The Dispossessed》` to T.
+   *
+   * Array.from, not charAt: a title can open with an astral character -- 𠮟,
+   * or 𡻕, which is in this app's own ambiguity table under 岁 -- and taking
+   * one code UNIT of a surrogate pair paints a replacement box. Same hazard,
+   * same fix, as reader/nav.js.
+   *
+   * A title that survives none of this leaves the frame empty, which is still
+   * the right width. */
+  var BRACKETED_PREFIX = /^\p{Ps}\P{Pe}*\p{Pe}\s*(?=[\p{L}\p{N}])/u;
+  var LEADING_DECORATION = /^[^\p{L}\p{N}]+/u;
+  var ENGLISH_ARTICLE = /^(the|a|an)\s+/i;
+  function initialOf(title, language) {
+    var english = /^en/i.test(String(language || ''));
+    var t = String(title || ''), prev;
+    do {
+      prev = t;
+      t = t.replace(BRACKETED_PREFIX, '').replace(LEADING_DECORATION, '');
+      if (english) t = t.replace(ENGLISH_ARTICLE, '');
+    } while (t !== prev);
+    return (Array.from(t)[0] || '').toUpperCase();
   }
 
   /* The landing page's library and the reader's shelf are one list in two
    * sets of clothes: same rows, same removal, different class names, subtitle
    * and pick action. The class names stay distinct because the two are
    * styled — and tested — separately. */
+  /* Blob URLs are per render and per list -- the two lists render
+     independently. Kept out of renderRows so the paths that return WITHOUT
+     rendering can release the previous batch too: removing your last book
+     returns early on an empty list, which used to leave that book's cover
+     decoded and pinned for the life of the page. */
+  function releaseCovers(list) {
+    (list.__covers || []).forEach(URL.revokeObjectURL);
+    list.__covers = [];
+  }
+
   function renderRows(config, books, currentId) {
-    /* Blob URLs are per render, so the previous batch for THIS list is
-       released first -- the two lists render independently. */
-    (config.list.__covers || []).forEach(URL.revokeObjectURL);
-    config.list.__covers = [];
+    releaseCovers(config.list);
     config.list.textContent = '';
     books.forEach(function (entry) {
+      /* What this book is called, decided once. The initial used to come from
+         the raw title while the name beside it used the fallback, so an
+         untitled book got "（未命名）" in the text and an empty box next to it --
+         two answers to one question, ten lines apart. */
+      var shown = entry.title || S('shelf.untitled');
+
       var row = document.createElement('div');
       row.className = config.row + (entry.id === currentId ? ' current' : '');
 
@@ -541,7 +590,11 @@
       pick.type = 'button';
       pick.className = config.pick;
 
-      if (entry.cover) {
+      /* byteLength, not truthiness: a zero-length Uint8Array is an object and
+         so is truthy, and a 0-byte cover.png in the manifest would take the
+         image branch and draw an empty frame with no initial in it -- the
+         degraded row this whole change exists to remove. */
+      if (entry.cover && entry.cover.byteLength !== 0) {
         var img = document.createElement('img');
         img.className = 'cover';
         img.alt = '';
@@ -553,12 +606,13 @@
         pick.appendChild(img);
       } else {
         /* A book with no cover still occupies the cover's box. Leaving it out
-           started the title 46px left of its neighbours', so a shelf holding
-           both kinds had no straight edge to read down. */
+           started the title 46px left of its neighbours' in the library list
+           and 34px in the shelf, so a list holding both kinds had no straight
+           edge to read down. */
         var blank = document.createElement('span');
         blank.className = 'cover blank';
         blank.setAttribute('aria-hidden', 'true');   /* the title is right beside it */
-        blank.textContent = initialOf(entry.title);
+        blank.textContent = initialOf(shown, entry.language);
         pick.appendChild(blank);
       }
 
@@ -568,7 +622,7 @@
       text.className = 'text';
       var name = document.createElement('span');
       name.className = config.name;
-      name.textContent = entry.title || S('shelf.untitled');
+      name.textContent = shown;
       var meta = document.createElement('span');
       meta.className = config.meta;
       meta.textContent = config.subtitle(entry, currentId);
@@ -582,8 +636,7 @@
       drop.className = config.drop;
       drop.textContent = '×';
       drop.title = S('shelf.remove');
-      drop.setAttribute('aria-label',
-        S('shelf.removeNamed', { title: entry.title || S('shelf.untitled') }));
+      drop.setAttribute('aria-label', S('shelf.removeNamed', { title: shown }));
       drop.addEventListener('click', async function (ev) {
         ev.stopPropagation();
         await App.library.remove(entry.id);
@@ -598,10 +651,14 @@
   }
 
   async function renderLibrary() {
-    if (!App.library.available()) { show(el.library, false); return; }
+    if (!App.library.available()) {
+      releaseCovers(el.libraryList); show(el.library, false); return;
+    }
 
     var books = await storedBooks();
-    if (!books.length) { show(el.library, false); return; }
+    if (!books.length) {
+      releaseCovers(el.libraryList); show(el.library, false); return;
+    }
 
     renderRows({
       list: el.libraryList,
@@ -656,6 +713,7 @@
   async function renderShelf() {
     if (!el.shelfPanel) return;
     if (!App.library.available()) {
+      releaseCovers(el.shelfList);
       el.shelfList.textContent = '';
       el.shelfNote.textContent = App.library.reason();
       return;

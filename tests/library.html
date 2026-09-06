@@ -30,6 +30,7 @@
 <script src="../src/reader/render.js"></script>
 <script src="../src/reader/nav.js"></script>
 <script src="../src/ui/library.js"></script>
+<script src="fixtures.js"></script>
 <script src="harness.js"></script>
 <script>
 (function () {
@@ -43,11 +44,6 @@
      ArrayBuffer made here into the iframe fails: JSZip detects types with
      instanceof, which does not hold across realms, so loadAsync rejects and
      the book silently never opens. */
-  /* A 1x1 PNG. The bytes do not matter -- the box is sized in CSS -- but the
-     manifest entry does: findCoverPath wants a real image/ media type. */
-  var PNG_1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8' +
-                'z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
   function make(title, paras, identifier, Zip, withCover) {
     var zip = new (Zip || JSZip)();
     zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
@@ -69,7 +65,10 @@
     zip.file('a.xhtml',
       '<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">' +
       '<head><title>x</title></head><body>' + body + '</body></html>');
-    if (withCover) zip.file('cover.png', PNG_1x1, { base64: true });
+    /* fixtures.js already keeps a 1x1 PNG and exports it. The bytes do not
+       matter -- the box is sized in CSS -- but the manifest entry does:
+       findCoverPath wants a real image/ media type. */
+    if (withCover) zip.file('cover.png', App.fixtures.PNG_B64, { base64: true });
     return zip.generateAsync({ type: 'arraybuffer' });
   }
 
@@ -164,6 +163,46 @@
       await App.library.remove(App.library.idFor(bookB));
       t.eq('removal works', (await App.library.list()).length, 1);
       t.eq('a removed book loads as null', await App.library.load(App.library.idFor(bookB)), null);
+
+      /* save() returns early when a row already holds the bytes, which is what
+         stopped it rewriting a whole EPUB on every open. A row stored before
+         covers were kept would therefore never get one -- harmless while such
+         a row simply showed no picture, and not harmless now that a missing
+         cover is DRAWN: the shelf would assert, in a frame of its own, that a
+         book with artwork has none. The legacy row is built here by reaching
+         into IndexedDB directly, because no version of save() produces one. */
+      var artBytes = await make('有封面的書', 3, 'urn:uuid:COVER', null, true);
+      var artBook = await App.parse.load(artBytes);
+      var artId = App.library.idFor(artBook);
+      var rowFor = async function (id) {
+        return (await App.library.list()).filter(function (x) { return x.id === id; })[0];
+      };
+      await App.library.save(artBook, artBytes, 'art.epub');
+      t.check('a book whose EPUB has a cover stores one', !!(await rowFor(artId)).cover,
+              'no cover was extracted -- the fixture, not the fix, is wrong');
+
+      await new Promise(function (resolve, reject) {
+        var q = indexedDB.open('epub-tc');
+        q.onsuccess = function () {
+          var db = q.result, txn = db.transaction('books', 'readwrite');
+          var store = txn.objectStore('books'), get = store.get(artId);
+          get.onsuccess = function () {
+            var legacy = get.result;
+            delete legacy.cover;
+            delete legacy.coverType;
+            store.put(legacy);
+          };
+          txn.oncomplete = function () { db.close(); resolve(); };
+          txn.onerror = function () { db.close(); reject(txn.error); };
+        };
+        q.onerror = function () { reject(q.error); };
+      });
+      t.check('a row from before covers existed has none', !(await rowFor(artId)).cover,
+              'the cover survived, so this proves nothing');
+
+      await App.library.save(artBook, artBytes, 'art.epub');
+      t.check('and opening it again fills the cover in', !!(await rowFor(artId)).cover,
+              'the book keeps claiming it has no artwork');
 
       // ---- the shelf, in the running app ----
       await wipe();
@@ -292,32 +331,105 @@
               rows().some(function (r) { return r.classList.contains('current'); }), 'none marked');
 
       /* A book with no cover still takes the cover's box, or the titles in a
-         mixed shelf start at two different x positions -- 46px apart, which is
-         every row without artwork jutting left. Row is compared against row
-         inside one render rather than against a pixel figure, so the machine's
-         fonts cannot decide it; and the width is asserted FIRST because two
-         rows in a hidden panel both measure zero and would agree perfectly.
-         That is also why this sits here, on the open shelf: the library list
-         lives inside the landing page, which is hidden once a book is open. */
+         mixed list start at two different x positions -- 34px apart here (a
+         26px thumbnail and an 8px gap; it is 46px in the library list, whose
+         cover and gap are both bigger), which is every row without artwork
+         jutting left. Row is compared against row inside one render rather
+         than against a pixel figure, so the machine's fonts cannot decide it;
+         and the width is asserted FIRST because two rows in a hidden panel
+         both measure zero and would agree perfectly.
+
+         The measuring is inside the shape check because t.check RECORDS a
+         failure and returns -- it does not throw. A missing row would
+         therefore reach getBoundingClientRect on undefined, and that
+         TypeError unwinds to the page's catch, taking the ~25 assertions
+         after this one with it. */
       var covered = rows().filter(function (r) { return !!r.querySelector('img.cover'); })[0];
       var bare = rows().filter(function (r) { return !r.querySelector('img.cover'); })[0];
       t.check('the two fixtures differ: one has a cover, one has none',
               !!covered && !!bare, 'both rows came out the same');
-      var titleLeft = function (r) { return r.querySelector('.t').getBoundingClientRect().left; };
-      t.check('the shelf is really laid out', titleLeft(covered) > 0, 'rows measure zero');
-      t.eq('a coverless title lines up with a covered one',
-           Math.round(titleLeft(bare)), Math.round(titleLeft(covered)));
-      t.check('because the empty slot is still drawn',
-              !!bare.querySelector('.cover.blank'), 'no placeholder in the row');
+      if (covered && bare) {
+        var titleLeft = function (r) { return r.querySelector('.t').getBoundingClientRect().left; };
+        t.check('the shelf is really laid out', titleLeft(covered) > 0, 'rows measure zero');
+        t.eq('a coverless title lines up with a covered one',
+             Math.round(titleLeft(bare)), Math.round(titleLeft(covered)));
+        t.check('because the empty slot is still drawn',
+                !!bare.querySelector('.cover.blank'), 'no placeholder in the row');
+      }
+
+      /* The other half of renderRows. The library list has its own cover size
+         and its own gap, so a rule scoped to .shelf-row could keep this green
+         while the landing page came apart. It is hidden once a book is open --
+         and a hidden row measures zero, which would agree with anything -- so
+         it is shown for the measurement and put back. */
+      await W.App.ui.renderLibrary();
+      var landing = D.getElementById('landing');
+      var landingWasHidden = landing.classList.contains('hidden');
+      landing.classList.remove('hidden');
+      var libRows = Array.prototype.slice.call(D.querySelectorAll('.library-row'));
+      var libCovered = libRows.filter(function (r) { return !!r.querySelector('img.cover'); })[0];
+      var libBare = libRows.filter(function (r) { return !r.querySelector('img.cover'); })[0];
+      t.check('the landing list holds one of each as well',
+              !!libCovered && !!libBare, libRows.length + ' row(s)');
+      if (libCovered && libBare) {
+        var nameLeft = function (r) { return r.querySelector('.name').getBoundingClientRect().left; };
+        t.check('the landing list is really laid out', nameLeft(libCovered) > 0, 'rows measure zero');
+        t.eq('a coverless title lines up there too',
+             Math.round(nameLeft(libBare)), Math.round(nameLeft(libCovered)));
+      }
+      if (landingWasHidden) landing.classList.add('hidden');
+
+      /* A 0-byte cover.png is still an object, so a truthiness test took the
+         image branch and drew an empty frame with no initial in it -- the
+         degraded row this change exists to remove. The list is stubbed rather
+         than a third fixture added, so the counts every other assertion here
+         relies on stay put. */
+      var realList = W.App.library.list;
+      W.App.library.list = async function () {
+        return [{ id: 'zero', title: '空封面', size: 1,
+                  cover: new W.Uint8Array(0), coverType: 'image/png' }];
+      };
+      await W.App.ui.renderShelf();
+      var zeroRow = D.querySelector('.shelf-row');
+      t.check('a zero-byte cover falls back to the placeholder',
+              !!(zeroRow && zeroRow.querySelector('.cover.blank')),
+              'drew an empty image instead');
+      W.App.library.list = realList;
+      await W.App.ui.renderShelf();
+      t.eq('and the real shelf comes back', rows().length, 2);
 
       /* 《圍城》 filed under 《, and every English title that opens with an
-         article filed under T, is a placeholder that distinguishes nothing. */
+         article filed under T, is a placeholder that distinguishes nothing.
+         Every case below returned the wrong character at some point; the
+         first version of this test asserted only the two that already
+         worked, which is how a suite written from the code reads as proof. */
       t.eq('a bracketed title uses the first real character',
            W.App.ui.initialOf('《圍城》'), '圍');
+      t.eq('including the brackets a scraped Chinese title actually carries',
+           W.App.ui.initialOf('【完結】圍城'), '圍');
+      t.eq('and a fullwidth volume marker',
+           W.App.ui.initialOf('（上）圍城'), '圍');
+      t.eq('and the other quotation pair this app itself emits',
+           W.App.ui.initialOf('『雪國』'), '雪');
       t.eq('an English article is not the initial',
-           W.App.ui.initialOf('The Left Hand of Darkness'), 'L');
+           W.App.ui.initialOf('The Left Hand of Darkness', 'en'), 'L');
       t.eq('and another one does not collide with it',
-           W.App.ui.initialOf('The Dispossessed'), 'D');
+           W.App.ui.initialOf('The Dispossessed', 'en'), 'D');
+      t.eq('an article hiding a quote does not leave the quote behind',
+           W.App.ui.initialOf('The “Genius” Myth', 'en'), 'G');
+      t.eq('a bracket hiding an article does not leave the article behind',
+           W.App.ui.initialOf('《The Dispossessed》', 'en'), 'D');
+      t.eq('a leading A in Spanish is a preposition, not an article',
+           W.App.ui.initialOf('A sangre fría', 'es'), 'A');
+      t.eq('and a book that never said which language it is keeps its article',
+           W.App.ui.initialOf('The Dispossessed'), 'T');
+      /* 𠮟 is U+20B9F, a surrogate pair. charAt(0) returned U+D842 alone,
+         which paints as a replacement box -- the same hazard reader/nav.js
+         documents for the ambiguity candidates. */
+      t.eq('an astral character is not cut in half',
+           W.App.ui.initialOf('𠮟責の書'), '𠮟');
+      t.eq('and neither is an emoji, which is simply not a letter',
+           W.App.ui.initialOf('📚 Reading list', 'en'), 'R');
       t.eq('a title with nothing to show leaves the frame empty',
            W.App.ui.initialOf(''), '');
 
