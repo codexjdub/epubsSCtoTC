@@ -43,7 +43,12 @@
      ArrayBuffer made here into the iframe fails: JSZip detects types with
      instanceof, which does not hold across realms, so loadAsync rejects and
      the book silently never opens. */
-  function make(title, paras, identifier, Zip) {
+  /* A 1x1 PNG. The bytes do not matter -- the box is sized in CSS -- but the
+     manifest entry does: findCoverPath wants a real image/ media type. */
+  var PNG_1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8' +
+                'z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  function make(title, paras, identifier, Zip, withCover) {
     var zip = new (Zip || JSZip)();
     zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
     zip.folder('META-INF').file('container.xml',
@@ -53,14 +58,18 @@
       '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="i">' +
       '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>' + title + '</dc:title>' +
       '<dc:language>zh-CN</dc:language><dc:identifier id="i">' +
-      (identifier || 'urn:uuid:SHARED') + '</dc:identifier></metadata>' +
-      '<manifest><item id="c1" href="a.xhtml" media-type="application/xhtml+xml"/></manifest>' +
+      (identifier || 'urn:uuid:SHARED') + '</dc:identifier>' +
+      (withCover ? '<meta name="cover" content="cov"/>' : '') + '</metadata>' +
+      '<manifest><item id="c1" href="a.xhtml" media-type="application/xhtml+xml"/>' +
+      (withCover ? '<item id="cov" href="cover.png" media-type="image/png"/>' : '') +
+      '</manifest>' +
       '<spine><itemref idref="c1"/></spine></package>');
     var body = '';
     for (var i = 0; i < paras; i++) body += '<p>第' + i + '段：她的头发很长，房间很干净。</p>';
     zip.file('a.xhtml',
       '<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">' +
       '<head><title>x</title></head><body>' + body + '</body></html>');
+    if (withCover) zip.file('cover.png', PNG_1x1, { base64: true });
     return zip.generateAsync({ type: 'arraybuffer' });
   }
 
@@ -167,7 +176,9 @@
       var W = frame.contentWindow, D = frame.contentDocument;
       try { W.localStorage.clear(); } catch (e) { /* ignore */ }
 
-      await W.App.ui.loadBuffer(await make('第一本書', 6, null, W.JSZip), 'one.epub');
+      /* One with a cover and one without: the mixed shelf the placeholder
+         exists for. */
+      await W.App.ui.loadBuffer(await make('第一本書', 6, null, W.JSZip, true), 'one.epub');
       await wait(400);
       await W.App.ui.loadBuffer(await make('第二本書', 30, null, W.JSZip), 'two.epub');
       await wait(400);
@@ -279,6 +290,36 @@
       t.eq('both books are on the shelf', rows().length, 2);
       t.check('the book being read is marked',
               rows().some(function (r) { return r.classList.contains('current'); }), 'none marked');
+
+      /* A book with no cover still takes the cover's box, or the titles in a
+         mixed shelf start at two different x positions -- 46px apart, which is
+         every row without artwork jutting left. Row is compared against row
+         inside one render rather than against a pixel figure, so the machine's
+         fonts cannot decide it; and the width is asserted FIRST because two
+         rows in a hidden panel both measure zero and would agree perfectly.
+         That is also why this sits here, on the open shelf: the library list
+         lives inside the landing page, which is hidden once a book is open. */
+      var covered = rows().filter(function (r) { return !!r.querySelector('img.cover'); })[0];
+      var bare = rows().filter(function (r) { return !r.querySelector('img.cover'); })[0];
+      t.check('the two fixtures differ: one has a cover, one has none',
+              !!covered && !!bare, 'both rows came out the same');
+      var titleLeft = function (r) { return r.querySelector('.t').getBoundingClientRect().left; };
+      t.check('the shelf is really laid out', titleLeft(covered) > 0, 'rows measure zero');
+      t.eq('a coverless title lines up with a covered one',
+           Math.round(titleLeft(bare)), Math.round(titleLeft(covered)));
+      t.check('because the empty slot is still drawn',
+              !!bare.querySelector('.cover.blank'), 'no placeholder in the row');
+
+      /* 《圍城》 filed under 《, and every English title that opens with an
+         article filed under T, is a placeholder that distinguishes nothing. */
+      t.eq('a bracketed title uses the first real character',
+           W.App.ui.initialOf('《圍城》'), '圍');
+      t.eq('an English article is not the initial',
+           W.App.ui.initialOf('The Left Hand of Darkness'), 'L');
+      t.eq('and another one does not collide with it',
+           W.App.ui.initialOf('The Dispossessed'), 'D');
+      t.eq('a title with nothing to show leaves the frame empty',
+           W.App.ui.initialOf(''), '');
 
       // switch
       var target = rows()[titles().indexOf('第一本書')];

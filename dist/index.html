@@ -577,6 +577,16 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library-row .cover { width: 36px; height: 52px; }
 .shelf-row .cover { width: 26px; height: 38px; }
 
+/* No cover: the same frame with the title's first character in it, so a mixed
+   list keeps one left edge. Clipped, because a phone may inflate a glyph past
+   a box this small -- the bar's marks were exactly that bug. */
+.cover.blank {
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; line-height: 1; font-weight: 600; color: var(--muted);
+}
+.library-row .cover.blank { font-size: 16px; }
+.shelf-row .cover.blank { font-size: 12px; }
+
 /* The reader's own status line. Empty most of the time, so it must not
    reserve space or shift the pager when it fills. */
 .pager .status-line { font-size: 12px; color: var(--muted); }
@@ -858,7 +868,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.5</p>
+    <p class="hint build">v1.36.6</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -5886,6 +5896,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     try { return await App.library.list(); } catch (e) { return []; }
   }
 
+  /* The character that stands in for a missing cover. Leading brackets and
+     quotes are decoration -- 《圍城》 would otherwise be filed under 《 -- and
+     an English title beginning with an article gives away nothing: "The Left
+     Hand of Darkness" and "The Dispossessed" both come out as T, which is the
+     one thing a placeholder must not do. Articles are stripped for English
+     only, the language this app actually has an opinion about; the alternative
+     is a list that grows by a language at a time and is never finished. A
+     title that survives none of this leaves the frame empty, which is still
+     the right width. */
+  function initialOf(title) {
+    var t = String(title || '').replace(/^[\s"'“‘《「〈(\[]+/, '');
+    return t.replace(/^(the|a|an)\s+/i, '').charAt(0).toUpperCase();
+  }
+
   /* The landing page's library and the reader's shelf are one list in two
    * sets of clothes: same rows, same removal, different class names, subtitle
    * and pick action. The class names stay distinct because the two are
@@ -5914,6 +5938,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         config.list.__covers.push(url);
         img.src = url;
         pick.appendChild(img);
+      } else {
+        /* A book with no cover still occupies the cover's box. Leaving it out
+           started the title 46px left of its neighbours', so a shelf holding
+           both kinds had no straight edge to read down. */
+        var blank = document.createElement('span');
+        blank.className = 'cover blank';
+        blank.setAttribute('aria-hidden', 'true');   /* the title is right beside it */
+        blank.textContent = initialOf(entry.title);
+        pick.appendChild(blank);
       }
 
       /* Title and subtitle share a column so the cover can sit beside them
@@ -6812,6 +6845,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
              focusOn: function () { return !!api.focusOn && api.focusOn(); },
              setFocus: function (on) { if (api.setFocus) api.setFocus(on); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
+             initialOf: initialOf,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

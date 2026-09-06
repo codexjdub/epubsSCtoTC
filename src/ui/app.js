@@ -509,6 +509,20 @@
     try { return await App.library.list(); } catch (e) { return []; }
   }
 
+  /* The character that stands in for a missing cover. Leading brackets and
+     quotes are decoration -- 《圍城》 would otherwise be filed under 《 -- and
+     an English title beginning with an article gives away nothing: "The Left
+     Hand of Darkness" and "The Dispossessed" both come out as T, which is the
+     one thing a placeholder must not do. Articles are stripped for English
+     only, the language this app actually has an opinion about; the alternative
+     is a list that grows by a language at a time and is never finished. A
+     title that survives none of this leaves the frame empty, which is still
+     the right width. */
+  function initialOf(title) {
+    var t = String(title || '').replace(/^[\s"'“‘《「〈(\[]+/, '');
+    return t.replace(/^(the|a|an)\s+/i, '').charAt(0).toUpperCase();
+  }
+
   /* The landing page's library and the reader's shelf are one list in two
    * sets of clothes: same rows, same removal, different class names, subtitle
    * and pick action. The class names stay distinct because the two are
@@ -537,6 +551,15 @@
         config.list.__covers.push(url);
         img.src = url;
         pick.appendChild(img);
+      } else {
+        /* A book with no cover still occupies the cover's box. Leaving it out
+           started the title 46px left of its neighbours', so a shelf holding
+           both kinds had no straight edge to read down. */
+        var blank = document.createElement('span');
+        blank.className = 'cover blank';
+        blank.setAttribute('aria-hidden', 'true');   /* the title is right beside it */
+        blank.textContent = initialOf(entry.title);
+        pick.appendChild(blank);
       }
 
       /* Title and subtitle share a column so the cover can sit beside them
@@ -1435,6 +1458,7 @@
              focusOn: function () { return !!api.focusOn && api.focusOn(); },
              setFocus: function (on) { if (api.setFocus) api.setFocus(on); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
+             initialOf: initialOf,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
