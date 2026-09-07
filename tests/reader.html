@@ -1248,6 +1248,36 @@
       t.check('and lands at its foot, not its head',
               reader.scrollPosition() > 0, String(reader.scrollPosition()));
 
+      /* A finger only ever goes forward: the head of a document is Safari's
+         gesture, not the page's, so a downward drag there is left alone. The
+         wheel, which nothing else claims, still crosses both ways. */
+      function touchDrag(fromY, toY) {
+        function ev(type, y, held) {
+          var t = new Touch({ identifier: 1, target: reader.mount, clientX: 10, clientY: y });
+          return new TouchEvent(type, {
+            touches: held ? [t] : [], changedTouches: [t], bubbles: true
+          });
+        }
+        reader.mount.dispatchEvent(ev('touchstart', fromY, true));
+        reader.mount.dispatchEvent(ev('touchmove', toY, true));
+        reader.mount.dispatchEvent(ev('touchend', toY, false));
+      }
+
+      await wait(App.reader.EDGE_COOLDOWN + 80);
+      await reader.show(1);
+      reader.scrollToStart();
+      await wait(60);
+      touchDrag(100, 100 + App.reader.EDGE_PUSH * 2);
+      await wait(200);
+      t.eq('a finger dragged down at the head of a chapter does not go back',
+           reader.state.index, 1);
+
+      await wait(App.reader.EDGE_COOLDOWN + 80);
+      wheel(-App.reader.EDGE_PUSH);
+      await wait(300);
+      t.check('but a wheel still goes back', reader.state.index === 0,
+              'index=' + reader.state.index);
+
       await wait(App.reader.EDGE_COOLDOWN + 80);
       reader.scrollToEnd();
       reader.scrollBy(-200);

@@ -1055,6 +1055,15 @@
       edgeAt = now;
 
       var forward = delta > 0;
+      /* Forward only, by finger. At the foot of a document an upward drag is
+         just a drag, and iOS delivers it; at the HEAD, a downward drag is the
+         gesture Safari keeps for itself -- pull-to-refresh, and before that
+         re-expanding the chrome it hid while you read. overscroll-behavior
+         stops the reload but does not hand the gesture back, so going back a
+         chapter this way could not be made to work from here. Forward is the
+         direction that removes the repeated pressing; 上一章 is still in the
+         pager, a thumb away, for the rarer other one. A wheel keeps both. */
+      if (byTouch && !forward) { edgePush = 0; return; }
       if (forward ? !atChapterEnd() : !atChapterStart()) { edgePush = 0; return; }
       if (edgePush !== 0 && (edgePush > 0) !== forward) edgePush = 0;
       edgePush += delta;
