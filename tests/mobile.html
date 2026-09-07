@@ -334,6 +334,31 @@
       await wait(120);
       t.check('and the end of a chapter always shows it',
               !pager.classList.contains('tucked'), 'hidden where 下一章 is wanted');
+
+      /* Sliding into the next chapter changes it while you are looking at the
+         text, so the bar says which one you have arrived in and then goes back
+         to the book. Asserted here rather than in reader.html because the
+         announcement belongs to the app's chrome, not the reader, and because
+         the bar is at its narrowest on a phone -- .topbar .title carries the
+         ellipsis that makes a long chapter name survive at 375px. */
+      var titleEl = D.getElementById('bookTitle');
+      var bookName = titleEl.textContent;
+      D.getElementById('next').click();
+      await wait(700);
+      t.check('arriving in a chapter says which one, not the book name',
+              titleEl.textContent !== bookName && titleEl.textContent.length > 0,
+              'title stayed at ' + JSON.stringify(titleEl.textContent));
+      await wait(W.App.ui.ARRIVAL_MS + 400);
+      t.eq('then the bar goes back to the book', titleEl.textContent, bookName);
+
+      /* Re-rendering is not arriving: changing the type size re-renders the
+         chapter and emits the same event, and a title flashing every time the
+         slider moves would be noise rather than news. */
+      W.App.ui.current.reader.setFontScale(1.1);
+      await wait(500);
+      t.eq('a re-render does not announce anything', titleEl.textContent, bookName);
+      W.App.ui.current.reader.setFontScale(1);
+      await wait(300);
       scrollTo(0);
       await wait(120);
 
