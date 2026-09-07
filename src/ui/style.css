@@ -1,3 +1,20 @@
+/* The scales this sheet keeps to. Written down because they were not a system
+ * until 2026-09-07 -- they were 7 font sizes, 3 weights, 5 radii, 11 gaps and
+ * 25 paddings, each chosen a component at a time, most of them a pixel or two
+ * from a neighbour. Snapping them changed nothing anyone can point at and
+ * makes every later decision a choice from a list rather than a fresh guess.
+ *
+ *   size    12 fine print · 14 base · 18 emphasis and × glyphs · 26 page title
+ *   weight  600, and nothing else
+ *   radius  3 thumbnails · 8 controls and rows · 12 panels
+ *   space   4 · 8 · 12 · 16 · 24 · 32 · 48
+ *
+ * Reach for a value that is already here before adding one. The exceptions
+ * left standing are deliberate and each says why: the reader's own type sizes
+ * (set by the book and by the size control), the 44px touch minimum, 6ch and
+ * 46ch measures, and 1px hairlines.
+ */
+
 /* Themes.
  *
  * Green is the default and lives on bare :root, so it paints on first render
@@ -146,7 +163,7 @@ body {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 32px;
 }
-.landing h1 { font-size: 26px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+.landing h1 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
 .landing p { margin: 0; color: var(--muted); max-width: 46ch; text-align: center; }
 
 /* Space between the GROUPS, rather than one gap between everything. A single
@@ -176,8 +193,8 @@ body {
    the eye landed on what you had already done rather than on what you came to
    do. A second accent anywhere here would cancel this one. */
 .dropzone {
-  border: 2px dashed var(--accent); border-radius: 14px;
-  padding: 44px 56px; text-align: center; cursor: pointer;
+  border: 2px dashed var(--accent); border-radius: 12px;
+  padding: 48px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
   font: inherit; color: inherit; display: block;
 }
@@ -191,10 +208,10 @@ body {
 }
 .dropzone span { color: var(--muted); font-size: 14px; }
 
-.options { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
-label { font-size: 14px; color: var(--muted); display: flex; gap: 7px; align-items: center; }
+.options { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 select, button {
-  font: inherit; font-size: 14px; padding: 7px 11px;
+  font: inherit; font-size: 14px; padding: 8px 12px;
   border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--fg); cursor: pointer;
   /* A second press within the double-tap window is a press, not a zoom
@@ -211,15 +228,14 @@ select, button {
 }
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
-/* text-wrap: pretty helps the ENGLISH interface only, and it was added here
-   for a Chinese orphan it turned out not to fix: it works by pulling words
-   down onto a short last line, and Chinese has no words -- every character is
-   a break opportunity, so there is nothing to reflow. Measured, supported,
-   inert: the storage line still wraps at two lines with 「裝置。」 below,
-   because 25 characters at 13px want 325px and the column is 311. Kept for the
-   English strings, where there are words. A Chinese line that orphans badly
-   needs shorter wording, not a wrap mode. */
-.hint { font-size: 13px; color: var(--muted); max-width: 52ch; text-align: center;
+/* text-wrap: pretty helps the ENGLISH interface, where there are words to pull
+   down onto a short last line. It does nothing for Chinese: every character is
+   a break opportunity, so there is nothing to reflow. It was added for the
+   storage line's orphan and did not fix it -- 25 characters at 13px wanted
+   325px in a 311px column. Snapping this to the 12px step did fix it, which is
+   the honest lesson: the orphan was a symptom of a type scale nobody had
+   settled, not of a missing wrap mode. */
+.hint { font-size: 12px; color: var(--muted); max-width: 52ch; text-align: center;
         text-wrap: pretty; }
 
 /* ---- reader chrome ---- */
@@ -229,12 +245,12 @@ button:disabled { opacity: .5; cursor: default; }
    file silently beat the phone layout's `position: fixed`. */
 .topbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel);
+  padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
   position: relative;
 }
 /* The title yields space before the controls do: real book titles are long,
    and wrapping the bar pushes Export onto a second row. */
-.topbar .title { font-weight: 620; font-size: 15px; flex: 1 1 6ch; min-width: 0;
+.topbar .title { font-weight: 600; font-size: 14px; flex: 1 1 6ch; min-width: 0;
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar .spacer { flex: 1; }
 
@@ -248,10 +264,10 @@ button:disabled { opacity: .5; cursor: default; }
 /* The same treatment as 書架, and for the same reason: uppercase does nothing
    to 目錄 and the letter-spacing only pushes its two characters apart. Both are
    English habits, and this app's headings are Chinese. */
-.sidebar h2 { font-size: 13px; color: var(--muted); margin: 4px 0 10px; }
-.toc ul { list-style: none; margin: 0; padding-left: 14px; }
+.sidebar h2 { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+.toc ul { list-style: none; margin: 0; padding-left: 16px; }
 .toc > ul { padding-left: 0; }
-.toc a { display: block; padding: 4px 6px; border-radius: 6px; color: inherit;
+.toc a { display: block; padding: 4px 8px; border-radius: 8px; color: inherit;
          text-decoration: none; font-size: 14px; }
 .toc a:hover { background: var(--bg); }
 /* Marked, not shouted. A filled accent block made the contents list the
@@ -398,30 +414,30 @@ button:disabled { opacity: .5; cursor: default; }
 .bookmark-row { display: flex; align-items: flex-start; gap: 4px; }
 .bookmark-row .go {
   flex: 1; min-width: 0; text-align: left; background: none; border: 0;
-  padding: 5px 6px; border-radius: 6px; color: inherit; cursor: pointer;
+  padding: 4px 8px; border-radius: 8px; color: inherit; cursor: pointer;
   font: inherit; display: block;
 }
 .bookmark-row .go:hover { background: var(--bg); }
 /* The opening words, on one line. Two bookmarks in the same paragraph would
    otherwise be told apart only by reading to the end of both. */
 .bookmark-row .label {
-  display: block; font-size: 13px; white-space: nowrap;
+  display: block; font-size: 14px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
 .bookmark-row .where {
-  display: block; font-size: 11px; color: var(--muted);
+  display: block; font-size: 12px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .bookmark-row .drop {
   background: none; border: 0; color: var(--muted); cursor: pointer;
-  font-size: 15px; line-height: 1; padding: 6px 4px; border-radius: 6px;
+  font-size: 18px; line-height: 1; padding: 8px 4px; border-radius: 8px;
 }
 .bookmark-row .drop:hover { color: var(--accent); background: var(--bg); }
 
 .viewer { flex: 1; overflow: auto; min-width: 0; }
 .reader-mount { min-height: 100%; }
 
-.pager { display: flex; gap: 10px; align-items: center; justify-content: center;
+.pager { display: flex; gap: 12px; align-items: center; justify-content: center;
          padding: 12px; border-top: 1px solid var(--line); background: var(--panel);
          position: relative; }
 
@@ -449,35 +465,35 @@ button:disabled { opacity: .5; cursor: default; }
    in-flow text and buttons rather than behind them. */
 .pager > * { position: relative; z-index: 1; }
 .pager button { background: transparent; }
-.pager .pos { color: var(--muted); font-size: 13px; min-width: 9ch; text-align: center; }
+.pager .pos { color: var(--muted); font-size: 12px; min-width: 9ch; text-align: center; }
 
 /* ---- report ---- */
 .report { padding: 16px; border-top: 1px solid var(--line); background: var(--panel);
           max-height: 40vh; max-height: 40dvh; overflow-y: auto; }
 .report.hidden { display: none; }
-.report h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+.report h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
              color: var(--muted); margin: 0 0 10px; }
-.report dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 14px; font-size: 14px; }
+.report dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 16px; font-size: 14px; }
 .report dt { color: var(--muted); }
 .report dd { margin: 0; }
-.notice { padding: 9px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 8px;
+.notice { padding: 8px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 8px;
           background: var(--warn-bg); color: var(--warn); }
 .notice.ok { background: transparent; color: var(--ok); padding-left: 0; }
 
-.status { padding: 10px 14px; font-size: 14px; color: var(--muted); }
-.error { padding: 12px 14px; margin: 12px; border-radius: 8px;
+.status { padding: 12px 16px; font-size: 14px; color: var(--muted); }
+.error { padding: 12px 16px; margin: 12px; border-radius: 8px;
          background: var(--warn-bg); color: var(--warn); font-size: 14px; }
 
 button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 
 .originalBanner {
-  padding: 7px 14px; font-size: 13px; text-align: center;
+  padding: 8px 16px; font-size: 14px; text-align: center;
   background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--line);
 }
 .originalBanner.hidden { display: none; }
 
 /* Compact controls in the reader bar; the landing screen keeps roomier ones. */
-.topbar select, .topbar button { font-size: 13px; padding: 6px 9px; }
+.topbar select, .topbar button { font-size: 14px; padding: 8px 12px; }
 .topbar label { gap: 0; }
 
 /* ---- keyboard help ---- */
@@ -489,14 +505,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .keyhelp.hidden { display: none; }
 .keyhelp-panel {
   background: var(--panel); color: var(--fg); border: 1px solid var(--line);
-  border-radius: 12px; padding: 20px 24px; max-width: 460px; width: 100%;
+  border-radius: 12px; padding: 24px; max-width: 460px; width: 100%;
   max-height: 80vh; max-height: 80dvh; overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
 }
-.keyhelp-panel h2 { margin: 0 0 14px; font-size: 15px; }
+.keyhelp-panel h2 { margin: 0 0 16px; font-size: 18px; }
 .keyhelp-panel dl {
-  display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px;
-  margin: 0 0 14px; font-size: 14px;
+  display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px;
+  margin: 0 0 16px; font-size: 14px;
 }
 .keyhelp-panel dt {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -505,7 +521,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 :root[data-theme="dark"] .keyhelp-panel dt,
 :root[data-theme="grey"] .keyhelp-panel dt { color: var(--accent); }
 .keyhelp-panel dd { margin: 0; color: var(--fg); }
-.keyhelp-panel p { margin: 0; font-size: 13px; color: var(--muted); }
+.keyhelp-panel p { margin: 0; font-size: 12px; color: var(--muted); }
 
 /* ---- responsive: phones and narrow windows -----------------------------
  *
@@ -529,16 +545,21 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
   flex-direction: column; align-items: stretch; gap: 8px;
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; min-width: 220px;
+  border-radius: 12px; padding: 12px; min-width: 220px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
   /* A ceiling, and its own scroll under it. Aa is eleven controls and 544px
      tall; on a 560px screen it ran 44px past the bottom with Vim 模式 off it
      entirely, and nothing could reach it -- the panel hangs off the bar, which
      does not scroll on a phone, and while paginating nothing scrolls at all.
-     The subtraction is roughly the bar plus this panel's own offset from it,
-     which is conservative on a desktop where the bar is shorter. */
-  max-height: calc(100vh - 64px);
-  max-height: calc(100dvh - 64px);
+     The subtraction WAS a hand-measured 64px, and it went stale the moment the
+     bar's padding moved: snapping the spacing scale grew the bar by 4px and
+     the panel promptly hung 4px past the bottom of a 460px screen. 100% here
+     is the bar's own height -- this panel is absolutely positioned against it
+     -- so the ceiling now measures the thing it depends on instead of
+     remembering a number about it, and 4px is the panel's own offset below the
+     bar, which is the value on `top` two rules up. */
+  max-height: calc(100vh - 100% - 4px);
+  max-height: calc(100dvh - 100% - 4px);
   overflow-y: auto;
 }
 .bar-panel:not(.hidden) { display: flex; }
@@ -589,7 +610,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    and on 書架 the first does nothing while the second only pushes the two
    characters apart. */
 .library h2 {
-  font-size: 13px; color: var(--muted); margin: 0 0 10px; text-align: left;
+  font-size: 12px; color: var(--muted); margin: 0 0 12px; text-align: left;
 }
 .library-list { display: flex; flex-direction: column; gap: 8px; }
 .library-row {
@@ -598,10 +619,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .library-row .open {
   flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
-  padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+  padding: 12px; display: flex; align-items: center; gap: 12px;
 }
 .library-row .text {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 12px;
 }
 .library-row .name {
   flex: 1 1 auto; min-width: 0; font-weight: 600;
@@ -610,7 +631,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
 .library-row .remove {
   flex: 0 0 auto; border: 0; background: none; color: var(--muted);
-  padding: 11px 13px; font-size: 16px; line-height: 1;
+  padding: 12px; font-size: 18px; line-height: 1;
 }
 .library-row .remove:hover { color: var(--warn); }
 
@@ -619,7 +640,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   display: none;
   position: absolute; top: calc(100% + 4px); left: 8px; z-index: 46;
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; min-width: 260px; max-width: 340px;
+  border-radius: 12px; padding: 12px; min-width: 260px; max-width: 340px;
   max-height: 60vh; max-height: 60dvh; overflow-y: auto;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
 }
@@ -637,19 +658,19 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   display: flex; align-items: center; gap: 8px;
 }
 .shelf-row .pick .text {
-  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px;
 }
 .shelf-row .pick .t {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;
 }
-.shelf-row .pick .s { font-size: 11px; color: var(--muted); }
+.shelf-row .pick .s { font-size: 12px; color: var(--muted); }
 .shelf-row .drop {
   flex: 0 0 auto; border: 0; background: none; color: var(--muted);
-  padding: 8px 10px; font-size: 15px; line-height: 1;
+  padding: 8px 12px; font-size: 18px; line-height: 1;
 }
 .shelf-row .drop:hover { color: var(--warn); }
 
-.hint.build { font-size: 11px; opacity: .55; letter-spacing: .04em; }
+.hint.build { font-size: 12px; opacity: .55; letter-spacing: .04em; }
 
 /* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
    the background shows while a large JPEG decodes.
@@ -673,7 +694,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .cover.blank {
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; font-weight: 600; color: var(--muted);
-  font-size: 16px;
+  font-size: 18px;
 }
 .shelf-row .cover.blank { font-size: 12px; }
 
@@ -686,8 +707,8 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    long library makes it most useful. The background is opaque so rows pass
    underneath rather than through it. */
 .shelf-foot {
-  position: sticky; bottom: -10px; z-index: 1;
-  margin: 4px -10px -10px; padding: 8px 10px 10px;
+  position: sticky; bottom: -12px; z-index: 1;
+  margin: 4px -12px -12px; padding: 8px 12px 12px;
   background: var(--panel); border-top: 1px solid var(--line);
 }
 .shelf-panel .open-new {
@@ -696,7 +717,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
 .shelf-panel .drag-hint {
-  margin: 6px 2px 0; text-align: center; font-size: 11px;
+  margin: 6px 2px 0; text-align: center; font-size: 12px;
 }
 
 /* A user's standing preference, so it outranks the layout rules that set these
@@ -761,20 +782,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      fold. Full width as well, so its edges meet the book rows and the footer
      rather than floating narrower than both -- three stacked blocks that do
      not share an edge look unaligned even when each is fine on its own. */
-  .dropzone { padding: 26px 20px; width: 100%; }
+  .dropzone { padding: 24px 16px; width: 100%; }
 
   /* Two settings, each on its own line and each centred by itself, put their
      controls at 141px and 169px with widths of 142 and 72: ragged, because
      nothing related the rows to each other. Stacked and stretched, the labels
      share a left edge and the controls share a right one. */
-  .options { flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }
+  .options { flex-direction: column; align-items: stretch; width: 100%; gap: 12px; }
   .options label { justify-content: space-between; }
 
   .topbar {
     flex-wrap: nowrap;
     position: relative;
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 8px;
+    gap: 8px;
   }
   /* Title yields all remaining space; the controls matter more here. */
   .topbar .title { flex: 1 1 0; min-width: 0; font-size: 14px; }
@@ -833,10 +854,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   .bar-panel button, .bar-panel select,
   .pager button {
     min-height: 44px;
-    padding: 10px 12px;
+    padding: 12px;
     font-size: 14px;
   }
-  .topbar button { padding: 10px; }
+  .topbar button { padding: 12px; }
   /* CJK labels are two characters wide; a squeezed button wrapped them onto
      a second line and took the whole bar to 80px. */
   .topbar button { white-space: nowrap; }
@@ -875,7 +896,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     display: block !important;
     transform: translateX(0);
   }
-  .toc a { padding: 10px 8px; }
+  .toc a { padding: 12px 8px; }
 
   .drawer-backdrop {
     display: block;
@@ -890,7 +911,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      controls touched a few times a chapter. The mount carries bottom padding
      so the last lines of a chapter are never stuck underneath it. */
   .pager {
-    padding: 5px 10px; gap: 8px;
+    padding: 4px 12px; gap: 8px;
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     border-top: 1px solid var(--line);
     transition: transform .18s ease, opacity .18s ease;
@@ -939,5 +960,5 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 
 @media (max-width: 420px) {
-  .topbar .title { font-size: 13px; }
+  .topbar .title { font-size: 12px; }
 }
