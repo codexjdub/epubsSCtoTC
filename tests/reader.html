@@ -1171,8 +1171,63 @@
       press('j');
       t.eq('keys do nothing while disabled', reader.scrollPosition(), 0);
 
+      /* ...but the keys a reader presses without being taught must work
+         whether or not vim is on. Every one of these was dead: the handler
+         returned early on the vim flag, so in the default configuration this
+         app had no keyboard at all. */
+      var page = Math.round(reader.viewportExtent() * 0.9);
+      reader.scrollToStart();
+      press('ArrowDown');
+      t.eq('an arrow key scrolls with vim off', reader.scrollPosition(), App.keys.LINE);
+      press('ArrowUp');
+      t.eq('and comes back', reader.scrollPosition(), 0);
+
+      press(' ');
+      t.eq('space pages forward with vim off', reader.scrollPosition(), page);
+      reader.scrollToStart();
+      press('PageDown');
+      t.eq('and so does PageDown', reader.scrollPosition(), page);
+      press('PageUp');
+      t.eq('PageUp goes back', reader.scrollPosition(), 0);
+
+      press('End');
+      t.check('End reaches the foot of the chapter', reader.scrollPosition() > 0,
+              String(reader.scrollPosition()));
+      press('Home');
+      t.eq('Home returns to the top', reader.scrollPosition(), 0);
+
+      /* Space on a focused control presses the control; paging must not steal
+         it from someone navigating by tab. */
+      reader.scrollToStart();
+      var pressable = document.createElement('button');
+      document.body.appendChild(pressable);
+      press(' ', pressable);
+      t.eq('space on a focused button is left alone', reader.scrollPosition(), 0);
+      pressable.remove();
+
+      /* The click this replaces: at the foot of a chapter the key carries on
+         into the next one instead of stopping dead. */
+      await reader.show(0);
+      reader.scrollToEnd();
+      await wait(60);
+      press(' ');
+      await wait(250);
+      t.check('space at the foot of a chapter advances to the next',
+              reader.state.index === 1, 'index=' + reader.state.index);
+      await reader.show(0);
+
       vim.set(true);
       t.check('enabling is reported', vim.isEnabled(), 'not enabled');
+
+      /* Named keys are not vim's to claim, so turning vim on must not take
+         them away again. */
+      reader.scrollToStart();
+      press('ArrowDown');
+      t.eq('an arrow key still scrolls with vim on', reader.scrollPosition(), App.keys.LINE);
+      reader.scrollToStart();
+      press('2'); press(' ');
+      t.eq('and space keeps its vim count rather than being intercepted',
+           reader.scrollPosition(), Math.round(reader.viewportExtent() * 0.9) * 2);
 
       reader.scrollToStart();
       press('j');

@@ -984,6 +984,14 @@
       return state.index === last && atLastPage();
     }
 
+    /* The foot of THIS chapter, which is where a page-forward key runs out of
+       room and has to decide whether to stop dead or carry on. A different
+       question from atBookEnd, which asks about the last chapter. */
+    function atChapterEnd() {
+      if (scroll.kind === 'paged') return atLastPage();
+      return scroll.top() + scroll.extent() >= scroll.contentExtent() - 2;
+    }
+
     function nextPage() {
       navigated();
       if (scroll.kind !== 'paged') return next();
@@ -1164,6 +1172,7 @@
       scrollerKind: function () { return scroll.kind; },
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
+      atChapterEnd: atChapterEnd,
       bookmarks: function () { return state.bookmarks.slice(); },
       bookmarkAt: bookmarkAt,
       toggleBookmark: toggleBookmark,

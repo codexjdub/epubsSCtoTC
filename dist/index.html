@@ -901,7 +901,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.11</p>
+    <p class="hint build">v1.36.12</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -3785,6 +3785,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return state.index === last && atLastPage();
     }
 
+    /* The foot of THIS chapter, which is where a page-forward key runs out of
+       room and has to decide whether to stop dead or carry on. A different
+       question from atBookEnd, which asks about the last chapter. */
+    function atChapterEnd() {
+      if (scroll.kind === 'paged') return atLastPage();
+      return scroll.top() + scroll.extent() >= scroll.contentExtent() - 2;
+    }
+
     function nextPage() {
       navigated();
       if (scroll.kind !== 'paged') return next();
@@ -3965,6 +3973,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       scrollerKind: function () { return scroll.kind; },
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
+      atChapterEnd: atChapterEnd,
       bookmarks: function () { return state.bookmarks.slice(); },
       bookmarkAt: bookmarkAt,
       toggleBookmark: toggleBookmark,
@@ -4133,6 +4142,52 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       help.classList.toggle('hidden', !on);
     }
 
+    /* Running out of chapter is exactly where the click used to be. Carry on
+       into the next one rather than stopping dead, which is what the pager
+       button two inches below already does. */
+    function pageForward(r) {
+      if (r.atChapterEnd && r.atChapterEnd() && !r.atBookEnd()) return r.next();
+      return r.scrollBy(fullPage());
+    }
+
+    /* The keys a reader presses without being taught -- and every one of them
+       used to be dead. The handler below returned early on the vim flag, and
+       vim is off by default, so in its ordinary configuration this app had no
+       keyboard at all: not space, not PageDown, not an arrow. That is a defect
+       rather than a minimal feature set.
+
+       Named keys are taken whether or not vim is on, since vim binds single
+       letters and digits only and there is nothing to collide with; dead arrow
+       keys are no better for a vim user. Space is the exception, because vim
+       already owns it with counts, so it is claimed only when vim is off -- and
+       never from a focused control, which would stop the space bar pressing
+       the button someone just tabbed to. */
+    function isPressable(target) {
+      if (!target) return false;
+      var name = target.localName;
+      return name === 'button' || name === 'a' || name === 'summary';
+    }
+
+    function handleReadingKey(ev, k, r) {
+      switch (k) {
+        case 'PageDown': pageForward(r); break;
+        case 'PageUp': r.scrollBy(-fullPage()); break;
+        case 'ArrowDown': r.scrollBy(lineStep()); break;
+        case 'ArrowUp': r.scrollBy(-lineStep()); break;
+        case 'ArrowRight': r.nextPage(); break;
+        case 'ArrowLeft': r.prevPage(); break;
+        case 'Home': r.scrollToStart(); break;
+        case 'End': r.scrollToEnd(); break;
+        case ' ':
+          if (enabled || isPressable(ev.target)) return false;
+          if (ev.shiftKey) r.scrollBy(-fullPage()); else pageForward(r);
+          break;
+        default: return false;
+      }
+      ev.preventDefault();
+      return true;
+    }
+
     function handle(ev) {
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (inFormField(ev.target)) return;
@@ -4143,10 +4198,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         if (k === 'Escape' || k === '?') { setHelp(false); ev.preventDefault(); }
         return;
       }
-      if (!enabled) return;
-
       var r = reader();
       if (!r) return;
+
+      if (handleReadingKey(ev, k, r)) return;
+      if (!enabled) return;
 
       // Digits accumulate a count, except a leading 0.
       if (k >= '0' && k <= '9' && !(k === '0' && !count)) {

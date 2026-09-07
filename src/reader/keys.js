@@ -124,6 +124,52 @@
       help.classList.toggle('hidden', !on);
     }
 
+    /* Running out of chapter is exactly where the click used to be. Carry on
+       into the next one rather than stopping dead, which is what the pager
+       button two inches below already does. */
+    function pageForward(r) {
+      if (r.atChapterEnd && r.atChapterEnd() && !r.atBookEnd()) return r.next();
+      return r.scrollBy(fullPage());
+    }
+
+    /* The keys a reader presses without being taught -- and every one of them
+       used to be dead. The handler below returned early on the vim flag, and
+       vim is off by default, so in its ordinary configuration this app had no
+       keyboard at all: not space, not PageDown, not an arrow. That is a defect
+       rather than a minimal feature set.
+
+       Named keys are taken whether or not vim is on, since vim binds single
+       letters and digits only and there is nothing to collide with; dead arrow
+       keys are no better for a vim user. Space is the exception, because vim
+       already owns it with counts, so it is claimed only when vim is off -- and
+       never from a focused control, which would stop the space bar pressing
+       the button someone just tabbed to. */
+    function isPressable(target) {
+      if (!target) return false;
+      var name = target.localName;
+      return name === 'button' || name === 'a' || name === 'summary';
+    }
+
+    function handleReadingKey(ev, k, r) {
+      switch (k) {
+        case 'PageDown': pageForward(r); break;
+        case 'PageUp': r.scrollBy(-fullPage()); break;
+        case 'ArrowDown': r.scrollBy(lineStep()); break;
+        case 'ArrowUp': r.scrollBy(-lineStep()); break;
+        case 'ArrowRight': r.nextPage(); break;
+        case 'ArrowLeft': r.prevPage(); break;
+        case 'Home': r.scrollToStart(); break;
+        case 'End': r.scrollToEnd(); break;
+        case ' ':
+          if (enabled || isPressable(ev.target)) return false;
+          if (ev.shiftKey) r.scrollBy(-fullPage()); else pageForward(r);
+          break;
+        default: return false;
+      }
+      ev.preventDefault();
+      return true;
+    }
+
     function handle(ev) {
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (inFormField(ev.target)) return;
@@ -134,10 +180,11 @@
         if (k === 'Escape' || k === '?') { setHelp(false); ev.preventDefault(); }
         return;
       }
-      if (!enabled) return;
-
       var r = reader();
       if (!r) return;
+
+      if (handleReadingKey(ev, k, r)) return;
+      if (!enabled) return;
 
       // Digits accumulate a count, except a leading 0.
       if (k >= '0' && k <= '9' && !(k === '0' && !count)) {
