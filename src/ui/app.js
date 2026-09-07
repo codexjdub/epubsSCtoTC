@@ -475,23 +475,6 @@
       : Math.round(bytes / 1024) + ' KB';
   }
 
-  /* How far through a book, for a row in a list of books that are not open.
-     The reader saves the figure alongside the reading position, and that
-     record is keyed by hashKey(book) -- which IS the library id -- so the row
-     can simply ask. Nothing is recomputed here: weighting chapters by their
-     character count needs the converted text in memory. A book last read
-     before this shipped therefore has no figure, and shows none, which is also
-     what a book opened but not yet read shows. */
-  function readingProgress(id) {
-    try {
-      var raw = window.localStorage.getItem(id);
-      var saved = raw ? JSON.parse(raw) : null;
-      if (!saved || typeof saved.progress !== 'number') return null;
-      var pct = Math.round(saved.progress * 100);
-      return pct >= 1 ? pct : null;
-    } catch (e) { return null; }
-  }
-
   function formatWhen(ts) {
     if (!ts) return '';
     var days = Math.floor((Date.now() - ts) / 86400000);
@@ -681,10 +664,8 @@
       list: el.libraryList,
       row: 'library-row', pick: 'open', name: 'name', meta: 'meta', drop: 'remove',
       subtitle: function (entry) {
-        var pct = readingProgress(entry.id);
         return formatSize(entry.size) +
-          (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '') +
-          (pct === null ? '' : ' · ' + pct + '%');
+          (entry.lastOpenedAt ? ' · ' + formatWhen(entry.lastOpenedAt) : '');
       },
       onPick: openStored
     }, books, null);
@@ -745,10 +726,7 @@
       list: el.shelfList,
       row: 'shelf-row', pick: 'pick', name: 't', meta: 's', drop: 'drop',
       subtitle: function (entry, id) {
-        var pct = readingProgress(entry.id);
-        return formatSize(entry.size) +
-          (entry.id === id ? ' · ' + S('shelf.reading') : '') +
-          (pct === null ? '' : ' · ' + pct + '%');
+        return formatSize(entry.size) + (entry.id === id ? ' · ' + S('shelf.reading') : '');
       },
       onPick: switchToBook
     }, books, currentId);

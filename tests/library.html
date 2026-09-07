@@ -398,34 +398,6 @@
       await W.App.ui.renderShelf();
       t.eq('and the real shelf comes back', rows().length, 2);
 
-      /* A shut book can say how far through it you are, because the reader
-         writes that figure into the same record it saves the position in and
-         that record's key IS the library id. The figure is injected here
-         rather than reached by scrolling: what is under test is the shelf
-         asking a book it has not opened, not the arithmetic behind the
-         number, which reader.html already covers. The book chosen is
-         deliberately NOT the open one, whose record the reader rewrites on
-         every settle. */
-      var openId = W.App.library.idFor(W.App.ui.current.book);
-      var shut = (await W.App.library.list()).filter(function (b) {
-        return b.id !== openId;
-      })[0];
-      var shutState = JSON.parse(W.localStorage.getItem(shut.id) || '{}');
-      shutState.progress = 0.42;
-      W.localStorage.setItem(shut.id, JSON.stringify(shutState));
-      await W.App.ui.renderShelf();
-      var lineFor = function (title) {
-        var row = rows().filter(function (r) {
-          return r.querySelector('.t').textContent === title;
-        })[0];
-        return row ? row.querySelector('.s').textContent : '(no such row)';
-      };
-      t.check('a closed book reports how far through it you are',
-              /42%/.test(lineFor(shut.title)), lineFor(shut.title));
-      t.check('and one with no figure stored claims nothing',
-              !/%/.test(lineFor(W.App.ui.current.book.metadata.title)),
-              lineFor(W.App.ui.current.book.metadata.title));
-
       /* 《圍城》 filed under 《, and every English title that opens with an
          article filed under T, is a placeholder that distinguishes nothing.
          Every case below returned the wrong character at some point; the
