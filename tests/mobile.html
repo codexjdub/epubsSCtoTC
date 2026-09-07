@@ -1227,6 +1227,7 @@
       await wait(60);
       var han = /[一-鿿]/;
       [['reportBody', 'the conversion report'],
+       ['drmNote', 'the note about DRM'],
        ['libraryNote', 'the library note']].forEach(function (pair) {
         var node = LD.getElementById(pair[0]);
         t.check(pair[1] + ' speaks Chinese in Chinese',

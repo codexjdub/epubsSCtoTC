@@ -46,6 +46,11 @@
        whole word and the bar does not, where every label competes with the
        title for width. */
     'landing.books': ['書架', 'Bookshelf'],
+    'landing.drm': ['有 DRM 保護的檔案無法轉換。圖片裡的文字也不會被轉換，' +
+                    '報告會告訴你書中有沒有這樣的圖片。',
+                    'DRM-protected files cannot be converted. Text drawn inside images ' +
+                    'cannot be converted either — the report will tell you if the book ' +
+                    'contains any.'],
 
     /* ---- the bar ---- */
     'bar.shelf': ['書架', 'Shelf'],

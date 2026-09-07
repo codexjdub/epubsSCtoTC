@@ -144,23 +144,51 @@ body {
 /* ---- drop screen ---- */
 .landing {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 20px; padding: 32px;
+  align-items: center; justify-content: center; padding: 32px;
 }
 .landing h1 { font-size: 26px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .landing p { margin: 0; color: var(--muted); max-width: 46ch; text-align: center; }
 
+/* Space between the GROUPS, rather than one gap between everything. A single
+   20px rhythm gave the tagline, the primary action and the fine print an equal
+   claim on the page, which is what stopped any of them reading as the most
+   important thing on it. */
+.landing h1 { margin-bottom: 10px; }
+.landing > p { margin-bottom: 30px; }
+.landing .dropzone { margin-bottom: 18px; }
+.landing .options { margin-bottom: 34px; }
+.landing .library { margin-bottom: 40px; }
+.landing .error, .landing .status { margin-top: 16px; }
+
+/* The fine print, made to read as a footer instead of as more content. */
+.landing .foot {
+  width: 100%; max-width: 560px;
+  border-top: 1px solid var(--line); padding-top: 18px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.landing .foot .hint { font-size: 12px; max-width: none; }
+
 /* A real <button>, not a div with a click handler: the file input beside it is
    hidden, so this was the only way in and the keyboard could not reach it.
    Overrides the shared select/button rule, which sets its own font and box. */
+/* The one accent on this screen. Dropping a book is what the app is FOR, and
+   an outline with no colour in it read lighter than the book list below --
+   the eye landed on what you had already done rather than on what you came to
+   do. A second accent anywhere here would cancel this one. */
 .dropzone {
-  border: 2px dashed var(--line); border-radius: 14px;
+  border: 2px dashed var(--accent); border-radius: 14px;
   padding: 44px 56px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
   font: inherit; color: inherit; display: block;
 }
 .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.dropzone:hover, .dropzone.over { border-color: var(--accent); }
-.dropzone strong { display: block; margin-bottom: 6px; }
+/* The border is already the accent, so hover and drag-over move the FILL
+   instead -- every theme defines both, and they differ in all seven. */
+.dropzone:hover, .dropzone.over { background: var(--bg); }
+.dropzone strong {
+  display: block; margin-bottom: 8px;
+  font-size: 18px; font-weight: 600; color: var(--accent);
+}
 .dropzone span { color: var(--muted); font-size: 14px; }
 
 .options { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -537,10 +565,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library.hidden { display: none !important; }
 /* The 52ch cap on .hint keeps prose readable, but this line sits under a
    560px list and wrapped, orphaning its last two words on a centred line. */
-#libraryNote { max-width: none; }
+#libraryNote { max-width: none; text-align: left; }
+/* Above its list's left edge, not floating over the middle of it: a heading
+   that names a column of things belongs at the top of that column.
+   uppercase and letter-spacing went with it -- both are English treatments,
+   and on 書架 the first does nothing while the second only pushes the two
+   characters apart. */
 .library h2 {
-  font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--muted); margin: 0 0 10px; text-align: center;
+  font-size: 13px; color: var(--muted); margin: 0 0 10px; text-align: left;
 }
 .library-list { display: flex; flex-direction: column; gap: 8px; }
 .library-row {
