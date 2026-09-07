@@ -115,6 +115,21 @@
 
 * { box-sizing: border-box; }
 
+/* Both of these exist for iOS, and neither has any effect on a desktop engine.
+   On a phone this reader deliberately lets the DOCUMENT scroll, so that Safari
+   collapses its own chrome -- and a document sitting at scroll-top is exactly
+   what iOS turns into pull-to-refresh, so scrolling up out of a chapter
+   reloaded the app. `contain` keeps the rubber band and stops the reload.
+
+   overflow-anchor is off for the neighbouring reason: crossing a chapter
+   boundary replaces the content underneath the scroller, and a browser that
+   re-anchors to what used to be there puts the reader somewhere in the middle
+   of a chapter it has never seen. */
+html {
+  overscroll-behavior-y: contain;
+  overflow-anchor: none;
+}
+
 .hidden { display: none !important; }
 
 body {
@@ -901,7 +916,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.13</p>
+    <p class="hint build">v1.36.14</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -2951,6 +2966,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
   var EDGE_PUSH = 180;      /* px of push against the edge before it gives */
   var EDGE_IDLE = 500;      /* ms of quiet that resets the accumulator */
   var EDGE_COOLDOWN = 700;  /* ms after a crossing when nothing else crosses */
+  var EDGE_HOLD = 1200;     /* ms of holding the landing against a live fling */
 
   function createStore(key) {
     var memory = {};
@@ -3637,6 +3653,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
      * its own store from a detached mount. */
     var scrollTimer = null;
     function onScroll() {
+      applyLanding();
       emit('progress', { fraction: progress() });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
@@ -3819,7 +3836,34 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
        a reader who overshot once would keep falling. */
     var edgePush = 0, edgeAt = 0, lastCross = 0;
 
-    function pushEdge(delta) {
+    /* Landing somewhere is not the same as staying there. show() ends by
+       setting the scroll position once, and on iOS a fling still in flight
+       overrides that assignment rather than being cancelled by it: a hard push
+       arrived in the next chapter and the leftover momentum carried it
+       straight to that chapter's foot. So the position is HELD -- put back on
+       every scroll event -- until the fling dies or a new touch takes over.
+
+       Only for crossings made by touch. A wheel has no momentum the browser
+       keeps applying after the fact, and holding a desktop reader's position
+       for a second after a crossing would fight someone who simply carried on
+       scrolling. Desktop works today and must keep working. */
+    var landing = null;
+
+    function holdLanding(at) {
+      landing = { at: at, until: Date.now() + EDGE_HOLD };
+    }
+
+    function applyLanding() {
+      if (!landing) return;
+      if (Date.now() > landing.until) { landing = null; return; }
+      if (landing.at === 'start') {
+        if (scroll.top() > 2) scrollToStart();
+      } else if (scroll.top() + scroll.extent() < scroll.contentExtent() - 2) {
+        scrollToEnd();
+      }
+    }
+
+    function pushEdge(delta, byTouch) {
       if (scroll.kind === 'paged' || !delta) return;
       var now = Date.now();
       if (now - lastCross < EDGE_COOLDOWN) return;
@@ -3836,11 +3880,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (forward) {
         if (atBookEnd()) return;
         lastCross = now;
-        next();
+        next().then(function () { if (byTouch) holdLanding('start'); });
       } else {
         if (atBookStart()) return;
         lastCross = now;
-        prev().then(function () { scrollToEnd(); });
+        prev().then(function () {
+          scrollToEnd();
+          if (byTouch) holdLanding('end');
+        });
       }
     }
 
@@ -3855,13 +3902,17 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
     var touchY = null;
     function onTouchStart(ev) {
+      /* A finger on the glass is the reader taking over, so whatever the last
+         crossing was holding is released -- otherwise the hold would fight a
+         deliberate scroll for the rest of its second. */
+      landing = null;
       touchY = ev.touches && ev.touches.length === 1 ? ev.touches[0].clientY : null;
     }
     function onTouchMove(ev) {
       if (touchY === null || !ev.touches || !ev.touches.length) return;
       if (!mount.isConnected || !inReader(ev.target)) return;
       var y = ev.touches[0].clientY;
-      pushEdge(touchY - y);   /* finger travelling up is forward, as it scrolls */
+      pushEdge(touchY - y, true);   /* finger travelling up is forward, as it scrolls */
       touchY = y;
     }
     function onTouchEnd() { touchY = null; }

@@ -261,6 +261,19 @@
               D.documentElement.scrollHeight + ' vs ' + D.documentElement.clientHeight);
       t.eq('the reader scrolls the document too',
            W.App.ui.current.reader.scrollerKind(), 'document');
+
+      /* Which is exactly what iOS turns into pull-to-refresh: a document at
+         scroll-top, dragged down, reloads the app -- and scrolling up out of a
+         chapter does precisely that. Reported from a phone; no engine here can
+         show it, so the DECLARATION is what gets asserted. overflow-anchor
+         belongs to the same family: crossing a chapter boundary swaps the
+         content under the scroller, and a browser re-anchoring to what used to
+         be there lands the reader mid-chapter. */
+      var docStyle = W.getComputedStyle(D.documentElement);
+      t.eq('the document refuses to chain its overscroll, so iOS cannot reload it',
+           docStyle.overscrollBehaviorY, 'contain');
+      t.eq('and does not re-anchor when the chapter under it is replaced',
+           docStyle.overflowAnchor, 'none');
       t.check('and the pager is reachable however far down you are',
               px(pagerEl()).bottom <= W.innerHeight + 1,
               Math.round(px(pagerEl()).bottom) + ' vs ' + W.innerHeight);

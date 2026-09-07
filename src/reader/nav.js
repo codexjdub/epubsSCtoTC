@@ -150,6 +150,7 @@
   var EDGE_PUSH = 180;      /* px of push against the edge before it gives */
   var EDGE_IDLE = 500;      /* ms of quiet that resets the accumulator */
   var EDGE_COOLDOWN = 700;  /* ms after a crossing when nothing else crosses */
+  var EDGE_HOLD = 1200;     /* ms of holding the landing against a live fling */
 
   function createStore(key) {
     var memory = {};
@@ -836,6 +837,7 @@
      * its own store from a detached mount. */
     var scrollTimer = null;
     function onScroll() {
+      applyLanding();
       emit('progress', { fraction: progress() });
       if (scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(persist, 400);
@@ -1018,7 +1020,34 @@
        a reader who overshot once would keep falling. */
     var edgePush = 0, edgeAt = 0, lastCross = 0;
 
-    function pushEdge(delta) {
+    /* Landing somewhere is not the same as staying there. show() ends by
+       setting the scroll position once, and on iOS a fling still in flight
+       overrides that assignment rather than being cancelled by it: a hard push
+       arrived in the next chapter and the leftover momentum carried it
+       straight to that chapter's foot. So the position is HELD -- put back on
+       every scroll event -- until the fling dies or a new touch takes over.
+
+       Only for crossings made by touch. A wheel has no momentum the browser
+       keeps applying after the fact, and holding a desktop reader's position
+       for a second after a crossing would fight someone who simply carried on
+       scrolling. Desktop works today and must keep working. */
+    var landing = null;
+
+    function holdLanding(at) {
+      landing = { at: at, until: Date.now() + EDGE_HOLD };
+    }
+
+    function applyLanding() {
+      if (!landing) return;
+      if (Date.now() > landing.until) { landing = null; return; }
+      if (landing.at === 'start') {
+        if (scroll.top() > 2) scrollToStart();
+      } else if (scroll.top() + scroll.extent() < scroll.contentExtent() - 2) {
+        scrollToEnd();
+      }
+    }
+
+    function pushEdge(delta, byTouch) {
       if (scroll.kind === 'paged' || !delta) return;
       var now = Date.now();
       if (now - lastCross < EDGE_COOLDOWN) return;
@@ -1035,11 +1064,14 @@
       if (forward) {
         if (atBookEnd()) return;
         lastCross = now;
-        next();
+        next().then(function () { if (byTouch) holdLanding('start'); });
       } else {
         if (atBookStart()) return;
         lastCross = now;
-        prev().then(function () { scrollToEnd(); });
+        prev().then(function () {
+          scrollToEnd();
+          if (byTouch) holdLanding('end');
+        });
       }
     }
 
@@ -1054,13 +1086,17 @@
     }
     var touchY = null;
     function onTouchStart(ev) {
+      /* A finger on the glass is the reader taking over, so whatever the last
+         crossing was holding is released -- otherwise the hold would fight a
+         deliberate scroll for the rest of its second. */
+      landing = null;
       touchY = ev.touches && ev.touches.length === 1 ? ev.touches[0].clientY : null;
     }
     function onTouchMove(ev) {
       if (touchY === null || !ev.touches || !ev.touches.length) return;
       if (!mount.isConnected || !inReader(ev.target)) return;
       var y = ev.touches[0].clientY;
-      pushEdge(touchY - y);   /* finger travelling up is forward, as it scrolls */
+      pushEdge(touchY - y, true);   /* finger travelling up is forward, as it scrolls */
       touchY = y;
     }
     function onTouchEnd() { touchY = null; }

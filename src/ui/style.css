@@ -108,6 +108,21 @@
 
 * { box-sizing: border-box; }
 
+/* Both of these exist for iOS, and neither has any effect on a desktop engine.
+   On a phone this reader deliberately lets the DOCUMENT scroll, so that Safari
+   collapses its own chrome -- and a document sitting at scroll-top is exactly
+   what iOS turns into pull-to-refresh, so scrolling up out of a chapter
+   reloaded the app. `contain` keeps the rubber band and stops the reload.
+
+   overflow-anchor is off for the neighbouring reason: crossing a chapter
+   boundary replaces the content underneath the scroller, and a browser that
+   re-anchors to what used to be there puts the reader somewhere in the middle
+   of a chapter it has never seen. */
+html {
+  overscroll-behavior-y: contain;
+  overflow-anchor: none;
+}
+
 .hidden { display: none !important; }
 
 body {
