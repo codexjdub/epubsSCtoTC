@@ -1216,6 +1216,47 @@
               reader.state.index === 1, 'index=' + reader.state.index);
       await reader.show(0);
 
+      /* Scrolling into the next chapter -- the pager button's job, done by the
+         scroll itself. A scroller sitting at its end emits no further scroll
+         events, so the push is read off the wheel, and only a deliberate one
+         crosses: a momentum tail decays below the threshold. */
+      function wheel(dy) {
+        reader.mount.dispatchEvent(new WheelEvent('wheel', {
+          deltaY: dy, bubbles: true, cancelable: true
+        }));
+      }
+
+      await reader.show(0);
+      reader.scrollToEnd();
+      await wait(60);
+      wheel(20);
+      t.eq('a nudge at the foot of a chapter does not cross', reader.state.index, 0);
+      wheel(App.reader.EDGE_PUSH);
+      await wait(300);
+      t.check('a deliberate push does', reader.state.index === 1,
+              'index=' + reader.state.index);
+
+      await wait(App.reader.EDGE_COOLDOWN + 80);
+      reader.scrollToStart();
+      await wait(60);
+      wheel(-App.reader.EDGE_PUSH);
+      await wait(300);
+      t.check('pushing up at the head of a chapter goes back',
+              reader.state.index === 0, 'index=' + reader.state.index);
+      /* Landing at the head of the chapter you just backed into would stand
+         you on another edge, one push from the chapter before it. */
+      t.check('and lands at its foot, not its head',
+              reader.scrollPosition() > 0, String(reader.scrollPosition()));
+
+      await wait(App.reader.EDGE_COOLDOWN + 80);
+      reader.scrollToEnd();
+      reader.scrollBy(-200);
+      await wait(60);
+      wheel(App.reader.EDGE_PUSH * 2);
+      await wait(200);
+      t.eq('away from an edge the wheel is just a wheel', reader.state.index, 0);
+      await reader.show(0);
+
       vim.set(true);
       t.check('enabling is reported', vim.isEnabled(), 'not enabled');
 

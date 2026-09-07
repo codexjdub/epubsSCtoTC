@@ -141,6 +141,16 @@
 
   /* localStorage is unreliable at file:// (Safari in particular blocks it),
    * so every access degrades to in-memory state rather than throwing. */
+  /* Scrolling into the next chapter. A scroller sitting at its end stops
+     emitting scroll events, so the intent to keep going has to be read from
+     the input itself: pushing against the edge accumulates, and only a
+     deliberate push crosses. A momentum tail decays, which is why a threshold
+     beats a timer here -- and why the accumulator is thrown away once the
+     pushing stops, so two halves of one flick minutes apart cannot add up. */
+  var EDGE_PUSH = 180;      /* px of push against the edge before it gives */
+  var EDGE_IDLE = 500;      /* ms of quiet that resets the accumulator */
+  var EDGE_COOLDOWN = 700;  /* ms after a crossing when nothing else crosses */
+
   function createStore(key) {
     var memory = {};
     function read() {
@@ -831,6 +841,10 @@
       scrollTimer = setTimeout(persist, 400);
     }
     scroll.listen(onScroll);
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
 
     shadow.addEventListener('click', function (ev) {
       var path = ev.composedPath ? ev.composedPath() : [ev.target];
@@ -991,6 +1005,65 @@
       if (scroll.kind === 'paged') return atLastPage();
       return scroll.top() + scroll.extent() >= scroll.contentExtent() - 2;
     }
+
+    function atChapterStart() { return scroll.top() <= 2; }
+
+    /* Paginating, nextPage() already carries the reader across a boundary, so
+       what follows is the scrolling reader's version of the same thing -- and
+       the reason the pager's button had to be pressed at all.
+
+       Backwards lands at the FOOT of the previous chapter, never its head.
+       Arriving at the top of a chapter you have just scrolled up into would
+       stand you on another edge, one push away from the chapter before it, and
+       a reader who overshot once would keep falling. */
+    var edgePush = 0, edgeAt = 0, lastCross = 0;
+
+    function pushEdge(delta) {
+      if (scroll.kind === 'paged' || !delta) return;
+      var now = Date.now();
+      if (now - lastCross < EDGE_COOLDOWN) return;
+      if (now - edgeAt > EDGE_IDLE) edgePush = 0;
+      edgeAt = now;
+
+      var forward = delta > 0;
+      if (forward ? !atChapterEnd() : !atChapterStart()) { edgePush = 0; return; }
+      if (edgePush !== 0 && (edgePush > 0) !== forward) edgePush = 0;
+      edgePush += delta;
+      if (Math.abs(edgePush) < EDGE_PUSH) return;
+
+      edgePush = 0;
+      if (forward) {
+        if (atBookEnd()) return;
+        lastCross = now;
+        next();
+      } else {
+        if (atBookStart()) return;
+        lastCross = now;
+        prev().then(function () { scrollToEnd(); });
+      }
+    }
+
+    /* Gated on the event landing in the reader: a wheel over the shelf or the
+       contents list is not a request to change chapter. Events raised inside
+       the shadow tree retarget to the mount, so one test covers both. */
+    function inReader(target) {
+      return !!target && (target === mount || mount.contains(target));
+    }
+    function onWheel(ev) {
+      if (mount.isConnected && inReader(ev.target)) pushEdge(ev.deltaY);
+    }
+    var touchY = null;
+    function onTouchStart(ev) {
+      touchY = ev.touches && ev.touches.length === 1 ? ev.touches[0].clientY : null;
+    }
+    function onTouchMove(ev) {
+      if (touchY === null || !ev.touches || !ev.touches.length) return;
+      if (!mount.isConnected || !inReader(ev.target)) return;
+      var y = ev.touches[0].clientY;
+      pushEdge(touchY - y);   /* finger travelling up is forward, as it scrolls */
+      touchY = y;
+    }
+    function onTouchEnd() { touchY = null; }
 
     function nextPage() {
       navigated();
@@ -1198,6 +1271,10 @@
       scrollPosition: scrollPosition,
       destroy: function () {
         scroll.unlisten(onScroll);
+        window.removeEventListener('wheel', onWheel);
+        window.removeEventListener('touchstart', onTouchStart);
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
         if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
         resources.revokeAll();
         mount.remove();
@@ -1208,6 +1285,8 @@
   App.reader = App.reader || {};
   App.reader.create = create;
   App.reader.hashKey = hashKey;
+  App.reader.EDGE_PUSH = EDGE_PUSH;
+  App.reader.EDGE_COOLDOWN = EDGE_COOLDOWN;
   App.reader.alignCss = alignCss;
   App.reader.elementScroller = elementScroller;
   App.reader.documentScroller = documentScroller;
