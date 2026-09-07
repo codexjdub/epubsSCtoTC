@@ -369,7 +369,26 @@ button:disabled { opacity: .5; cursor: default; }
 .reader-mount { min-height: 100%; }
 
 .pager { display: flex; gap: 10px; align-items: center; justify-content: center;
-         padding: 12px; border-top: 1px solid var(--line); background: var(--panel); }
+         padding: 12px; border-top: 1px solid var(--line); background: var(--panel);
+         position: relative; }
+
+/* The bar doubles as the measure: its top border is the track, and this is the
+   part of it you have read.
+
+   The border rather than the bar's ground, because the ground is not free --
+   the pager's buttons carry an opaque var(--panel) background of their own and
+   below the breakpoint they are flex: 1, so a tint behind them would show only
+   in the 10px gaps. The border runs the full width with nothing on top of it.
+
+   Deliberately unanimated. A bar creeping left to right along the foot of a
+   screen is the universal idiom for "still working", and the conversion's own
+   status line sits in this very bar, so anything that moves on its own would
+   be read as progress through a JOB rather than through a book. */
+.pager::before {
+  content: ""; position: absolute; top: -1px; left: 0;
+  height: 2px; width: var(--read, 0%);
+  background: var(--accent);
+}
 .pager .pos { color: var(--muted); font-size: 13px; min-width: 9ch; text-align: center; }
 
 /* ---- report ---- */
@@ -875,7 +894,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.9</p>
+    <p class="hint build">v1.36.10</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -5794,6 +5813,14 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var tail = (page ? ' · ' + page.page + '/' + page.pages : '') +
                  (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
       el.position.textContent = (pos.index + 1) + ' / ' + pos.total + tail;
+      /* The bar's top border draws the same figure the text just spelled out,
+         from the same variable, so the two cannot drift apart. Kept to two
+         decimals rather than rounded like the text: this one is a length, and
+         a whole book stepping 1% at a time would visibly jump. */
+      if (el.pager) {
+        el.pager.style.setProperty('--read',
+          pct === null ? '0%' : (pct * 100).toFixed(2) + '%');
+      }
       /* Here rather than on the chapter event, because paginating, the ends of
          the book are reached by turning a page and no chapter event fires. Left
          on the chapter event with a `!paged` guard, both buttons stayed lit and

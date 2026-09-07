@@ -394,6 +394,14 @@
       var tail = (page ? ' · ' + page.page + '/' + page.pages : '') +
                  (pct === null ? '' : ' · ' + Math.round(pct * 100) + '%');
       el.position.textContent = (pos.index + 1) + ' / ' + pos.total + tail;
+      /* The bar's top border draws the same figure the text just spelled out,
+         from the same variable, so the two cannot drift apart. Kept to two
+         decimals rather than rounded like the text: this one is a length, and
+         a whole book stepping 1% at a time would visibly jump. */
+      if (el.pager) {
+        el.pager.style.setProperty('--read',
+          pct === null ? '0%' : (pct * 100).toFixed(2) + '%');
+      }
       /* Here rather than on the chapter event, because paginating, the ends of
          the book are reached by turning a page and no chapter event fires. Left
          on the chapter event with a `!paged` guard, both buttons stayed lit and

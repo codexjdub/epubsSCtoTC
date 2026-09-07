@@ -316,6 +316,17 @@
       t.eq('re-marking an entry already on screen moves nothing',
            sideEl.scrollTop, restingAt);
 
+      /* The bar's top border is a second rendering of the figure beside it, so
+         what matters is that they agree -- pinning a width would only measure
+         this machine. Within a point, because the text is rounded to a whole
+         percent and the border is not. */
+      var readVar = D.querySelector('.pager').style.getPropertyValue('--read');
+      var shownPct = /(\d+)%/.exec(D.getElementById('position').textContent);
+      t.check('the pager carries a read fraction', /%$/.test(readVar), readVar || '(unset)');
+      t.check('and it agrees with the percentage printed beside it',
+              !!shownPct && Math.abs(parseFloat(readVar) - Number(shownPct[1])) <= 1,
+              readVar + ' vs ' + (shownPct ? shownPct[1] + '%' : 'no percentage shown'));
+
       t.check('the bar carries a shelf button', !!D.getElementById('toggleShelf'), 'missing');
       t.eq('it is the first control on the bar',
            D.querySelector('.topbar button').id, 'toggleShelf');
