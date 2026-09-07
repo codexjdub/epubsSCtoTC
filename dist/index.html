@@ -218,7 +218,16 @@ select, button {
 }
 button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
-.hint { font-size: 13px; color: var(--muted); max-width: 52ch; text-align: center; }
+/* text-wrap: pretty helps the ENGLISH interface only, and it was added here
+   for a Chinese orphan it turned out not to fix: it works by pulling words
+   down onto a short last line, and Chinese has no words -- every character is
+   a break opportunity, so there is nothing to reflow. Measured, supported,
+   inert: the storage line still wraps at two lines with 「裝置。」 below,
+   because 25 characters at 13px want 325px and the column is 311. Kept for the
+   English strings, where there are words. A Chinese line that orphans badly
+   needs shorter wording, not a wrap mode. */
+.hint { font-size: 13px; color: var(--muted); max-width: 52ch; text-align: center;
+        text-wrap: pretty; }
 
 /* ---- reader chrome ---- */
 /* position: relative is the anchor for the panels that hang off this bar --
@@ -754,6 +763,20 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    --------------------------------------------------------------------------- */
 
 @media (max-width: 700px) {
+  /* Padding that reads as generous at 1000px reads as overbearing at 375px:
+     the drop zone took a fifth of the screen and pushed the shelf below the
+     fold. Full width as well, so its edges meet the book rows and the footer
+     rather than floating narrower than both -- three stacked blocks that do
+     not share an edge look unaligned even when each is fine on its own. */
+  .dropzone { padding: 26px 20px; width: 100%; }
+
+  /* Two settings, each on its own line and each centred by itself, put their
+     controls at 141px and 169px with widths of 142 and 72: ragged, because
+     nothing related the rows to each other. Stacked and stretched, the labels
+     share a left edge and the controls share a right one. */
+  .options { flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }
+  .options label { justify-content: space-between; }
+
   .topbar {
     flex-wrap: nowrap;
     position: relative;
@@ -957,7 +980,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.19</p>
+      <p class="hint build">v1.36.20</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>

@@ -292,6 +292,31 @@
       t.eq('the document button is named the same on a phone',
            D.getElementById('docBtn').getAttribute('aria-label'), '文稿');
 
+      /* The landing page is three stacked blocks on a phone -- drop zone,
+         shelf, footer -- and if they do not share edges the screen reads as
+         unaligned even though each is fine by itself. Measured with the
+         landing shown, since it is hidden the moment a book opens and a hidden
+         element measures zero, which would agree with anything. Nothing is
+         clicked or scrolled here, so the chrome-tucking tests below still see
+         the state they expect. */
+      var landingEl = D.getElementById('landing');
+      var landingWasHidden = landingEl.classList.contains('hidden');
+      landingEl.classList.remove('hidden');
+      var dz = D.querySelector('.dropzone').getBoundingClientRect();
+      var footWidth = Math.round(D.querySelector('.foot').getBoundingClientRect().width);
+      t.eq('the drop zone shares an edge with the fine print below it',
+           Math.round(dz.width), footWidth);
+      t.check('and does not eat the screen it sits on',
+              dz.height < W.innerHeight * 0.16,
+              Math.round(dz.height) + 'px of ' + W.innerHeight);
+      var selRights = Array.prototype.map.call(
+        D.querySelectorAll('.options select'),
+        function (s) { return Math.round(s.getBoundingClientRect().right); });
+      t.check('and the two settings line their controls up',
+              selRights.length === 2 && Math.abs(selRights[0] - selRights[1]) <= 1,
+              selRights.join(' vs '));
+      if (landingWasHidden) landingEl.classList.add('hidden');
+
       /* Turning a page is a repeated press, and so is A- / A+. Without this
          the browser holds each tap to see whether a second is coming and reads
          a quick pair as a zoom, so every other press goes missing. The effect
