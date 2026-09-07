@@ -916,7 +916,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     <p class="hint">DRM-protected files cannot be converted. Text drawn inside
        images cannot be converted either — the report will tell you if the book
        contains any.</p>
-    <p class="hint build">v1.36.16</p>
+    <p class="hint build">v1.36.17</p>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
   </div>
@@ -5804,53 +5804,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
   }
 
-  /* Arriving somewhere you did not ask to go.
-   *
-   * Turning a page used to be a button press, so you always knew when a
-   * chapter had changed. Scrolling into the next one means it changes while
-   * you are looking at the text, and the two places that say which chapter you
-   * are in -- the pager and the contents list -- are both places you are not
-   * looking. So the bar says it, briefly, and then goes back to the book.
-   *
-   * The bar rather than the pager's status line, which was the obvious home
-   * and does not fit: on a 375px phone the pager's two buttons take 139px
-   * each, leaving 53px for the position text and the status line together.
-   * `.topbar .title` is already flex with an ellipsis, so it has room at both
-   * widths and truncates a long chapter name by itself. */
-  var ARRIVAL_MS = 2200;
-  var arrivalTimer = null;
-
-  function restoreBookTitle() {
-    if (!current.book) return;
-    el.title.textContent = titleFor(
-      current.book, !!(current.reader && current.reader.state.source === 'original'));
-  }
-
-  /* The name of a chapter, in the order it can be trusted: what the book's own
-     contents call it, then whatever heading the chapter opens with, then
-     nothing at all -- a book with neither has no name to give, and the number
-     is already in the pager. */
-  function chapterLabel(path) {
-    var links = el.toc.querySelectorAll('a');
-    for (var i = 0; i < links.length; i++) {
-      if (links[i].dataset.path === path) return links[i].textContent.trim();
-    }
-    var content = current.reader && current.reader.content;
-    var heading = content ? content.querySelector('h1, h2, h3') : null;
-    return heading ? heading.textContent.trim() : '';
-  }
-
-  function announceArrival(path) {
-    var label = chapterLabel(path);
-    if (!label || !el.title) return;
-    if (arrivalTimer) clearTimeout(arrivalTimer);
-    el.title.textContent = label;
-    arrivalTimer = setTimeout(function () {
-      arrivalTimer = null;
-      restoreBookTitle();
-    }, ARRIVAL_MS);
-  }
-
   function highlightToc(path) {
     var links = el.toc.querySelectorAll('a');
     for (var i = 0; i < links.length; i++) {
@@ -6082,10 +6035,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     reader.on('chapter', function (e) {
-      /* Only a real move. Every re-render emits this too -- dragging 行寬 or
-         changing the typeface re-renders the chapter -- and a title flashing
-         on every drag would be noise rather than news. */
-      var moved = e.index !== pos.index;
       reader.state.path = e.path;
       pos.index = e.index;
       pos.total = e.total;
@@ -6098,7 +6047,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       renderPosition();
       highlightToc(e.path);
       renderBookmarks();
-      if (moved) announceArrival(e.path);
     });
     reader.on('progress', renderPosition);
     /* The list changes only when a bookmark does; the BUTTON changes as the
@@ -7197,7 +7145,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
              focusOn: function () { return !!api.focusOn && api.focusOn(); },
              setFocus: function (on) { if (api.setFocus) api.setFocus(on); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
-             ARRIVAL_MS: ARRIVAL_MS,
              initialOf: initialOf,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
