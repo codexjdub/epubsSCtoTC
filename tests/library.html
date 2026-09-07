@@ -303,6 +303,31 @@
       W.App.ui.highlightToc('chapter-55');
       await wait(80);
       var far = tocEl.querySelector('a.current');
+
+      /* Chinese headings, not English ones dressed up. uppercase does nothing
+         to 目錄 or 書架 and the letter-spacing only pushes two characters
+         apart; both headings lost the treatment together, having drifted
+         apart once already when only one of them was fixed. */
+      ['#library h2', '.sidebar h2'].forEach(function (sel) {
+        var heading = D.querySelector(sel);
+        t.eq(sel + ' is not shouted in an English style',
+             heading ? W.getComputedStyle(heading).textTransform : '(missing)', 'none');
+      });
+
+      /* And the current chapter is marked by colour and weight rather than by
+         a filled block: the accent is a border or a letterform everywhere in
+         this app except the drop zone, which is deliberate and would mean less
+         if a contents list shouted too. */
+      var probe = D.createElement('span');
+      probe.style.background = 'var(--accent)';
+      D.body.appendChild(probe);
+      var accent = W.getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      var curStyle = W.getComputedStyle(far);
+      t.check('the current chapter is not a filled accent block',
+              curStyle.backgroundColor !== accent, curStyle.backgroundColor);
+      t.eq('it is the accent in the letters instead', curStyle.color, accent);
+      t.check('and carries weight', Number(curStyle.fontWeight) >= 600, curStyle.fontWeight);
       var farBox = far.getBoundingClientRect(), sideBox = sideEl.getBoundingClientRect();
       t.check('a distant chapter is scrolled into view',
               farBox.top >= sideBox.top - 1 && farBox.bottom <= sideBox.bottom + 1,

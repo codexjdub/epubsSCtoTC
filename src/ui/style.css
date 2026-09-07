@@ -236,14 +236,22 @@ button:disabled { opacity: .5; cursor: default; }
   padding: 12px; background: var(--panel);
 }
 .sidebar.hidden { display: none; }
-.sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
-              color: var(--muted); margin: 4px 0 10px; }
+/* The same treatment as 書架, and for the same reason: uppercase does nothing
+   to 目錄 and the letter-spacing only pushes its two characters apart. Both are
+   English habits, and this app's headings are Chinese. */
+.sidebar h2 { font-size: 13px; color: var(--muted); margin: 4px 0 10px; }
 .toc ul { list-style: none; margin: 0; padding-left: 14px; }
 .toc > ul { padding-left: 0; }
 .toc a { display: block; padding: 4px 6px; border-radius: 6px; color: inherit;
          text-decoration: none; font-size: 14px; }
 .toc a:hover { background: var(--bg); }
-.toc a.current { background: var(--accent); color: var(--accent-fg); }
+/* Marked, not shouted. A filled accent block made the contents list the
+   loudest thing on a screen whose whole job is to be quiet -- heavier than the
+   chapter title it points at. Everywhere else in this app the accent is a
+   border or a letterform, never a fill, and the one deliberate exception is
+   the drop zone on the landing page; a second filled accent would have made
+   that one mean less. */
+.toc a.current { background: var(--bg); color: var(--accent); font-weight: 600; }
 
 /* ---- the three marks on the bar ----
  *
