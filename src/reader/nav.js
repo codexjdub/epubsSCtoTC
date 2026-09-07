@@ -722,7 +722,12 @@
         source: state.source,
         anchor: lastAnchor,
         overrides: state.overrides,
-        bookmarks: state.bookmarks
+        bookmarks: state.bookmarks,
+        /* Written down rather than left to be recomputed, because it CANNOT be
+           recomputed from outside: chapterWeights() counts the characters of
+           the converted text, which only exists while the book is open. The
+           shelf wants this figure for books that are shut. */
+        progress: progress()
       });
     }
 
