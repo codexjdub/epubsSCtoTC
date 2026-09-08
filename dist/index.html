@@ -177,17 +177,17 @@ body {
    20px rhythm gave the tagline, the primary action and the fine print an equal
    claim on the page, which is what stopped any of them reading as the most
    important thing on it. */
-.landing h1 { margin-bottom: 10px; }
-.landing > p { margin-bottom: 30px; }
-.landing .dropzone { margin-bottom: 18px; }
-.landing .options { margin-bottom: 34px; }
-.landing .library { margin-bottom: 40px; }
+.landing h1 { margin-bottom: 8px; }
+.landing > p { margin-bottom: 32px; }
+.landing .dropzone { margin-bottom: 16px; }
+.landing .options { margin-bottom: 32px; }
+.landing .library { margin-bottom: 48px; }
 .landing .error, .landing .status { margin-top: 16px; }
 
 /* The fine print, made to read as a footer instead of as more content. */
 .landing .foot {
   width: 100%; max-width: 560px;
-  border-top: 1px solid var(--line); padding-top: 18px;
+  border-top: 1px solid var(--line); padding-top: 16px;
   display: flex; flex-direction: column; gap: 8px;
 }
 .landing .foot .hint { font-size: 12px; max-width: none; }
@@ -271,7 +271,7 @@ button:disabled { opacity: .5; cursor: default; }
 /* The same treatment as 書架, and for the same reason: uppercase does nothing
    to 目錄 and the letter-spacing only pushes its two characters apart. Both are
    English habits, and this app's headings are Chinese. */
-.sidebar h2 { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+.sidebar h2 { font-size: 12px; color: var(--muted); margin: 4px 0 12px; }
 .toc ul { list-style: none; margin: 0; padding-left: 16px; }
 .toc > ul { padding-left: 0; }
 .toc a { display: block; padding: 4px 8px; border-radius: 8px; color: inherit;
@@ -402,7 +402,7 @@ button:disabled { opacity: .5; cursor: default; }
    this book", and without a rule between them the second reads as more of the
    first. The rule is BELOW this section, since this one now comes first. */
 .bookmarks {
-  margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px;
+  margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 12px;
   /* Stuck to the top, because moving it up is not enough on its own: the panel
      scrolls itself to the chapter you are reading, so at chapter 52 of 60 it
      sat at scrollTop 1212 and this section was off-screen ABOVE instead of
@@ -478,8 +478,9 @@ button:disabled { opacity: .5; cursor: default; }
 .report { padding: 16px; border-top: 1px solid var(--line); background: var(--panel);
           max-height: 40vh; max-height: 40dvh; overflow-y: auto; }
 .report.hidden { display: none; }
-.report h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
-             color: var(--muted); margin: 0 0 10px; }
+/* The third of three, after 書架 and 目錄: uppercase does nothing to a Chinese
+   heading and the letter-spacing only pushes its characters apart. */
+.report h2 { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
 .report dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 16px; font-size: 14px; }
 .report dt { color: var(--muted); }
 .report dd { margin: 0; }
@@ -499,8 +500,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .originalBanner.hidden { display: none; }
 
-/* Compact controls in the reader bar; the landing screen keeps roomier ones. */
-.topbar select, .topbar button { font-size: 14px; padding: 8px 12px; }
+/* The reader bar's controls used to be deliberately smaller than the landing
+   page's -- 13px type in 6px/9px of padding against 14px in 7px/11px. Snapping
+   both to the scale made the two identical, so the rule that said so became a
+   no-op restating the generic one, and its comment became false. Deleted
+   rather than left to mislead: the bar's controls are the app's controls now. */
 .topbar label { gap: 0; }
 
 /* ---- keyboard help ---- */
@@ -563,10 +567,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      the panel promptly hung 4px past the bottom of a 460px screen. 100% here
      is the bar's own height -- this panel is absolutely positioned against it
      -- so the ceiling now measures the thing it depends on instead of
-     remembering a number about it, and 4px is the panel's own offset below the
-     bar, which is the value on `top` two rules up. */
-  max-height: calc(100vh - 100% - 4px);
-  max-height: calc(100dvh - 100% - 4px);
+     remembering a number about it.
+
+     5px, not 4: `top` puts the panel 4px below the bar's padding box, and
+     100% measures that same box -- so the bar's own 1px border is outside
+     both, and unaccounted for by either. */
+  max-height: calc(100vh - 100% - 5px);
+  max-height: calc(100dvh - 100% - 5px);
   overflow-y: auto;
 }
 .bar-panel:not(.hidden) { display: flex; }
@@ -575,11 +582,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel .row { display: flex; gap: 8px; }
 .bar-panel .row button { flex: 1; }
 /* The action inside the export options, set apart from the settings above it. */
-.bar-panel .primary { margin-top: 2px; justify-content: center; text-align: center; }
+.bar-panel .primary { margin-top: 4px; justify-content: center; text-align: center; }
 /* Divides what this book is from the file you can take away. The panel is a
    column with a gap, so a bare line is enough; a heading each side would say
    out loud what the order already says. */
-.bar-panel .split { border-top: 1px solid var(--line); margin: 4px 0 2px; }
+.bar-panel .split { border-top: 1px solid var(--line); margin: 4px 0; }
 .topbar .grouped[aria-expanded="true"] {
   background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
 }
@@ -652,7 +659,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
 }
 .shelf-panel:not(.hidden) { display: block; }
-.shelf-panel .hint { margin: 8px 2px 2px; text-align: left; font-size: 12px; }
+.shelf-panel .hint { margin: 8px 4px 4px; text-align: left; font-size: 12px; }
 
 .shelf-row {
   display: flex; align-items: center; gap: 4px;
@@ -677,7 +684,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .shelf-row .drop:hover { color: var(--warn); }
 
-.hint.build { font-size: 12px; opacity: .55; letter-spacing: .04em; }
+.hint.build { opacity: .55; letter-spacing: .04em; }
 
 /* Cover thumbnails. object-fit keeps an odd aspect ratio from distorting;
    the background shows while a large JPEG decodes.
@@ -724,7 +731,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .shelf-panel .open-new:hover { border-color: var(--accent); color: var(--accent); }
 .shelf-panel .drag-hint {
-  margin: 6px 2px 0; text-align: center; font-size: 12px;
+  margin: 8px 4px 0; text-align: center; font-size: 12px;
 }
 
 /* A user's standing preference, so it outranks the layout rules that set these
@@ -852,19 +859,33 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     transition: transform .18s ease, opacity .18s ease;
   }
   .topbar.tucked { transform: translateY(-100%); opacity: 0; pointer-events: none; }
-  .reader-mount { padding-top: 58px; }
+  /* The bar is fixed, so the mount reserves its height -- and reserving it as
+     a hand-measured literal is how this broke: snapping the spacing scale grew
+     the bar to 65px while 58 stayed put, leaving 7px of a chapter under the
+     bar. app.js measures the bar it already has to measure for the scroller's
+     inset and writes the answer here. The literal survives only as a fallback
+     for the first frame, before any measurement has run. */
+  .reader-mount { padding-top: var(--chrome-top, 58px); }
 
   .bar-panel { left: 4px; right: 4px; min-width: 0; }
 
-  /* Touch targets: iOS wants 44, Android 48. */
+  /* Touch targets: iOS wants 44, Android 48. The landing page's own two
+     selects were the only interactive controls in the app left out of this
+     list, and measured 37px. */
   .topbar button, .topbar select,
   .bar-panel button, .bar-panel select,
+  .options select,
   .pager button {
     min-height: 44px;
-    padding: 12px;
+    padding: 8px 12px;
     font-size: 14px;
   }
-  .topbar button { padding: 12px; }
+  /* 8px, not 12: these buttons hold a drawn mark rather than text, so padding
+     is the whole of their height. At 12px they measured 48px and pushed the
+     bar to 65 -- above the 44px minimum the rule above exists to reach, and
+     8px of a phone screen spent on chrome. At 8px the mark's box lands back on
+     that minimum. */
+  .topbar button { padding: 8px; }
   /* CJK labels are two characters wide; a squeezed button wrapped them onto
      a second line and took the whole bar to 80px. */
   .topbar button { white-space: nowrap; }
@@ -924,7 +945,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     transition: transform .18s ease, opacity .18s ease;
   }
   .pager.tucked { transform: translateY(100%); opacity: 0; pointer-events: none; }
-  .reader-mount { padding-bottom: 58px; }
+  .reader-mount { padding-bottom: var(--chrome-bottom, 58px); }
   .pager .pos { font-size: 12px; min-width: 6ch; }
   /* The page buttons take the slack. Measured at 390px they were 84px each
      with 121px of the strip going spare -- a small target for the control
@@ -1001,7 +1022,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.21</p>
+      <p class="hint build">v1.36.22</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
@@ -5793,6 +5814,27 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
+  /* The fixed chrome's height, written where the stylesheet can reach it.
+     Both strips are position: fixed on a phone, so the reading column reserves
+     their height as padding -- and that reservation used to be two literals,
+     58px each, measured by hand. One of them went stale the moment the bar's
+     padding moved and left 7px of every chapter underneath the bar. This is
+     the same measurement the scroller's inset already takes; taking it once
+     and publishing it means the two cannot disagree.
+
+     A zero is not a measurement. Both strips are hidden while the landing page
+     is up, so the first call of all reads 0 for each -- publishing that
+     reserves nothing and puts the opened book straight under the bar. Only a
+     real height is written, and the CSS fallback holds until one exists. */
+  function syncChrome() {
+    var root = document.documentElement.style;
+    var top = el.topbar ? el.topbar.offsetHeight : 0;
+    var bottom = el.pager ? el.pager.offsetHeight : 0;
+    if (top) root.setProperty('--chrome-top', top + 'px');
+    if (bottom) root.setProperty('--chrome-bottom', bottom + 'px');
+  }
+
+
   /* Written to both lines: the landing page's own, and the reader's, since the
      landing one is hidden the moment a book opens. */
   function setStatus(text) {
@@ -6173,6 +6215,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
     show(el.landing, false);
     show(el.chrome, true);
+    /* Now that both strips are laid out, and not before: see syncChrome. */
+    syncChrome();
     setStatus('');
 
     await reader.resume();
@@ -7000,6 +7044,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     }
 
     function settleForWidth() {
+      syncChrome();
       /* The layout has just changed which element scrolls, so the reader is
          holding the wrong one. FIRST, because setFocus and applyPaged below
          both rebuild the scroller from the factory named here -- run last, they
@@ -7045,9 +7090,15 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       if (isNarrow() !== wasNarrow) { wasNarrow = isNarrow(); settleForWidth(); }
       if (repaginateTimer) clearTimeout(repaginateTimer);
       repaginateTimer = setTimeout(function () {
+        /* Inside the debounce: reading offsetHeight forces layout, and a drag
+           fires this continuously. The bar only changes height when the
+           breakpoint moves or a title rewraps, and settleForWidth covers the
+           first of those. */
+        syncChrome();
         if (current.reader) current.reader.repaginate();
       }, 150);
     });
+    syncChrome();
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });

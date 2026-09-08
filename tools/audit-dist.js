@@ -115,6 +115,45 @@ check('every label key in the markup exists in the table',
   check('no declarations outside a rule', !orphan, orphan);
 }
 
+/* The scales the stylesheet declares at the top of itself. They were written
+   down on 2026-09-07 and immediately not kept: fourteen margins had never been
+   snapped, so the comment claimed a system the file did not follow. A comment
+   cannot enforce anything, and this is the file that enforces the other
+   stylesheet invariants, so it enforces this one too.
+
+   Exceptions are named, not inferred: the reader's own type sizes come from
+   the book and the size control, 44px is the touch minimum, 20px/22.4px are
+   the drawn marks' own geometry, and 1px/2px/3px are hairlines and the
+   thumbnail radius. Anything else off the scale is a value chosen by hand,
+   which is exactly what the scales exist to stop. */
+{
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const SIZE = new Set([0, 12, 14, 18, 26]);
+  const SPACE = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+  const ALLOWED = new Set([1, 2, 3, 44]);
+  const off = [];
+  const scan = (prop, allowed) => {
+    const re = new RegExp('(?:^|[;{\\s])' + prop + '\\s*:\\s*([^;}]+)', 'g');
+    for (const m of css.matchAll(re)) {
+      const value = m[1].trim();
+      /* calc(), custom properties and relative units are reasoned about
+         elsewhere; this check is only for bare pixel literals. */
+      if (/var\(|calc\(/.test(value)) continue;
+      for (const px of value.match(/-?\d+px/g) || []) {
+        const n = Math.abs(parseInt(px, 10));
+        if (!allowed.has(n) && !ALLOWED.has(n)) off.push(prop + ': ' + value);
+      }
+    }
+  };
+  scan('font-size', SIZE);
+  ['padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
+   'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
+   'gap', 'border-radius'].forEach(p => scan(p, SPACE));
+  check('every hand-written length is on the declared scale',
+        off.length === 0, off.slice(0, 6).join('   |   ') +
+        (off.length > 6 ? '   (+' + (off.length - 6) + ' more)' : ''));
+}
+
 /* The one breakpoint, spelled in two languages that cannot share a constant.
    JS names it as max-width, the phone block matches, and the focus block takes
    the complement -- so the two numbers must stay exactly one apart. A drift of

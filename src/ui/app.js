@@ -81,6 +81,27 @@
 
   function show(node, visible) { node.classList.toggle('hidden', !visible); }
 
+  /* The fixed chrome's height, written where the stylesheet can reach it.
+     Both strips are position: fixed on a phone, so the reading column reserves
+     their height as padding -- and that reservation used to be two literals,
+     58px each, measured by hand. One of them went stale the moment the bar's
+     padding moved and left 7px of every chapter underneath the bar. This is
+     the same measurement the scroller's inset already takes; taking it once
+     and publishing it means the two cannot disagree.
+
+     A zero is not a measurement. Both strips are hidden while the landing page
+     is up, so the first call of all reads 0 for each -- publishing that
+     reserves nothing and puts the opened book straight under the bar. Only a
+     real height is written, and the CSS fallback holds until one exists. */
+  function syncChrome() {
+    var root = document.documentElement.style;
+    var top = el.topbar ? el.topbar.offsetHeight : 0;
+    var bottom = el.pager ? el.pager.offsetHeight : 0;
+    if (top) root.setProperty('--chrome-top', top + 'px');
+    if (bottom) root.setProperty('--chrome-bottom', bottom + 'px');
+  }
+
+
   /* Written to both lines: the landing page's own, and the reader's, since the
      landing one is hidden the moment a book opens. */
   function setStatus(text) {
@@ -461,6 +482,8 @@
 
     show(el.landing, false);
     show(el.chrome, true);
+    /* Now that both strips are laid out, and not before: see syncChrome. */
+    syncChrome();
     setStatus('');
 
     await reader.resume();
@@ -1288,6 +1311,7 @@
     }
 
     function settleForWidth() {
+      syncChrome();
       /* The layout has just changed which element scrolls, so the reader is
          holding the wrong one. FIRST, because setFocus and applyPaged below
          both rebuild the scroller from the factory named here -- run last, they
@@ -1333,9 +1357,15 @@
       if (isNarrow() !== wasNarrow) { wasNarrow = isNarrow(); settleForWidth(); }
       if (repaginateTimer) clearTimeout(repaginateTimer);
       repaginateTimer = setTimeout(function () {
+        /* Inside the debounce: reading offsetHeight forces layout, and a drag
+           fires this continuously. The bar only changes height when the
+           breakpoint moves or a title rewraps, and settleForWidth covers the
+           first of those. */
+        syncChrome();
         if (current.reader) current.reader.repaginate();
       }, 150);
     });
+    syncChrome();
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });

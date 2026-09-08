@@ -315,7 +315,36 @@
       t.check('and the two settings line their controls up',
               selRights.length === 2 && Math.abs(selRights[0] - selRights[1]) <= 1,
               selRights.join(' vs '));
+      /* Every control a thumb reaches, measured while the landing page is up so
+         its own two selects are included -- they were the only interactive
+         controls in the app outside the touch-target rule, and sat at 37px. */
+      var reachable = '.topbar button, .topbar select, .bar-panel button,' +
+                      ' .bar-panel select, .options select, .pager button,' +
+                      ' .library-row .open, .library-row .remove';
+      var tooSmall = Array.prototype.filter.call(
+        D.querySelectorAll(reachable),
+        function (e) {
+          return e.getClientRects().length && e.getBoundingClientRect().height < 44;
+        }).map(function (e) {
+          return (e.id || e.className) + '=' + Math.round(e.getBoundingClientRect().height);
+        });
+      t.eq('every control a thumb can reach is at least 44px tall',
+           tooSmall.join(', '), '');
+
       if (landingWasHidden) landingEl.classList.add('hidden');
+
+      /* The bar is fixed, so the reading column has to reserve its height --
+         and that reservation was a hand-measured 58px that went stale the
+         moment the bar's padding moved, leaving 7px of every chapter beneath
+         it. Two measurements compared against each other, never against a
+         number: a literal here would go stale in exactly the same way as the
+         one it is guarding. */
+      var barHeight = D.querySelector('.topbar').getBoundingClientRect().height;
+      var reserved = parseFloat(
+        W.getComputedStyle(D.querySelector('.reader-mount')).paddingTop);
+      t.check('the reading column reserves the whole of the fixed bar',
+              reserved >= barHeight - 0.5,
+              Math.round(reserved) + 'px reserved for a ' + Math.round(barHeight) + 'px bar');
 
       /* Turning a page is a repeated press, and so is A- / A+. Without this
          the browser holds each tap to see whether a second is coming and reads
