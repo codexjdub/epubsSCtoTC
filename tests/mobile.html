@@ -679,6 +679,14 @@
               Math.abs(dOpts.left - dFoot.left) <= 1 &&
               Math.abs(dOpts.right - dFoot.right) <= 1,
               'settings ' + edges(dOpts) + ', fine print ' + edges(dFoot));
+      /* The tagline is centred text rather than a block with a border, but it
+         was capped at 46ch = 464px against a column of 440, which is close
+         enough to read as a mistake rather than as a measure. */
+      var dBlurb = px(DD.querySelector('.landing > p'));
+      t.check('and the tagline is no wider than the column it sits in',
+              dBlurb.width <= dFoot.width + 1,
+              'tagline ' + Math.round(dBlurb.width) +
+              ' in a column of ' + Math.round(dFoot.width));
       if (dLandingWasHidden) dLanding.classList.add('hidden');
 
 
