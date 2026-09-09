@@ -655,6 +655,32 @@
               px(DD.getElementById('viewer')).width > 700,
               Math.round(px(DD.getElementById('viewer')).width) + 'px');
 
+      /* The three stacked blocks the phone test measures, measured again at
+         1200. The full width that made them share an edge was written inside
+         the 700px block, so on a desktop the drop zone stayed at its own
+         content width of 245 while the fine print below it sat at 560 -- and
+         the widest screen is where an unshared edge shows most. Same care as
+         the phone test: the landing is hidden the moment a book opens, and a
+         hidden element measures zero, which agrees with anything. */
+      var dLanding = DD.getElementById('landing');
+      var dLandingWasHidden = dLanding.classList.contains('hidden');
+      dLanding.classList.remove('hidden');
+      var dFoot = px(DD.querySelector('.foot'));
+      var dDrop = px(DD.querySelector('.dropzone'));
+      var dOpts = px(DD.querySelector('.options'));
+      var edges = function (r) {
+        return Math.round(r.left) + '-' + Math.round(r.right);
+      };
+      t.check('the desktop landing page is one column',
+              Math.abs(dDrop.left - dFoot.left) <= 1 &&
+              Math.abs(dDrop.right - dFoot.right) <= 1,
+              'drop zone ' + edges(dDrop) + ', fine print ' + edges(dFoot));
+      t.check('and the settings row shares that edge',
+              Math.abs(dOpts.left - dFoot.left) <= 1 &&
+              Math.abs(dOpts.right - dFoot.right) <= 1,
+              'settings ' + edges(dOpts) + ', fine print ' + edges(dFoot));
+      if (dLandingWasHidden) dLanding.classList.add('hidden');
+
 
       // ================= focus mode, desktop only =================
       /* Its own frame: these assertions are geometric, and the frame above has

@@ -31,14 +31,30 @@
  *
  * These are custom properties, which inherit THROUGH the shadow boundary, so
  * the reader's shadow root picks up the active theme with no extra plumbing.
+ *
+ * The palette keeps to a scale for the same reason the type does. Every theme
+ * holds the same three relationships, whatever its hue:
+ *
+ *   --panel / --bg     1.20   the chrome is a different surface from the page
+ *   --line  / --panel  1.35   a border still reads once it is ON that surface
+ *   --muted / --panel  4.5+   12px meta text stays legible there
+ *
+ * --bg is the reading ground, so it never moves: --panel steps away from it,
+ * away from whichever end of the range --bg sits near -- darker in the light
+ * themes, lighter in the dark ones, where going darker than #171614 tops out
+ * at 1.16 even at pure black. They sat at 1.04 to 1.15 until 2026-09-08, which
+ * is to say the chrome and the page were the same colour and every edge in the
+ * app was carried by a hairline. Two marks were drawn in that gap and so could
+ * not be seen at all: .toc a.current and .shelf-row.current both paint --bg on
+ * a --panel ground. tests/library.html holds the three numbers.
  */
 :root,
 :root[data-theme="green"] {
   --bg: #d8e6d0;
   --fg: #1f2b1b;
-  --muted: #4e6144;
-  --line: #b5c9ab;
-  --panel: #e5efdf;
+  --muted: #4c5e42;
+  --line: #a5b89c;
+  --panel: #c6d3bf;
   --accent: #3f6b2a;
   --accent-fg: #ffffff;
   --warn: #664600;
@@ -50,9 +66,9 @@
 :root[data-theme="system"] {
   --bg: #fbfaf8;
   --fg: #1c1b19;
-  --muted: #6b6862;
-  --line: #e2ded7;
-  --panel: #ffffff;
+  --muted: #696660;
+  --line: #cac6c0;
+  --panel: #e6e5e4;
   --accent: #7a5c3e;
   --accent-fg: #ffffff;
   --warn: #8a5a00;
@@ -63,9 +79,9 @@
 :root[data-theme="sepia"] {
   --bg: #f3e9d2;
   --fg: #43382a;
-  --muted: #7a6a52;
-  --line: #ddd0b4;
-  --panel: #faf3e4;
+  --muted: #695b47;
+  --line: #c3b89f;
+  --panel: #dfd5c0;
   --accent: #8a6236;
   --accent-fg: #faf3e4;
   --warn: #7d5312;
@@ -79,9 +95,9 @@
 :root[data-theme="slate"] {
   --bg: #b0b8c4;
   --fg: #16181c;
-  --muted: #454b56;
-  --line: #949cab;
-  --panel: #bec5cf;
+  --muted: #393d47;
+  --line: #888f9d;
+  --panel: #a1a8b3;
   --accent: #2f4a6d;
   --accent-fg: #ffffff;
   --warn: #5c4000;
@@ -92,9 +108,9 @@
 :root[data-theme="grey"] {
   --bg: #3c3c3a;
   --fg: #dedcd6;
-  --muted: #a3a09a;
-  --line: #55544f;
-  --panel: #454542;
+  --muted: #b8b6b1;
+  --line: #5c5b56;
+  --panel: #484846;
   --accent: #c9a227;
   --accent-fg: #26261f;
   --warn: #e0b050;
@@ -106,8 +122,8 @@
   --bg: #171614;
   --fg: #eae7e1;
   --muted: #9a958c;
-  --line: #322f2a;
-  --panel: #1f1e1b;
+  --line: #3e3b36;
+  --panel: #272624;
   --accent: #c9a227;
   --accent-fg: #171614;
   --warn: #e0b050;
@@ -120,8 +136,8 @@
     --bg: #171614;
     --fg: #eae7e1;
     --muted: #9a958c;
-    --line: #322f2a;
-    --panel: #1f1e1b;
+    --line: #3e3b36;
+    --panel: #272624;
     --accent: #c9a227;
     --accent-fg: #171614;
     --warn: #e0b050;
@@ -204,6 +220,7 @@ body {
   padding: 48px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
   font: inherit; color: inherit; display: block;
+  width: 100%; max-width: 560px;
 }
 .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 /* The border is already the accent, so hover and drag-over move the FILL
@@ -215,7 +232,18 @@ body {
 }
 .dropzone span { color: var(--muted); font-size: 14px; }
 
-.options { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+/* One column, one edge. The book list and the fine print were already 560px;
+   the drop zone was drawn to its own content at 245 and this row to its own at
+   380, so the blocks this screen is made of each ended somewhere different and
+   the primary action was the narrowest of them. The phone layout worked that
+   out first -- see the note in the 700px block -- and it is no less true at
+   1200: stretched to the column, the two labels share a left edge with the
+   drop zone above and the book list below, and their controls share a right
+   one. */
+.options {
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  justify-content: space-between; width: 100%; max-width: 560px;
+}
 label { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 select, button {
   font: inherit; font-size: 14px; padding: 8px 12px;
@@ -793,10 +821,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 @media (max-width: 700px) {
   /* Padding that reads as generous at 1000px reads as overbearing at 375px:
      the drop zone took a fifth of the screen and pushed the shelf below the
-     fold. Full width as well, so its edges meet the book rows and the footer
-     rather than floating narrower than both -- three stacked blocks that do
-     not share an edge look unaligned even when each is fine on its own. */
-  .dropzone { padding: 24px 16px; width: 100%; }
+     fold. The full width that used to be here is in the base rule now, where
+     it holds at every size -- three stacked blocks that do not share an edge
+     look unaligned even when each is fine on its own, and that was never
+     really about the phone. */
+  .dropzone { padding: 24px 16px; }
 
   /* Two settings, each on its own line and each centred by itself, put their
      controls at 141px and 169px with widths of 142 and 72: ragged, because
@@ -1022,7 +1051,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.22</p>
+      <p class="hint build">v1.36.23</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
