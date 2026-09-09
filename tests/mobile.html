@@ -672,13 +672,18 @@
         return Math.round(r.left) + '-' + Math.round(r.right);
       };
       t.check('the desktop landing page is one column',
-              Math.abs(dDrop.left - dFoot.left) <= 1 &&
-              Math.abs(dDrop.right - dFoot.right) <= 1,
-              'drop zone ' + edges(dDrop) + ', fine print ' + edges(dFoot));
-      t.check('and the settings row shares that edge',
               Math.abs(dOpts.left - dFoot.left) <= 1 &&
               Math.abs(dOpts.right - dFoot.right) <= 1,
               'settings ' + edges(dOpts) + ', fine print ' + edges(dFoot));
+      /* The drop zone is the one block that declines the column, because at
+         the full width it was mostly empty. What it must not do is drift: it
+         has to be narrower AND centred, or it reads as a block that missed
+         the edge rather than as one that was placed. */
+      t.check('and the drop zone sits inside that column rather than across it',
+              dDrop.width < dFoot.width &&
+              Math.abs((dDrop.left + dDrop.right) -
+                       (dFoot.left + dFoot.right)) <= 2,
+              'drop zone ' + edges(dDrop) + ' in a column of ' + edges(dFoot));
       /* The tagline is centred text rather than a block with a border, but it
          was capped at 46ch = 464px against a column of 440, which is close
          enough to read as a mistake rather than as a measure. */

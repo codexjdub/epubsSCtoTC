@@ -19,7 +19,8 @@
  * Reach for a value that is already here before adding one. The exceptions
  * left standing are deliberate and each says why: the reader's own type sizes
  * (set by the book and by the size control), the 44px touch minimum, the
- * ch-based text measures, --column, and 1px hairlines.
+ * ch-based text measures, --column, and 1px hairlines. Reach for --column
+ * before a bare width on the landing page.
  */
 
 /* Themes.
@@ -146,16 +147,12 @@
   }
 }
 
-/* The landing page is one column, and this is how wide it is. Four blocks
-   share it -- the drop zone, the settings row, the book list and the fine
-   print -- and they only read as a column while they agree, so it is named
-   once here rather than written out four times and kept in step by hand.
-
-   It came down from 560px on 2026-09-09. Widening the drop zone into the
-   column the day before had left its 48px padding alone, so it went from a
-   compact 245x162 card to 560x162 of mostly nothing and became the emptiest
-   thing on the screen -- the padding comes down with the width. */
-:root { --column: 440px; }
+/* The landing page is one column, and this is how wide it is. The settings
+   row, the book list and the fine print share it -- they only read as a
+   column while they agree, so it is named once here rather than written out
+   three times and kept in step by hand. The drop zone is the exception, and
+   says why in its own rule. */
+:root { --column: 560px; }
 
 * { box-sizing: border-box; }
 
@@ -198,7 +195,7 @@ body {
   align-items: center; justify-content: center; padding: 32px;
 }
 .landing h1 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
-.landing p { margin: 0; color: var(--muted); max-width: var(--column); text-align: center; }
+.landing p { margin: 0; color: var(--muted); max-width: 46ch; text-align: center; }
 
 /* Space between the GROUPS, rather than one gap between everything. A single
    20px rhythm gave the tagline, the primary action and the fine print an equal
@@ -226,12 +223,19 @@ body {
    an outline with no colour in it read lighter than the book list below --
    the eye landed on what you had already done rather than on what you came to
    do. A second accent anywhere here would cancel this one. */
+/* Sized by what is in it, so narrower than everything below it -- the one
+   block on this screen that does not take --column, asked for on 2026-09-09
+   after both were tried. Stretched to the full 560 it was 560x162 of mostly
+   nothing, and the emptiest block on the page was also the biggest. It stays
+   centred in the column it declines to fill; drifting off that centre would
+   read as a mistake rather than as a choice. The phone is the other way round
+   -- see the 700px block, where it does go full width, because at 375 there
+   is no room for a box to float in. */
 .dropzone {
   border: 2px dashed var(--accent); border-radius: 12px;
-  padding: 24px 48px; text-align: center; cursor: pointer;
+  padding: 48px; text-align: center; cursor: pointer;
   background: var(--panel); transition: border-color .15s, background .15s;
   font: inherit; color: inherit; display: block;
-  width: 100%; max-width: var(--column);
 }
 .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 /* The border is already the accent, so hover and drag-over move the FILL
@@ -831,11 +835,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 @media (max-width: 700px) {
   /* Padding that reads as generous at 1000px reads as overbearing at 375px:
      the drop zone took a fifth of the screen and pushed the shelf below the
-     fold. The full width that used to be here is in the base rule now, where
-     it holds at every size -- three stacked blocks that do not share an edge
-     look unaligned even when each is fine on its own, and that was never
-     really about the phone. */
-  .dropzone { padding: 24px 16px; }
+     fold. Full width as well, so its edges meet the book rows and the footer
+     rather than floating narrower than both -- three stacked blocks that do
+     not share an edge look unaligned even when each is fine on its own, and
+     at 375 there is not enough room either side for the float to read as
+     deliberate. On a desktop there is, which is why the base rule leaves it
+     to its content. */
+  .dropzone { padding: 24px 16px; width: 100%; }
 
   /* Two settings, each on its own line and each centred by itself, put their
      controls at 141px and 169px with widths of 142 and 72: ragged, because
@@ -1061,7 +1067,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.24</p>
+      <p class="hint build">v1.36.25</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
