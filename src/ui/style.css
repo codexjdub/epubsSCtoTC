@@ -652,7 +652,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library.hidden { display: none !important; }
 /* The 52ch cap on .hint keeps prose readable, but this line sits under the
    book list and wrapped, orphaning its last two words on a centred line. */
-#libraryNote { max-width: none; text-align: left; }
+#libraryNote { max-width: none; text-align: left; margin-top: 16px; }
 /* Above its list's left edge, not floating over the middle of it: a heading
    that names a column of things belongs at the top of that column.
    uppercase and letter-spacing went with it -- both are English treatments,
@@ -661,26 +661,101 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library h2 {
   font-size: 12px; color: var(--muted); margin: 0 0 12px; text-align: left;
 }
-.library-list { display: flex; flex-direction: column; gap: 8px; }
+/* 書架 means bookshelf, so this one is drawn as a shelf rather than as a list
+   of rows with thumbnails on them. It was 36x52 covers beside a line of text,
+   which is enough to tell two books apart and not enough to see either.
+
+   Covers keep their own proportions -- the two in front of me are 1.50 and
+   1.65 -- and each sits at the bottom of a box of one height, so they stand
+   on a common line without being cropped to a single ratio. There is no
+   drawn shelf edge; the books make it. The 1px frame gives way to a shadow
+   for the same reason: cover art arrives with its own edge, and the shadow
+   is what makes it read as an object standing up rather than a tile lying
+   flat.
+
+   The drawer's shelf is deliberately none of this -- see .shelf-row below.
+   That panel is where you switch books, not where you browse them. */
+.library-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 24px 16px; align-items: start;
+}
 .library-row {
-  display: flex; align-items: center; gap: 8px;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  position: relative; display: flex; flex-direction: column;
+  border: 0; background: none;
+  /* A strip at the foot for the remove control, which is absolutely
+     positioned into it. Without it a 44px button anchored to the card's
+     bottom reaches up over the second line of the title, and removal takes no
+     confirmation -- so a tap meant for the end of a long title would delete
+     the book. 12px centres the × on the meta line and still leaves 9px of
+     that overlap; 24px is what clears the title's box outright, and being
+     sure of the tap is worth the × sitting a little below the line it reads
+     with. The number follows the 44px touch minimum, so it is not free:
+     tests/library.html asserts the two boxes do not meet. */
+  padding-bottom: 24px;
 }
 .library-row .open {
-  flex: 1 1 auto; min-width: 0; text-align: left; border: 0; background: none;
-  padding: 12px; display: flex; align-items: center; gap: 12px;
+  width: 100%; min-width: 0; text-align: left; border: 0; background: none;
+  padding: 0; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 8px;
+}
+/* One fixed height and a width that follows the artwork, rather than a full
+   cell width with object-fit inside it. Both put the covers on a common line,
+   but only this one makes the element's box the same shape as the picture: with
+   object-fit the box stayed the full cell and the art floated within it, so the
+   title beneath started a few pixels inside the cover it belonged to, and
+   anything anchored to a corner was anchored to a corner of nothing. */
+.library-list .cover {
+  /* `auto 2 / 3`, both halves load-bearing: auto means a cover that has loaded
+     is drawn at ITS ratio, and the 2/3 is what the slot is worth before that.
+     Plain `width: auto` measured zero until the image arrived, so a shelf of
+     lazily-loaded covers started as a row of empty cells and jumped as each
+     one landed. */
+  aspect-ratio: auto 2 / 3;
+  width: auto; max-width: 100%; height: 180px;
+  border: 0; background: none;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .25));
+}
+/* Pinned to the size of a plausible cover instead of being left to fill its
+   cell. Filling it made the books WITHOUT art the widest things on the shelf,
+   and a shelf whose missing covers dominate it is worse than the list this
+   replaced. 26px is the top of the type scale; the initial is deliberately
+   not larger, since it is standing in for a cover, not competing with one. */
+.library-list .cover.blank {
+  width: 120px; height: 180px; font-size: 26px;
+  border: 1px solid var(--line); background: var(--panel);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .18));
 }
 .library-row .text {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 12px;
+  width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 4px;
 }
+/* Two lines rather than one with an ellipsis: under a 120px cover, one line
+   of a Chinese title says almost nothing. */
 .library-row .name {
-  flex: 1 1 auto; min-width: 0; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; font-weight: 600; font-size: 14px; line-height: 1.35;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
-.library-row .meta { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.library-row .meta { font-size: 12px; color: var(--muted); }
+/* Nine × marks floating over nine covers is what the shelf looked like with
+   this always drawn, so it waits to be asked for. Both fallbacks matter: a
+   keyboard reaches it through :focus-within, and a device that cannot hover
+   has no way to ask, so there it simply stays. */
+/* Bottom right, level with the size and date, rather than over the top corner
+   of the cover. On artwork it needed a panel behind it to stay legible against
+   a photograph, and at the 44px a thumb needs, that panel is a block sitting on
+   the book. Down here it is always on the page's own ground, so it needs
+   nothing behind it -- and the meta line it shares is short enough that the
+   right-hand end of the cell is empty anyway. */
 .library-row .remove {
-  flex: 0 0 auto; border: 0; background: none; color: var(--muted);
-  padding: 12px; font-size: 18px; line-height: 1;
+  position: absolute; bottom: 0; right: 0; z-index: 1;
+  border: 0; background: none; color: var(--muted);
+  padding: 8px; font-size: 18px; line-height: 1;
+  opacity: 0; transition: opacity .15s;
+}
+.library-row:hover .remove,
+.library-row:focus-within .remove { opacity: 1; }
+@media (hover: none) {
+  .library-row .remove { opacity: 1; }
 }
 .library-row .remove:hover { color: var(--warn); }
 
@@ -1021,6 +1096,9 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      used to trail this one. */
   .bar-panel input[type="range"] { min-height: 44px; }
   .library-row .open, .library-row .remove { min-height: 44px; }
+  /* Width too, now that it is an icon floating in a corner rather than a
+     full-width row: min-height alone left it 27px across. */
+  .library-row .remove { min-width: 44px; }
   .shelf-panel { left: 4px; right: 4px; max-width: none; }
   .shelf-row .pick, .shelf-row .drop { min-height: 44px; }
 }

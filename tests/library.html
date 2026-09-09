@@ -408,11 +408,51 @@
       t.check('the landing list holds one of each as well',
               !!libCovered && !!libBare, libRows.length + ' row(s)');
       if (libCovered && libBare) {
-        var nameLeft = function (r) { return r.querySelector('.name').getBoundingClientRect().left; };
-        t.check('the landing list is really laid out', nameLeft(libCovered) > 0, 'rows measure zero');
-        t.eq('a coverless title lines up there too',
-             Math.round(nameLeft(libBare)), Math.round(nameLeft(libCovered)));
+        /* The landing list is a shelf, not rows, so "lines up" means something
+           different here than it does in the drawer above: the two books are
+           in different grid cells and their titles are SUPPOSED to start at
+           different x. What has to hold is the shelf line -- every cover slot,
+           art or placeholder, the same height and ending at the same y, which
+           is what makes them read as standing on something. */
+        var slot = function (r) { return r.querySelector('.cover').getBoundingClientRect(); };
+        t.check('the landing shelf is really laid out', slot(libCovered).width > 0,
+                'the shelf measures zero');
+        t.eq('a book with no art is the same height as one with art',
+             Math.round(slot(libBare).height), Math.round(slot(libCovered).height));
+        t.eq('and stands on the same line',
+             Math.round(slot(libBare).bottom), Math.round(slot(libCovered).bottom));
+        /* Left to fill its cell, the placeholder came out wider than the art
+           beside it -- a cover is narrower than its cell whenever it is taller
+           than 2:3 -- and the books missing their artwork became the most
+           prominent things on the shelf. Compared against its own cell rather
+           than against a width, so the grid can change. */
+        t.check('and does not spread wider than the slot it stands in',
+                slot(libBare).width < libBare.getBoundingClientRect().width,
+                'placeholder ' + Math.round(slot(libBare).width) +
+                ' in a cell of ' + Math.round(libBare.getBoundingClientRect().width));
+        /* Removing a book asks nothing first, so the × must not share any of
+           its box with the title: a card's title wraps to two lines and the
+           second one reaches the right edge, which is exactly where a 44px
+           control anchored to the card's foot used to reach back up to. The
+           foot padding is what holds them apart, and it is sized against the
+           touch minimum, so this is the assertion that keeps the two in step
+           rather than the number in the stylesheet. */
+        var boxes = libRows.map(function (r) {
+          return { name: r.querySelector('.name').getBoundingClientRect(),
+                   drop: r.querySelector('.remove').getBoundingClientRect() };
+        });
+        var touching = boxes.filter(function (b) { return b.drop.top < b.name.bottom; });
+        t.check('the remove control never overlaps a title it could be mistaken for',
+                touching.length === 0,
+                touching.map(function (b) {
+                  return Math.round(b.name.bottom - b.drop.top) + 'px of overlap';
+                }).join(', '));
       }
+      /* The drawer is the other half of renderRows and must NOT have become a
+         shelf: it is a narrow panel for switching books, and a grid in it
+         would be a worse list. */
+      t.eq('the drawer keeps its list',
+           W.getComputedStyle(D.getElementById('shelfList')).display, 'block');
       if (landingWasHidden) landing.classList.add('hidden');
 
       /* A 0-byte cover.png is still an object, so a truthiness test took the
