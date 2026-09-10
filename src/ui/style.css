@@ -29,9 +29,17 @@
  * The palette keeps to a scale for the same reason the type does. Every theme
  * holds the same three relationships, whatever its hue:
  *
- *   --panel / --bg     1.20   the chrome is a different surface from the page
- *   --line  / --panel  1.35   a border still reads once it is ON that surface
- *   --muted / --panel  4.5+   12px meta text stays legible there
+ *   --panel  / --bg     1.20   the chrome is a different surface from the page
+ *   --line   / --panel  1.35   a border still reads once it is ON that surface
+ *   --muted  / --panel  4.5+   12px meta text stays legible there
+ *   --warn-bg/ --panel  1.20   a warning band is visible as a band
+ *   --warn   / --warn-bg 4.5+  and its text is legible on it
+ *
+ * --warn-bg was missed when the rest of this moved on 2026-09-08, and .notice
+ * paints it on a .report that paints --panel: in 深色 the band came out at
+ * 1.03 to its own ground, which is to say a warning that did not look like
+ * one. Anything added to this palette belongs on this list, or the same thing
+ * happens to it.
  *
  * --bg is the reading ground, so it never moves: --panel steps away from it,
  * away from whichever end of the range --bg sits near -- darker in the light
@@ -66,7 +74,7 @@
   --accent: #7a5c3e;
   --accent-fg: #ffffff;
   --warn: #8a5a00;
-  --warn-bg: #fdf5e6;
+  --warn-bg: #fef9f0;
   --ok: #1a7f37;
 }
 
@@ -79,7 +87,7 @@
   --accent: #8a6236;
   --accent-fg: #faf3e4;
   --warn: #7d5312;
-  --warn-bg: #ece0c4;
+  --warn-bg: #f1e9d4;
   --ok: #4a6b2f;
 }
 
@@ -108,7 +116,7 @@
   --accent: #c9a227;
   --accent-fg: #26261f;
   --warn: #e0b050;
-  --warn-bg: #4a4335;
+  --warn-bg: #423c2f;
   --ok: #8fce9f;
 }
 
@@ -121,7 +129,7 @@
   --accent: #c9a227;
   --accent-fg: #171614;
   --warn: #e0b050;
-  --warn-bg: #2a2318;
+  --warn-bg: #393228;
   --ok: #5dc07f;
 }
 
@@ -135,7 +143,7 @@
     --accent: #c9a227;
     --accent-fg: #171614;
     --warn: #e0b050;
-    --warn-bg: #2a2318;
+    --warn-bg: #393228;
     --ok: #5dc07f;
   }
 }
@@ -215,7 +223,14 @@ body {
 /* The one accent on this screen. Dropping a book is what the app is FOR, and
    an outline with no colour in it read lighter than the book list below --
    the eye landed on what you had already done rather than on what you came to
-   do. A second accent anywhere here would cancel this one. */
+   do. A second accent anywhere here would cancel this one.
+
+   That comparison was written against a list of rows. The shelf below is
+   cover art at 180px now and plainly outweighs this box, which reads like a
+   reversal and is not one: on a first visit the shelf is not there at all --
+   .library carries `hidden` until a book is stored -- so the accent is
+   competing with an empty page, which is the only time it has to win. Once
+   there are books to outweigh it, you came to read one. */
 /* Sized by what is in it, so narrower than everything below it -- the one
    block on this screen that does not take --column, asked for on 2026-09-09
    after both were tried. Stretched to the full 560 it was 560x162 of mostly
@@ -721,7 +736,13 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    replaced. 26px is the top of the type scale; the initial is deliberately
    not larger, since it is standing in for a cover, not competing with one. */
 .library-list .cover.blank {
-  width: 120px; height: 180px; font-size: 26px;
+  /* 120px is the width of a 1.5-ratio cover at this height, and the 95% is
+     what stops it becoming the cell. At a 320px viewport -- an SE, or a
+     split-screen window -- auto-fill resolves to exactly `120px 120px`, so a
+     flat 120 spanned its whole track and the books missing their artwork
+     became the widest things on the shelf: the one state the note below says
+     this rule exists to prevent, reached at a real device width. */
+  width: min(120px, 95%); height: 180px; font-size: 26px;
   border: 1px solid var(--line); background: var(--panel);
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .18));
 }
@@ -736,26 +757,31 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .library-row .meta { font-size: 12px; color: var(--muted); }
-/* Nine × marks floating over nine covers is what the shelf looked like with
-   this always drawn, so it waits to be asked for. Both fallbacks matter: a
-   keyboard reaches it through :focus-within, and a device that cannot hover
-   has no way to ask, so there it simply stays. */
-/* Bottom right, level with the size and date, rather than over the top corner
-   of the cover. On artwork it needed a panel behind it to stay legible against
-   a photograph, and at the 44px a thumb needs, that panel is a block sitting on
-   the book. Down here it is always on the page's own ground, so it needs
-   nothing behind it -- and the meta line it shares is short enough that the
-   right-hand end of the cell is empty anyway. */
+/* Bottom right, level with the size and date. On the cover it needed a panel
+   behind it to stay legible against a photograph, and at the 44px a thumb
+   needs, that panel is a block sitting on the book; down here the page's own
+   ground is behind it and it needs nothing. Nine × marks over nine covers is
+   what the shelf looked like with it always drawn, so it waits to be asked
+   for -- and pointer-events goes with the opacity, because an invisible
+   control is still a target otherwise, and this one deletes a book without
+   asking. Keyboards ask through :focus-within.
+
+   Both halves of the query are load-bearing. `hover: none` is a phone. But a
+   touchscreen laptop's PRIMARY pointer is its mouse, so it reports
+   `hover: hover` while someone is using the screen -- and the only tap that
+   would reveal the control through :focus-within is a tap on the card, which
+   opens the book instead. `any-pointer: coarse` is what catches that device:
+   if a finger can reach this shelf at all, the control stays drawn. */
 .library-row .remove {
   position: absolute; bottom: 0; right: 0; z-index: 1;
   border: 0; background: none; color: var(--muted);
   padding: 8px; font-size: 18px; line-height: 1;
-  opacity: 0; transition: opacity .15s;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
 }
 .library-row:hover .remove,
-.library-row:focus-within .remove { opacity: 1; }
-@media (hover: none) {
-  .library-row .remove { opacity: 1; }
+.library-row:focus-within .remove { opacity: 1; pointer-events: auto; }
+@media (hover: none), (any-pointer: coarse) {
+  .library-row .remove { opacity: 1; pointer-events: auto; }
 }
 .library-row .remove:hover { color: var(--warn); }
 

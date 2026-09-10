@@ -447,6 +447,41 @@
                 touching.map(function (b) {
                   return Math.round(b.name.bottom - b.drop.top) + 'px of overlap';
                 }).join(', '));
+
+        /* The same assertion again at the width where it actually broke. A
+           320px screen -- an SE, or a split-screen window -- leaves the list
+           256px, and auto-fill resolves that to exactly `120px 120px`, so a
+           flat 120px placeholder was its whole cell. Squeezing the container
+           reaches that state without a second frame; every wider case is the
+           measurement above. */
+        var lib = D.getElementById('library');
+        var libWidth = lib.style.width;
+        lib.style.width = '256px';
+        void lib.getBoundingClientRect().width;
+        t.check('and still does not, in a cell squeezed to its own width',
+                slot(libBare).width < libBare.getBoundingClientRect().width,
+                'placeholder ' + Math.round(slot(libBare).width) +
+                ' in a cell of ' + Math.round(libBare.getBoundingClientRect().width));
+        lib.style.width = libWidth;
+
+        /* opacity alone leaves the button a target: elementFromPoint returned
+           it at opacity 0, and it deletes a book with no confirmation and no
+           undo. pointer-events has to travel with the opacity, and come back
+           on the same states that bring the control back. */
+        var drop = libCovered.querySelector('.remove');
+        t.eq('a hidden remove control is not a target',
+             W.getComputedStyle(drop).pointerEvents, 'none');
+        libCovered.querySelector('.open').focus();
+        t.eq('and becomes one once the card is focused',
+             W.getComputedStyle(drop).pointerEvents, 'auto');
+        /* pointer-events flips on the frame the focus lands; opacity is
+           transitioned, and read straight away it comes back mid-interpolation
+           at "0" -- the property is right and the sample is early. */
+        await wait(250);
+        t.eq('which is also when it becomes visible',
+             W.getComputedStyle(drop).opacity, '1');
+        drop.blur();
+        libCovered.querySelector('.open').blur();
       }
       /* The drawer is the other half of renderRows and must NOT have become a
          shelf: it is a narrow panel for switching books, and a grid in it
@@ -617,21 +652,34 @@
       t.check('the stylesheet can be read', !!sheet,
               'no style.css among ' + document.styleSheets.length + ' sheets');
 
+      /* Recurses on ANY grouping rule and takes the label from the condition
+         it actually found, rather than assuming the only wrapper is the
+         dark-OS media query. A palette added under prefers-contrast used to be
+         checked and then reported under the dark theme's name, sending the fix
+         to the wrong block; one inside @supports has cssRules and no media, so
+         it was skipped without a word. */
       var palettes = [];
       (function collect(rules, prefix) {
         for (var i = 0; i < rules.length; i++) {
           var r = rules[i];
-          if (r.cssRules && r.media) { collect(r.cssRules, 'dark-OS '); continue; }
+          if (r.cssRules && !r.selectorText) {
+            var cond = r.media ? r.media.mediaText : (r.conditionText || 'grouped');
+            collect(r.cssRules, prefix + cond + ': ');
+            continue;
+          }
           if (!r.selectorText || r.selectorText.indexOf(':root') !== 0) continue;
           var bg = r.style.getPropertyValue('--bg').trim();
           if (!bg) continue;
           var named = /data-theme="(\w+)"/.exec(r.selectorText);
+          var token = function (n) { return r.style.getPropertyValue(n).trim(); };
           palettes.push({
             name: prefix + (named ? named[1] : 'green'),
             bg: bg,
-            panel: r.style.getPropertyValue('--panel').trim(),
-            line: r.style.getPropertyValue('--line').trim(),
-            muted: r.style.getPropertyValue('--muted').trim()
+            panel: token('--panel'),
+            line: token('--line'),
+            muted: token('--muted'),
+            warn: token('--warn'),
+            warnBg: token('--warn-bg')
           });
         }
       })(sheet.cssRules, '');
@@ -641,12 +689,23 @@
         var panelBg = contrast(p.bg, p.panel);
         var linePanel = contrast(p.panel, p.line);
         var mutedPanel = contrast(p.panel, p.muted);
+        /* .notice paints --warn-bg inside a .report that paints --panel. This
+           pair was left out when the rest of the palette moved, and in 深色 the
+           band ended up at 1.03 to the surface under it -- a warning that did
+           not look like a warning. The token list here is what stops the next
+           one being missed the same way. */
+        var warnBand = contrast(p.panel, p.warnBg);
+        var warnText = contrast(p.warnBg, p.warn);
         t.check(p.name + ': the chrome is a surface of its own',
                 panelBg >= 1.15, 'panel/bg ' + panelBg.toFixed(2));
         t.check(p.name + ': a border still reads on that surface',
                 linePanel >= 1.25, 'line/panel ' + linePanel.toFixed(2));
         t.check(p.name + ': the fine print stays legible on it',
                 mutedPanel >= 4.5, 'muted/panel ' + mutedPanel.toFixed(2));
+        t.check(p.name + ': a warning band reads as a band',
+                warnBand >= 1.15, 'warn-bg/panel ' + warnBand.toFixed(2));
+        t.check(p.name + ': and its own text reads on it',
+                warnText >= 4.5, 'warn/warn-bg ' + warnText.toFixed(2));
       });
 
       frame.remove();

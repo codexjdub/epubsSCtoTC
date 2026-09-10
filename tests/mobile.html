@@ -665,33 +665,50 @@
       var dLanding = DD.getElementById('landing');
       var dLandingWasHidden = dLanding.classList.contains('hidden');
       dLanding.classList.remove('hidden');
-      var dFoot = px(DD.querySelector('.foot'));
-      var dDrop = px(DD.querySelector('.dropzone'));
-      var dOpts = px(DD.querySelector('.options'));
-      var edges = function (r) {
-        return Math.round(r.left) + '-' + Math.round(r.right);
+      /* Found before any of them is measured, for the reason spelled out at
+         the phone test above: t.check RECORDS a failure and returns, so a
+         querySelector that came back null would reach getBoundingClientRect on
+         undefined, and that TypeError unwinds to the page's catch and takes
+         the whole focus-mode block below with it -- reported as one anonymous
+         exception rather than as the renamed element it is. */
+      var dParts = {
+        'fine print': DD.querySelector('.foot'),
+        'drop zone': DD.querySelector('.dropzone'),
+        'settings row': DD.querySelector('.options'),
+        tagline: DD.querySelector('.landing > p')
       };
-      t.check('the desktop landing page is one column',
-              Math.abs(dOpts.left - dFoot.left) <= 1 &&
-              Math.abs(dOpts.right - dFoot.right) <= 1,
-              'settings ' + edges(dOpts) + ', fine print ' + edges(dFoot));
-      /* The drop zone is the one block that declines the column, because at
-         the full width it was mostly empty. What it must not do is drift: it
-         has to be narrower AND centred, or it reads as a block that missed
-         the edge rather than as one that was placed. */
-      t.check('and the drop zone sits inside that column rather than across it',
-              dDrop.width < dFoot.width &&
-              Math.abs((dDrop.left + dDrop.right) -
-                       (dFoot.left + dFoot.right)) <= 2,
-              'drop zone ' + edges(dDrop) + ' in a column of ' + edges(dFoot));
-      /* The tagline is centred text rather than a block with a border, but it
-         was capped at 46ch = 464px against a column of 440, which is close
-         enough to read as a mistake rather than as a measure. */
-      var dBlurb = px(DD.querySelector('.landing > p'));
-      t.check('and the tagline is no wider than the column it sits in',
-              dBlurb.width <= dFoot.width + 1,
-              'tagline ' + Math.round(dBlurb.width) +
-              ' in a column of ' + Math.round(dFoot.width));
+      var dMissing = Object.keys(dParts).filter(function (k) { return !dParts[k]; });
+      t.check('the desktop landing page still has its four blocks',
+              dMissing.length === 0, 'missing: ' + dMissing.join(', '));
+      if (dMissing.length === 0) {
+        var dFoot = px(dParts['fine print']);
+        var dDrop = px(dParts['drop zone']);
+        var dOpts = px(dParts['settings row']);
+        var dBlurb = px(dParts.tagline);
+        var edges = function (r) {
+          return Math.round(r.left) + '-' + Math.round(r.right);
+        };
+        t.check('the desktop landing page is one column',
+                Math.abs(dOpts.left - dFoot.left) <= 1 &&
+                Math.abs(dOpts.right - dFoot.right) <= 1,
+                'settings ' + edges(dOpts) + ', fine print ' + edges(dFoot));
+        /* The drop zone is the one block that declines the column, because at
+           the full width it was mostly empty. What it must not do is drift: it
+           has to be narrower AND centred, or it reads as a block that missed
+           the edge rather than as one that was placed. */
+        t.check('and the drop zone sits inside that column rather than across it',
+                dDrop.width < dFoot.width &&
+                Math.abs((dDrop.left + dDrop.right) -
+                         (dFoot.left + dFoot.right)) <= 2,
+                'drop zone ' + edges(dDrop) + ' in a column of ' + edges(dFoot));
+        /* The tagline is centred text rather than a block with a border, but it
+           was capped at 46ch = 464px against a column of 440, which is close
+           enough to read as a mistake rather than as a measure. */
+        t.check('and the tagline is no wider than the column it sits in',
+                dBlurb.width <= dFoot.width + 1,
+                'tagline ' + Math.round(dBlurb.width) +
+                ' in a column of ' + Math.round(dFoot.width));
+      }
       if (dLandingWasHidden) dLanding.classList.add('hidden');
 
 
