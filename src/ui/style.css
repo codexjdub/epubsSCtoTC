@@ -150,9 +150,8 @@
 
 /* 封面. The only theme that is not entirely written here: ui/app.js paints
    --wash with a 24x36 rendering of the cover you read last. Everything below
-   is the fallback -- what a shelf with no artwork gets, and what the reader
-   gets under this theme either way, since the wash lives inside #landing and
-   goes off screen when a book opens.
+   is the fallback -- what a shelf with no artwork gets, and what every page
+   gets before a book has been opened.
 
    --muted is lighter here than in the other dark themes, and that is the
    whole design rather than a detail. The fine print on this page sits ON the
@@ -178,11 +177,20 @@
   --scrim: .78;
 }
 
-/* Painted only under 封面, and only while the landing is on screen -- the
-   element lives inside it. The image is 24x36 and the browser's own upscaling
-   is the blur: no filter, no backdrop-filter, ~1.3KB of data URI, and nothing
-   to revoke afterwards. A 60px blur would have cost a phone real work to
-   arrive at the same picture. */
+/* Painted only under 封面, and everywhere that theme is on: the landing page
+   and the reading page both. The image is 24x36 and the browser's own
+   upscaling is the blur -- no filter, no backdrop-filter, ~1.8KB of data URI,
+   and nothing to revoke afterwards. A 60px blur would have cost a phone real
+   work to arrive at the same picture.
+
+   The reading column cannot opt out of this by painting itself a page: the
+   reader's own shadow stylesheet carries `:host, :host * { background-color:
+   transparent !important }` (reader/nav.js), which is an !important
+   declaration inside a shadow tree and so outranks anything out here --
+   an inline style on the mount loses to it too. That rule is there to strip
+   backgrounds the BOOK supplies; the text sitting straight on the wash is a
+   consequence of it, and the reason --fg has to survive the worst cover
+   anyone can drop in. tests/library.html checks that it does. */
 #wash { display: none; }
 :root[data-theme="cover"] #wash {
   display: block; position: fixed; inset: 0; z-index: -2;

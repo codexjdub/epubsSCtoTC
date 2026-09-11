@@ -683,8 +683,8 @@
 
   /* ---- 封面: the one colour that comes out of a book ----------------------
      Everything else about that theme is in the stylesheet. --wash is not: it
-     is the cover of whatever you read last, so the landing page is tinted by
-     what you are actually reading.
+     is the cover of whatever you read last, so the page -- the reading page
+     included -- is tinted by what you are actually reading.
 
      The picture goes through a 24x36 canvas and reaches CSS as a data URI --
      the browser's own upscaling is the blur. That is about 1.8KB, costs a

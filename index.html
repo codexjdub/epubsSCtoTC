@@ -7,15 +7,14 @@
 <link rel="stylesheet" href="src/ui/style.css"/>
 </head>
 <body>
+<!-- Behind everything, and outside #app on purpose: under 封面 this paints the
+     reading page too, not just the landing. It is position: fixed with a
+     negative z-index, so it takes part in no layout anywhere and scrolls with
+     nothing. Empty and unpainted under every other theme. -->
+<div id="wash" aria-hidden="true"></div>
 <div class="app" id="app">
 
   <div id="landing" class="landing">
-    <!-- Inside the landing, not beside it: it is position: fixed, so it does
-         not take part in this column's layout, and when the landing is hidden
-         on opening a book this goes with it. That is the whole of "the wash is
-         landing-only" -- no class to toggle, no state to keep in step. Empty
-         and unpainted under every theme but 封面. -->
-    <div id="wash" aria-hidden="true"></div>
     <h1>繁花似錦</h1>
     <p data-i18n="landing.blurb">Convert a simplified Chinese EPUB to traditional and read it right here.
        Your book never leaves this browser — nothing is uploaded.</p>
@@ -41,7 +40,7 @@
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.28</p>
+      <p class="hint build">v1.36.29</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>

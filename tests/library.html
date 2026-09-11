@@ -709,14 +709,16 @@
                 fgWorst >= 4.5, 'fg over the worst wash ' + fgWorst.toFixed(2));
       }
 
-      /* The wash is landing-only because it LIVES in the landing: no class to
-         toggle, and opening a book takes it off screen with everything else on
-         that page. A sibling of #landing would have needed state kept in step. */
+      /* It used to live inside #landing, which made it landing-only for free.
+         It sits outside #app now, so 封面 paints the reading page too -- which
+         is the whole point of moving it, and the reason the worst-case wash
+         assertions above cover --fg and not just --muted. */
       var wash = D.getElementById('wash');
       t.check('the wash element exists', !!wash, 'no #wash');
-      t.check('and sits inside the landing page',
-              !!wash && !!wash.closest('#landing'),
-              wash ? 'parent is ' + (wash.parentElement || {}).id : 'n/a');
+      t.check('and is outside the landing, so it reaches the reader',
+              !!wash && !wash.closest('#landing') && !wash.closest('#app'),
+              wash ? 'parent is ' + ((wash.parentElement || {}).id || (wash.parentElement || {}).tagName) : 'n/a');
+
 
       /* 封面's wash is set INLINE on :root, which outranks every theme block in
          the sheet. If it survived a switch, the next theme would be carrying
@@ -739,6 +741,13 @@
       t.check('封面 paints a wash from the book',
               /^url\(/.test(D.documentElement.style.getPropertyValue('--wash')),
               D.documentElement.style.getPropertyValue('--wash').slice(0, 24) || '(none)');
+      /* Drawn, and drawn BEHIND: a positive or auto z-index here would put an
+         image over the text rather than under it. Checked inside the theme,
+         because the rule that positions it only exists there. */
+      var washCs = W.getComputedStyle(wash);
+      t.eq('and shows it once the theme is on', washCs.display, 'block');
+      t.check('behind everything else',
+              parseInt(washCs.zIndex, 10) < 0, 'z-index ' + washCs.zIndex);
       W.App.theme.apply('green');
       await W.App.ui.repaintWash();
       t.eq('and leaving it takes the wash away again',

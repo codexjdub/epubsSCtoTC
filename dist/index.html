@@ -157,9 +157,8 @@
 
 /* 封面. The only theme that is not entirely written here: ui/app.js paints
    --wash with a 24x36 rendering of the cover you read last. Everything below
-   is the fallback -- what a shelf with no artwork gets, and what the reader
-   gets under this theme either way, since the wash lives inside #landing and
-   goes off screen when a book opens.
+   is the fallback -- what a shelf with no artwork gets, and what every page
+   gets before a book has been opened.
 
    --muted is lighter here than in the other dark themes, and that is the
    whole design rather than a detail. The fine print on this page sits ON the
@@ -185,11 +184,20 @@
   --scrim: .78;
 }
 
-/* Painted only under 封面, and only while the landing is on screen -- the
-   element lives inside it. The image is 24x36 and the browser's own upscaling
-   is the blur: no filter, no backdrop-filter, ~1.3KB of data URI, and nothing
-   to revoke afterwards. A 60px blur would have cost a phone real work to
-   arrive at the same picture. */
+/* Painted only under 封面, and everywhere that theme is on: the landing page
+   and the reading page both. The image is 24x36 and the browser's own
+   upscaling is the blur -- no filter, no backdrop-filter, ~1.8KB of data URI,
+   and nothing to revoke afterwards. A 60px blur would have cost a phone real
+   work to arrive at the same picture.
+
+   The reading column cannot opt out of this by painting itself a page: the
+   reader's own shadow stylesheet carries `:host, :host * { background-color:
+   transparent !important }` (reader/nav.js), which is an !important
+   declaration inside a shadow tree and so outranks anything out here --
+   an inline style on the mount loses to it too. That rule is there to strip
+   backgrounds the BOOK supplies; the text sitting straight on the wash is a
+   consequence of it, and the reason --fg has to survive the worst cover
+   anyone can drop in. tests/library.html checks that it does. */
 #wash { display: none; }
 :root[data-theme="cover"] #wash {
   display: block; position: fixed; inset: 0; z-index: -2;
@@ -1189,15 +1197,14 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 </style>
 </head>
 <body>
+<!-- Behind everything, and outside #app on purpose: under 封面 this paints the
+     reading page too, not just the landing. It is position: fixed with a
+     negative z-index, so it takes part in no layout anywhere and scrolls with
+     nothing. Empty and unpainted under every other theme. -->
+<div id="wash" aria-hidden="true"></div>
 <div class="app" id="app">
 
   <div id="landing" class="landing">
-    <!-- Inside the landing, not beside it: it is position: fixed, so it does
-         not take part in this column's layout, and when the landing is hidden
-         on opening a book this goes with it. That is the whole of "the wash is
-         landing-only" -- no class to toggle, no state to keep in step. Empty
-         and unpainted under every theme but 封面. -->
-    <div id="wash" aria-hidden="true"></div>
     <h1>繁花似錦</h1>
     <p data-i18n="landing.blurb">Convert a simplified Chinese EPUB to traditional and read it right here.
        Your book never leaves this browser — nothing is uploaded.</p>
@@ -1223,7 +1230,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.28</p>
+      <p class="hint build">v1.36.29</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
@@ -5655,11 +5662,10 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     { id: 'slate',  labelKey: 'theme.slate'  },
     { id: 'grey',   labelKey: 'theme.grey'   },
     { id: 'dark',   labelKey: 'theme.dark'   },
-    /* The only theme whose colours are not all in the stylesheet: the landing
-       page takes a wash from the cover of whatever you read last, painted by
-       paintWash() in ui/app.js. The palette there is what it falls back to
-       with no books, and what the reader uses either way -- the wash lives
-       inside #landing and goes off screen with it. */
+    /* The only theme whose colours are not all in the stylesheet: the page
+       takes a wash from the cover of whatever you read last, painted by
+       paintWash() in ui/app.js, behind the reading page as well as the
+       landing. The palette there is what it falls back to with no books. */
     { id: 'cover',  labelKey: 'theme.cover'  }
   ];
 
@@ -6624,8 +6630,8 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
 
   /* ---- 封面: the one colour that comes out of a book ----------------------
      Everything else about that theme is in the stylesheet. --wash is not: it
-     is the cover of whatever you read last, so the landing page is tinted by
-     what you are actually reading.
+     is the cover of whatever you read last, so the page -- the reading page
+     included -- is tinted by what you are actually reading.
 
      The picture goes through a 24x36 canvas and reaches CSS as a data URI --
      the browser's own upscaling is the blur. That is about 1.8KB, costs a
