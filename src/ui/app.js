@@ -681,7 +681,7 @@
     });
   }
 
-  /* ---- 封面: the one colour that comes out of a book ----------------------
+  /* ---- 封面: the picture that comes out of a book -------------------------
      Everything else about that theme is in the stylesheet. --wash is not: it
      is the cover of whatever you read last, so the page -- the reading page
      included -- is tinted by what you are actually reading.
@@ -726,12 +726,23 @@
       cv.width = 24; cv.height = 36;
       var ctx = cv.getContext('2d');
       ctx.drawImage(bmp, 0, 0, 24, 36);
-      document.documentElement.style.setProperty(
-        '--wash', 'url(' + cv.toDataURL('image/jpeg', 0.72) + ')');
+      var uri = 'url(' + cv.toDataURL('image/jpeg', 0.72) + ')';
+      /* Checked again on the way OUT, not just on the way in. Decoding is
+         asynchronous and the theme can change while it runs, so a paint begun
+         for 封面 can land after you have already left it: clearing first cannot
+         cancel work already in flight, and the property it writes outranks
+         every theme block in the sheet. Reproduced at an 8ms gap. */
+      if (App.theme.current() !== 'cover') { clearWash(); return; }
+      document.documentElement.style.setProperty('--wash', uri);
       washedId = book.id;
     } catch (e) {
-      /* A cover the decoder will not take is not worth a broken page. */
+      /* A cover the decoder will not take is not worth a broken page -- and
+         is remembered as tried, which clearWash() alone would not do. It nulls
+         washedId, so the one cover that can never work would be the only one
+         re-decoded on every render, for as long as it stayed the book you were
+         in. Leaving the theme clears the memo and allows one more attempt. */
       clearWash();
+      washedId = book.id;
     }
   }
 
@@ -948,9 +959,11 @@
       var applied = App.theme.apply(value);
       el.theme.value = applied;
       el.themeLanding.value = applied;
-      /* Both directions: on to 封面 this paints the wash, and off it strips
-         the two inline properties that would otherwise outrank the theme you
-         just chose. */
+      /* Both directions: on to 封面 this paints the wash, and off it strips the
+         inline --wash that would otherwise outrank the theme you just chose.
+         Fire and forget -- nothing below waits on a background, this is a DOM
+         event handler rather than an async function, and paintWash swallows
+         its own decode failures, so there is nothing here to reject. */
       paintWash();
     }
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });

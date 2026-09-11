@@ -209,6 +209,15 @@
   background: var(--bg); opacity: var(--scrim);
 }
 
+/* The one way out of the picture that is not "stop using this theme". It
+   matters more here than it would on the landing page: this is the surface
+   somebody spends an hour on, and the reading column cannot paint itself an
+   opaque page to escape onto -- see the note above. The palette stays, the
+   photograph goes. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme="cover"] #wash { display: none; }
+}
+
 /* The landing page is one column, and this is how wide it is. The settings
    row, the book list and the fine print share it -- they only read as a
    column while they agree, so it is named once here rather than written out
@@ -1230,7 +1239,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.29</p>
+      <p class="hint build">v1.36.30</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
@@ -6628,7 +6637,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     });
   }
 
-  /* ---- 封面: the one colour that comes out of a book ----------------------
+  /* ---- 封面: the picture that comes out of a book -------------------------
      Everything else about that theme is in the stylesheet. --wash is not: it
      is the cover of whatever you read last, so the page -- the reading page
      included -- is tinted by what you are actually reading.
@@ -6673,12 +6682,23 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       cv.width = 24; cv.height = 36;
       var ctx = cv.getContext('2d');
       ctx.drawImage(bmp, 0, 0, 24, 36);
-      document.documentElement.style.setProperty(
-        '--wash', 'url(' + cv.toDataURL('image/jpeg', 0.72) + ')');
+      var uri = 'url(' + cv.toDataURL('image/jpeg', 0.72) + ')';
+      /* Checked again on the way OUT, not just on the way in. Decoding is
+         asynchronous and the theme can change while it runs, so a paint begun
+         for 封面 can land after you have already left it: clearing first cannot
+         cancel work already in flight, and the property it writes outranks
+         every theme block in the sheet. Reproduced at an 8ms gap. */
+      if (App.theme.current() !== 'cover') { clearWash(); return; }
+      document.documentElement.style.setProperty('--wash', uri);
       washedId = book.id;
     } catch (e) {
-      /* A cover the decoder will not take is not worth a broken page. */
+      /* A cover the decoder will not take is not worth a broken page -- and
+         is remembered as tried, which clearWash() alone would not do. It nulls
+         washedId, so the one cover that can never work would be the only one
+         re-decoded on every render, for as long as it stayed the book you were
+         in. Leaving the theme clears the memo and allows one more attempt. */
       clearWash();
+      washedId = book.id;
     }
   }
 
@@ -6895,9 +6915,11 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       var applied = App.theme.apply(value);
       el.theme.value = applied;
       el.themeLanding.value = applied;
-      /* Both directions: on to 封面 this paints the wash, and off it strips
-         the two inline properties that would otherwise outrank the theme you
-         just chose. */
+      /* Both directions: on to 封面 this paints the wash, and off it strips the
+         inline --wash that would otherwise outrank the theme you just chose.
+         Fire and forget -- nothing below waits on a background, this is a DOM
+         event handler rather than an async function, and paintWash swallows
+         its own decode failures, so there is nothing here to reject. */
       paintWash();
     }
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });

@@ -202,6 +202,15 @@
   background: var(--bg); opacity: var(--scrim);
 }
 
+/* The one way out of the picture that is not "stop using this theme". It
+   matters more here than it would on the landing page: this is the surface
+   somebody spends an hour on, and the reading column cannot paint itself an
+   opaque page to escape onto -- see the note above. The palette stays, the
+   photograph goes. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme="cover"] #wash { display: none; }
+}
+
 /* The landing page is one column, and this is how wide it is. The settings
    row, the book list and the fine print share it -- they only read as a
    column while they agree, so it is named once here rather than written out

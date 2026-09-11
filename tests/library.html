@@ -725,15 +725,26 @@
          the last book's cover behind it -- so the clearing, not the painting,
          is the part that has to be held down. */
       var themeWas = W.App.theme.current();
-      /* A 1x1 PNG through a stubbed list, the same trick the zero-byte cover
+      /* Two covers through a stubbed list, the same trick the zero-byte cover
          test above uses: by this point the shelf has been emptied on purpose
-         by the removal assertions, and a wash needs a book to come from. */
-      var PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
-              + 'AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-      var pixels = Uint8Array.from(W.atob(PNG), function (c) { return c.charCodeAt(0); });
+         by the removal assertions, and a wash needs a book to come from. They
+         are drawn rather than pasted in as base64 so the two are certain to
+         differ -- the point of the second half of this is that they do. */
+      function solidCover(colour) {
+        var c = D.createElement('canvas');
+        c.width = 2; c.height = 3;
+        var g = c.getContext('2d');
+        g.fillStyle = colour; g.fillRect(0, 0, 2, 3);
+        return new Promise(function (res) {
+          c.toBlob(function (b) { b.arrayBuffer().then(res); }, 'image/png');
+        });
+      }
+      var coverA = await solidCover('#102030');
+      var coverB = await solidCover('#e0c040');
+      var onShelf = { id: 'book-a', cover: coverA };
       var listBeforeWash = W.App.library.list;
       W.App.library.list = async function () {
-        return [{ id: 'wash-fixture', title: '封面', size: 1, cover: pixels.buffer,
+        return [{ id: onShelf.id, title: '封面', size: 1, cover: onShelf.cover,
                   coverType: 'image/png', lastOpenedAt: Date.now() }];
       };
       W.App.theme.apply('cover');
@@ -748,10 +759,38 @@
       t.eq('and shows it once the theme is on', washCs.display, 'block');
       t.check('behind everything else',
               parseInt(washCs.zIndex, 10) < 0, 'z-index ' + washCs.zIndex);
+      /* The whole premise of this theme is that the page is tinted by the book
+         you are READING, and that rests on a chain nobody would guess at from
+         either end: opening a stored book re-saves its record, and the save
+         chains renderLibrary, which is what calls paintWash. Drop the re-save
+         as a redundant write -- an entirely reasonable thing to do, the bytes
+         are already there -- and the previous book's cover stays behind the
+         new one's text with every other assertion here still green. */
+      var washA = D.documentElement.style.getPropertyValue('--wash');
+      onShelf = { id: 'book-b', cover: coverB };
+      await W.App.ui.repaintWash();
+      var washB = D.documentElement.style.getPropertyValue('--wash');
+      t.check('and follows the book you open next',
+              washA !== washB && /^url\(/.test(washB),
+              washA === washB ? 'both books washed the page the same'
+                              : 'second wash ' + (washB.slice(0, 12) || '(none)'));
+
       W.App.theme.apply('green');
       await W.App.ui.repaintWash();
       t.eq('and leaving it takes the wash away again',
            D.documentElement.style.getPropertyValue('--wash'), '');
+
+      /* The race the review found: the decode is async, so a paint begun for
+         封面 could land after the theme had already moved on, and the property
+         it writes outranks the theme block that replaced it. Started here and
+         deliberately not awaited until after the switch. */
+      W.App.theme.apply('cover');
+      var inFlight = W.App.ui.repaintWash();
+      W.App.theme.apply('sepia');
+      await inFlight;
+      t.eq('a wash that lands after you have left does not stick',
+           D.documentElement.style.getPropertyValue('--wash'), '');
+
       W.App.library.list = listBeforeWash;
       W.App.theme.apply(themeWas);
       palettes.forEach(function (p) {
