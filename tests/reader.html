@@ -431,8 +431,15 @@
 
       // ---- themes ----
       var themeIds = App.theme.THEMES.map(function (x) { return x.id; });
-      t.check('six themes plus system offered',
-              themeIds.join(',') === 'system,light,sepia,green,slate,grey,dark', themeIds.join(','));
+      t.check('seven themes plus system offered',
+              themeIds.join(',') === 'system,light,sepia,green,slate,grey,dark,cover',
+              themeIds.join(','));
+      App.theme.apply('cover');
+      t.eq('封面 stamps its own attribute too',
+           document.documentElement.getAttribute('data-theme'), 'cover');
+      t.eq('and carries a palette of its own',
+           getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+           '#0e1014');
 
       App.theme.apply('sepia');
       t.eq('explicit theme stamps data-theme',

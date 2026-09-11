@@ -148,6 +148,52 @@
   }
 }
 
+/* 封面. The only theme that is not entirely written here: ui/app.js paints
+   --wash with a 24x36 rendering of the cover you read last. Everything below
+   is the fallback -- what a shelf with no artwork gets, and what the reader
+   gets under this theme either way, since the wash lives inside #landing and
+   goes off screen when a book opens.
+
+   --muted is lighter here than in the other dark themes, and that is the
+   whole design rather than a detail. The fine print on this page sits ON the
+   image: against the worst case, a white cover bleeding through the scrim,
+   --fg still reads at 8.5 but the #8e8a82 the dark themes use lands at 2.82.
+   #b4b2ac puts it at 4.54 there and 7.4 on --panel. #b3b1ab, one step down,
+   measures 4.50 in floating point and 4.49 once the composite is rounded to a
+   hex triple -- which is what a browser actually paints, and what the test
+   measures. Move the scrim and this has to move with it; tests/library.html
+   holds the two together. */
+:root[data-theme="cover"] {
+  --bg: #0e1014;
+  --fg: #f2f0ec;
+  --muted: #b4b2ac;
+  --line: #3e3b36;
+  --panel: #212226;
+  --accent: #c9a227;
+  --accent-fg: #0e1014;
+  --warn: #e0b050;
+  --warn-bg: #362f25;
+  --ok: #5dc07f;
+  /* Read back by the test rather than written twice. */
+  --scrim: .78;
+}
+
+/* Painted only under 封面, and only while the landing is on screen -- the
+   element lives inside it. The image is 24x36 and the browser's own upscaling
+   is the blur: no filter, no backdrop-filter, ~1.3KB of data URI, and nothing
+   to revoke afterwards. A 60px blur would have cost a phone real work to
+   arrive at the same picture. */
+#wash { display: none; }
+:root[data-theme="cover"] #wash {
+  display: block; position: fixed; inset: 0; z-index: -2;
+  background-image: var(--wash, none);
+  background-size: cover; background-position: center;
+}
+:root[data-theme="cover"] #wash::after {
+  content: ''; position: absolute; inset: 0;
+  background: var(--bg); opacity: var(--scrim);
+}
+
 /* The landing page is one column, and this is how wide it is. The settings
    row, the book list and the fine print share it -- they only read as a
    column while they agree, so it is named once here rather than written out

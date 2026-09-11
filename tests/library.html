@@ -679,12 +679,72 @@
             line: token('--line'),
             muted: token('--muted'),
             warn: token('--warn'),
-            warnBg: token('--warn-bg')
+            warnBg: token('--warn-bg'),
+            scrim: token('--scrim')
           });
         }
       })(sheet.cssRules, '');
 
-      t.eq('every theme declares a full palette', palettes.length, 7);
+      t.eq('every theme declares a full palette', palettes.length, 8);
+
+      /* 封面 paints the fine print ON the cover art, so its --muted has to
+         survive the worst picture anyone could drop in: a pure white cover,
+         bleeding through the scrim at whatever the stylesheet declares. Both
+         numbers are read back rather than written here, so moving either one
+         without the other fails instead of quietly going grey on grey. */
+      var cover = palettes.filter(function (p) { return p.name === 'cover'; })[0];
+      t.check('封面 is among them', !!cover, palettes.map(function (p) { return p.name; }).join(','));
+      if (cover) {
+        var scrim = parseFloat(cover.scrim) || 0;
+        t.check('the scrim is declared', scrim > 0 && scrim < 1, cover.scrim || '(none)');
+        var bgc = [1, 3, 5].map(function (i) { return parseInt(cover.bg.substr(i, 2), 16); });
+        var worst = '#' + bgc.map(function (v) {
+          return ('0' + Math.round(scrim * v + (1 - scrim) * 255).toString(16)).slice(-2);
+        }).join('');
+        var mutedWorst = contrast(worst, cover.muted);
+        var fgWorst = contrast(worst, '#f2f0ec');
+        t.check('封面: the fine print survives a white cover',
+                mutedWorst >= 4.5, 'muted over the worst wash ' + mutedWorst.toFixed(2));
+        t.check('封面: and so does everything else',
+                fgWorst >= 4.5, 'fg over the worst wash ' + fgWorst.toFixed(2));
+      }
+
+      /* The wash is landing-only because it LIVES in the landing: no class to
+         toggle, and opening a book takes it off screen with everything else on
+         that page. A sibling of #landing would have needed state kept in step. */
+      var wash = D.getElementById('wash');
+      t.check('the wash element exists', !!wash, 'no #wash');
+      t.check('and sits inside the landing page',
+              !!wash && !!wash.closest('#landing'),
+              wash ? 'parent is ' + (wash.parentElement || {}).id : 'n/a');
+
+      /* 封面's wash is set INLINE on :root, which outranks every theme block in
+         the sheet. If it survived a switch, the next theme would be carrying
+         the last book's cover behind it -- so the clearing, not the painting,
+         is the part that has to be held down. */
+      var themeWas = W.App.theme.current();
+      /* A 1x1 PNG through a stubbed list, the same trick the zero-byte cover
+         test above uses: by this point the shelf has been emptied on purpose
+         by the removal assertions, and a wash needs a book to come from. */
+      var PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+              + 'AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      var pixels = Uint8Array.from(W.atob(PNG), function (c) { return c.charCodeAt(0); });
+      var listBeforeWash = W.App.library.list;
+      W.App.library.list = async function () {
+        return [{ id: 'wash-fixture', title: '封面', size: 1, cover: pixels.buffer,
+                  coverType: 'image/png', lastOpenedAt: Date.now() }];
+      };
+      W.App.theme.apply('cover');
+      await W.App.ui.repaintWash();
+      t.check('封面 paints a wash from the book',
+              /^url\(/.test(D.documentElement.style.getPropertyValue('--wash')),
+              D.documentElement.style.getPropertyValue('--wash').slice(0, 24) || '(none)');
+      W.App.theme.apply('green');
+      await W.App.ui.repaintWash();
+      t.eq('and leaving it takes the wash away again',
+           D.documentElement.style.getPropertyValue('--wash'), '');
+      W.App.library.list = listBeforeWash;
+      W.App.theme.apply(themeWas);
       palettes.forEach(function (p) {
         var panelBg = contrast(p.bg, p.panel);
         var linePanel = contrast(p.panel, p.line);

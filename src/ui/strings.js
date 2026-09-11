@@ -237,6 +237,7 @@
     'theme.slate': ['石板', 'Slate'],
     'theme.grey': ['淺灰', 'Grey'],
     'theme.dark': ['暗色', 'Dark'],
+    'theme.cover': ['封面', 'Cover'],
 
     /* ---- conversion targets ---- */
     'preset.hk': ['香港', 'Hong Kong'],

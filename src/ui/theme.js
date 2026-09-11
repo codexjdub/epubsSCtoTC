@@ -20,7 +20,13 @@
     { id: 'green',  labelKey: 'theme.green'  },
     { id: 'slate',  labelKey: 'theme.slate'  },
     { id: 'grey',   labelKey: 'theme.grey'   },
-    { id: 'dark',   labelKey: 'theme.dark'   }
+    { id: 'dark',   labelKey: 'theme.dark'   },
+    /* The only theme whose colours are not all in the stylesheet: the landing
+       page takes a wash from the cover of whatever you read last, painted by
+       paintWash() in ui/app.js. The palette there is what it falls back to
+       with no books, and what the reader uses either way -- the wash lives
+       inside #landing and goes off screen with it. */
+    { id: 'cover',  labelKey: 'theme.cover'  }
   ];
 
   function isValid(id) {

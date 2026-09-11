@@ -681,14 +681,70 @@
     });
   }
 
+  /* ---- 封面: the one colour that comes out of a book ----------------------
+     Everything else about that theme is in the stylesheet. --wash is not: it
+     is the cover of whatever you read last, so the landing page is tinted by
+     what you are actually reading.
+
+     The picture goes through a 24x36 canvas and reaches CSS as a data URI --
+     the browser's own upscaling is the blur. That is about 1.8KB, costs a
+     phone nothing next to a 60px filter, and leaves no object URL behind;
+     releaseCovers() above exists because that last part is easy to get wrong.
+
+     It was going to set --accent from the cover too, so the app's one accent
+     would be the book's own colour. Measured against the only two real covers
+     to hand, that does not work: one is achromatic -- no colour above sat 0.25
+     anywhere in it, at any sampling resolution -- and on the other the most
+     common saturated colour is 6% of the image and muddy, still 6% at 128x192,
+     so it is not a resolution problem. An accent that comes out grey is worse
+     than a chosen one. Clearing still happens first and unconditionally: an
+     inline custom property on :root outranks every theme block in the sheet,
+     so a --wash left behind would paint the next theme's page too. */
+  var washedId = null;
+
+  function clearWash() {
+    document.documentElement.style.removeProperty('--wash');
+    washedId = null;
+  }
+
+  async function paintWash(books) {
+    if (App.theme.current() !== 'cover') { clearWash(); return; }
+    if (!books) books = await storedBooks();
+    var book = null;
+    for (var i = 0; i < books.length; i++) {
+      /* byteLength, not truthiness -- the same 0-byte cover the shelf guards
+         against would otherwise wash the page with nothing. list() is already
+         sorted most-recently-opened first, so this is the book you are in. */
+      if (books[i].cover && books[i].cover.byteLength) { book = books[i]; break; }
+    }
+    if (!book) { clearWash(); return; }
+    if (book.id === washedId) return;
+    try {
+      var bmp = await createImageBitmap(
+        new Blob([book.cover], { type: book.coverType || 'image/jpeg' }));
+      var cv = document.createElement('canvas');
+      cv.width = 24; cv.height = 36;
+      var ctx = cv.getContext('2d');
+      ctx.drawImage(bmp, 0, 0, 24, 36);
+      document.documentElement.style.setProperty(
+        '--wash', 'url(' + cv.toDataURL('image/jpeg', 0.72) + ')');
+      washedId = book.id;
+    } catch (e) {
+      /* A cover the decoder will not take is not worth a broken page. */
+      clearWash();
+    }
+  }
+
   async function renderLibrary() {
     if (!App.library.available()) {
-      releaseCovers(el.libraryList); show(el.library, false); return;
+      releaseCovers(el.libraryList); show(el.library, false);
+      await paintWash([]); return;
     }
 
     var books = await storedBooks();
     if (!books.length) {
-      releaseCovers(el.libraryList); show(el.library, false); return;
+      releaseCovers(el.libraryList); show(el.library, false);
+      await paintWash([]); return;
     }
 
     renderRows({
@@ -715,6 +771,9 @@
       size: bytes ? S('library.usage', { size: formatSize(bytes) }) : ''
     });
     show(el.library, true);
+    /* Handed the list this function already read, rather than reading it
+       again: two IndexedDB round trips to paint one background. */
+    await paintWash(books);
   }
 
   /* ---- the shelf, inside the reader ----
@@ -889,6 +948,10 @@
       var applied = App.theme.apply(value);
       el.theme.value = applied;
       el.themeLanding.value = applied;
+      /* Both directions: on to 封面 this paints the wash, and off it strips
+         the two inline properties that would otherwise outrank the theme you
+         just chose. */
+      paintWash();
     }
     el.theme.addEventListener('change', function () { onThemeChange(this.value); });
     el.themeLanding.addEventListener('change', function () { onThemeChange(this.value); });
@@ -1554,7 +1617,7 @@
              focusOn: function () { return !!api.focusOn && api.focusOn(); },
              setFocus: function (on) { if (api.setFocus) api.setFocus(on); },
              renderLibrary: renderLibrary, renderShelf: renderShelf,
-             initialOf: initialOf,
+             initialOf: initialOf, repaintWash: paintWash,
              setShelfOpen: setShelfOpen, switchToBook: switchToBook };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
