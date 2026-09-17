@@ -1611,16 +1611,16 @@
     document.addEventListener('keydown', function (ev) {
       if (!current.reader || !el.landing.classList.contains('hidden')) return;
       if (current.keys && current.keys.helpVisible()) return;
-      if (ev.key === 'Escape' && focusMode.on) { setFocus(false); return; }
-      /* Not while a control has the keyboard. Arrows are how a range slider and
-         a select are operated, and the Aa panel now holds two of the first and
-         three of the second: aiming ArrowRight at 行寬 both widened the line and
-         turned the page. Same guard vim mode has used all along, borrowed
-         rather than retyped. Escape is deliberately above it -- it is the way
-         out of focus mode wherever the keyboard happens to be. */
-      if (App.keys.inFormField(ev.target)) return;
-      if (ev.key === 'ArrowRight' || ev.key === 'PageDown') current.reader.nextPage();
-      if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') current.reader.prevPage();
+      /* Escape, and nothing else. The arrows and PageUp/PageDown were bound
+         here too until reader/keys.js gave the same four keys to readers who do
+         not use vim: both listeners sit on document, neither stops the other,
+         so one press of ArrowRight turned TWO pages -- and at a chapter edge,
+         skipped two chapters. ArrowDown was the tell, being bound in one place
+         only. The text keys belong with the rest of the keyboard; what is left
+         here is the one key that is about the chrome rather than the text, and
+         it stays ahead of any form-field guard because it is the way out of
+         focus mode wherever the keyboard happens to be. */
+      if (ev.key === 'Escape' && focusMode.on) setFocus(false);
     });
   }
 
