@@ -132,6 +132,20 @@
       return r.scrollBy(fullPage());
     }
 
+    /* And the way back. This had no mirror for a while, and the gap was hidden:
+       ui/app.js bound PageUp to prevPage() as well, so the key crossed the
+       boundary through the OTHER listener. Removing that duplicate -- it was
+       turning two pages at a time -- left PageUp stopping dead at the head of
+       every chapter while PageDown carried on happily at the foot.
+
+       prevPage() rather than prev(), because paging backwards should arrive at
+       the previous chapter's LAST page, not its first; prevPage already lands
+       there. atBookStart keeps the very first page from trying. */
+    function pageBackward(r) {
+      if (r.atChapterStart && r.atChapterStart() && !r.atBookStart()) return r.prevPage();
+      return r.scrollBy(-fullPage());
+    }
+
     /* The keys a reader presses without being taught -- and every one of them
        used to be dead. The handler below returned early on the vim flag, and
        vim is off by default, so in its ordinary configuration this app had no
@@ -153,7 +167,7 @@
     function handleReadingKey(ev, k, r) {
       switch (k) {
         case 'PageDown': pageForward(r); break;
-        case 'PageUp': r.scrollBy(-fullPage()); break;
+        case 'PageUp': pageBackward(r); break;
         case 'ArrowDown': r.scrollBy(lineStep()); break;
         case 'ArrowUp': r.scrollBy(-lineStep()); break;
         case 'ArrowRight': r.nextPage(); break;
@@ -162,7 +176,7 @@
         case 'End': r.scrollToEnd(); break;
         case ' ':
           if (enabled || isPressable(ev.target)) return false;
-          if (ev.shiftKey) r.scrollBy(-fullPage()); else pageForward(r);
+          if (ev.shiftKey) pageBackward(r); else pageForward(r);
           break;
         default: return false;
       }
@@ -239,6 +253,5 @@
     };
   }
 
-  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE,
-               inFormField: inFormField };
+  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE };
 })(window.App = window.App || {});

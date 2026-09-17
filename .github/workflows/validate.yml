@@ -50,6 +50,13 @@ jobs:
       - name: Convert a fixture in a real browser
         run: node tools/validate/export-fixture.js
 
+      # The test pages above load the reader but never src/ui/app.js, so the
+      # app's own document listeners are invisible to them -- which is how two
+      # handlers came to bind the same keys and turn two pages per press. This
+      # drives the whole built page instead.
+      - name: Press the page keys in the built app
+        run: node tools/validate/keyboard.js
+
       # Pinned, and downloaded straight from the release rather than looked up
       # through api.github.com. The API call was unauthenticated, and runners
       # share an IP, so a rate-limited response left $url empty and curl failed

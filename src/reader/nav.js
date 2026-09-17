@@ -1291,6 +1291,7 @@
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
       atChapterEnd: atChapterEnd,
+      atChapterStart: atChapterStart,
       bookmarks: function () { return state.bookmarks.slice(); },
       bookmarkAt: bookmarkAt,
       toggleBookmark: toggleBookmark,

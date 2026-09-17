@@ -1616,10 +1616,12 @@
          not use vim: both listeners sit on document, neither stops the other,
          so one press of ArrowRight turned TWO pages -- and at a chapter edge,
          skipped two chapters. ArrowDown was the tell, being bound in one place
-         only. The text keys belong with the rest of the keyboard; what is left
-         here is the one key that is about the chrome rather than the text, and
-         it stays ahead of any form-field guard because it is the way out of
-         focus mode wherever the keyboard happens to be. */
+         only. The text keys live with the rest of the keyboard now; what is
+         left here is the one key that is about the chrome rather than the text.
+         There is no form-field guard below any more because there is nothing
+         left to guard -- anything added here wants one, and Escape stays above
+         it, being the way out of focus mode wherever the keyboard happens to
+         be. */
       if (ev.key === 'Escape' && focusMode.on) setFocus(false);
     });
   }

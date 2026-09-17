@@ -1239,7 +1239,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.32</p>
+      <p class="hint build">v1.36.33</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
@@ -4431,6 +4431,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       atBookStart: atBookStart,
       atBookEnd: atBookEnd,
       atChapterEnd: atChapterEnd,
+      atChapterStart: atChapterStart,
       bookmarks: function () { return state.bookmarks.slice(); },
       bookmarkAt: bookmarkAt,
       toggleBookmark: toggleBookmark,
@@ -4613,6 +4614,20 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
       return r.scrollBy(fullPage());
     }
 
+    /* And the way back. This had no mirror for a while, and the gap was hidden:
+       ui/app.js bound PageUp to prevPage() as well, so the key crossed the
+       boundary through the OTHER listener. Removing that duplicate -- it was
+       turning two pages at a time -- left PageUp stopping dead at the head of
+       every chapter while PageDown carried on happily at the foot.
+
+       prevPage() rather than prev(), because paging backwards should arrive at
+       the previous chapter's LAST page, not its first; prevPage already lands
+       there. atBookStart keeps the very first page from trying. */
+    function pageBackward(r) {
+      if (r.atChapterStart && r.atChapterStart() && !r.atBookStart()) return r.prevPage();
+      return r.scrollBy(-fullPage());
+    }
+
     /* The keys a reader presses without being taught -- and every one of them
        used to be dead. The handler below returned early on the vim flag, and
        vim is off by default, so in its ordinary configuration this app had no
@@ -4634,7 +4649,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     function handleReadingKey(ev, k, r) {
       switch (k) {
         case 'PageDown': pageForward(r); break;
-        case 'PageUp': r.scrollBy(-fullPage()); break;
+        case 'PageUp': pageBackward(r); break;
         case 'ArrowDown': r.scrollBy(lineStep()); break;
         case 'ArrowUp': r.scrollBy(-lineStep()); break;
         case 'ArrowRight': r.nextPage(); break;
@@ -4643,7 +4658,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
         case 'End': r.scrollToEnd(); break;
         case ' ':
           if (enabled || isPressable(ev.target)) return false;
-          if (ev.shiftKey) r.scrollBy(-fullPage()); else pageForward(r);
+          if (ev.shiftKey) pageBackward(r); else pageForward(r);
           break;
         default: return false;
       }
@@ -4720,8 +4735,7 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     };
   }
 
-  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE,
-               inFormField: inFormField };
+  App.keys = { create: create, stored: stored, BINDINGS: BINDINGS, LINE: LINE };
 })(window.App = window.App || {});
 
 </script>
@@ -7572,10 +7586,12 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
          not use vim: both listeners sit on document, neither stops the other,
          so one press of ArrowRight turned TWO pages -- and at a chapter edge,
          skipped two chapters. ArrowDown was the tell, being bound in one place
-         only. The text keys belong with the rest of the keyboard; what is left
-         here is the one key that is about the chrome rather than the text, and
-         it stays ahead of any form-field guard because it is the way out of
-         focus mode wherever the keyboard happens to be. */
+         only. The text keys live with the rest of the keyboard now; what is
+         left here is the one key that is about the chrome rather than the text.
+         There is no form-field guard below any more because there is nothing
+         left to guard -- anything added here wants one, and Escape stays above
+         it, being the way out of focus mode wherever the keyboard happens to
+         be. */
       if (ev.key === 'Escape' && focusMode.on) setFocus(false);
     });
   }
