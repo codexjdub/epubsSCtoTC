@@ -2,21 +2,23 @@
 
 Convert a simplified Chinese EPUB to traditional and read it in the browser.
 
-Open `dist/index.html` — one self-contained file, ~1.6 MB, no install, works
-offline. Drop in an EPUB, read it converted, and export it as EPUB, HTML,
-Markdown or plain text. Nothing is uploaded.
+**[codexjdub.github.io/epubsSCtoTC](https://codexjdub.github.io/epubsSCtoTC/)**
+
+Or download `dist/index.html` and open it from disk — one self-contained file,
+~1.7 MB, no install, works offline. Either way: drop in an EPUB, read it
+converted, and export it as EPUB, HTML, Markdown or plain text. Nothing is
+uploaded, wherever you run it.
 
 ## Features
 
 - Converts text only — stylesheets and internal links keep working
 - Hong Kong, Taiwan or plain traditional (面条 → 麪條 in HK, 麵條 in TW)
-- Built-in reader: table of contents, seven themes, progress through the book,
+- Built-in reader: table of contents, eight themes, progress through the book,
   and typefaces chosen for the script the book is written in
 - Reading settings that stay put: size, leading, line width, alignment — the
   width per script, since 38em is 38 Chinese characters but 81 Latin ones
-- Turn pages instead of scrolling, and a focus mode that clears the chrome away
-  and goes fullscreen — both desktop only, where there is a fixed-height column
-  to break pages in
+- Turn pages instead of scrolling, on a phone as much as a desktop; and a focus
+  mode that clears the chrome away and goes fullscreen, which is desktop only
 - Interface in Chinese or English, Chinese by default
 - Bookmarks: keep a spot, and find it again in the sidebar under the contents
 - Ambiguous characters (发 → 發 or 髮) are underlined — click to cycle, and the
