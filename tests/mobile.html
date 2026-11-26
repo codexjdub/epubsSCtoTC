@@ -309,12 +309,21 @@
       t.check('and does not eat the screen it sits on',
               dz.height < W.innerHeight * 0.16,
               Math.round(dz.height) + 'px of ' + W.innerHeight);
-      var selRights = Array.prototype.map.call(
+      var selBoxes = Array.prototype.map.call(
         D.querySelectorAll('.options select'),
-        function (s) { return Math.round(s.getBoundingClientRect().right); });
+        function (s) { return s.getBoundingClientRect(); });
+      var edge = function (side) {
+        return selBoxes.map(function (b) { return Math.round(b[side]); });
+      };
       t.check('and the two settings line their controls up',
-              selRights.length === 2 && Math.abs(selRights[0] - selRights[1]) <= 1,
-              selRights.join(' vs '));
+              selBoxes.length === 2 && Math.abs(edge('right')[0] - edge('right')[1]) <= 1,
+              edge('right').join(' vs '));
+      /* Each select was as wide as its longest option, so the right edges met
+         and the left ones did not. Compared select to select rather than
+         against a width, so the machine's fonts cannot decide it. */
+      t.check('on the left edge as well as the right',
+              selBoxes.length === 2 && Math.abs(edge('left')[0] - edge('left')[1]) <= 1,
+              edge('left').join(' vs '));
       /* Every control a thumb reaches, measured while the landing page is up so
          its own two selects are included -- they were the only interactive
          controls in the app outside the touch-target rule, and sat at 37px. */
@@ -413,12 +422,19 @@
       t.check('drawer starts closed', !W.App.ui.drawerOpen(), 'open at load');
       t.check('closed drawer is off-screen', px(sidebar).right <= 1,
               'right edge at ' + Math.round(px(sidebar).right));
+      /* Off the screen is not off the page: a shadow is drawn outside the box,
+         and the drawer parked at translateX(-100%) laid its 34px of shade down
+         the left edge of every page. */
+      t.eq('and casts no shadow onto the page',
+           W.getComputedStyle(sidebar).boxShadow, 'none');
       t.check('backdrop hidden while closed', backdrop.classList.contains('hidden'), 'visible');
 
       D.getElementById('toggleSidebar').click();
       await wait(60);
       t.check('drawer opens over the text', px(sidebar).left >= -1 && px(sidebar).width > 200,
               'left ' + Math.round(px(sidebar).left) + ', width ' + Math.round(px(sidebar).width));
+      t.check('and lifts off the text with its shadow once open',
+              W.getComputedStyle(sidebar).boxShadow !== 'none', 'no shadow');
       t.check('backdrop appears with the drawer', !backdrop.classList.contains('hidden'), 'no backdrop');
       t.check('drawer does not shrink the reading column',
               px(viewer).width >= PHONE - 40, Math.round(px(viewer).width) + 'px');
@@ -567,6 +583,18 @@
              DD.getElementById('docPanel').querySelectorAll('button,select,input'),
              function (e) { return e.id; }).join(','),
            'presetTop,toggleSource,toggleMarks,toggleReport,exportFormat,punctTop,exportRun');
+      /* A checkbox and its words are one control. The panel spreads a label's
+         two halves to opposite edges, which suits a name and its slider, and
+         left 匯出時轉為「 」 stranded across the panel from the box it ticks.
+         Bounded below as well: .topbar zeroes its labels' gap, and these
+         panels sit inside it, so the first fix left the box touching its words.
+         8 is the gap alone; the checkbox's own margin varies by browser. */
+      var punctBox = DD.getElementById('punctTop').getBoundingClientRect();
+      var punctWords = DD.getElementById('punctTop').parentNode
+                         .querySelector('span').getBoundingClientRect();
+      var punctGap = Math.round(punctWords.left - punctBox.right);
+      t.check('the 「」 checkbox sits beside its own words',
+              punctBox.width > 0 && punctGap >= 8 && punctGap <= 20, punctGap + 'px apart');
       DD.getElementById('docBtn').click();
       await wait(60);
 

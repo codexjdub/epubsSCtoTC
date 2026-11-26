@@ -448,6 +448,35 @@
                   return Math.round(b.name.bottom - b.drop.top) + 'px of overlap';
                 }).join(', '));
 
+        /* Size and date are the foot of the card, not the end of its title. Both
+           fixture titles fit on one line, so one is lengthened for the
+           measurement -- otherwise the fixture would agree with anything. The
+           cards are checked to share a row and the long title to really wrap
+           first, since cards on different rows are SUPPOSED to differ, and two
+           one-line titles prove nothing. */
+        var longName = libBare.querySelector('.name');
+        var shortName = libCovered.querySelector('.name');
+        var nameWas = longName.textContent;
+        longName.textContent = '一個長得足以折成兩行的書名，放在一百二十像素寬的格子裡';
+        var metaBottom = function (r) {
+          return Math.round(r.querySelector('.meta').getBoundingClientRect().bottom);
+        };
+        t.eq('two cards on one row of the shelf',
+             Math.round(libBare.getBoundingClientRect().top),
+             Math.round(libCovered.getBoundingClientRect().top));
+        t.check('one title wraps where the other does not',
+                longName.getBoundingClientRect().height >
+                  shortName.getBoundingClientRect().height * 1.5,
+                Math.round(longName.getBoundingClientRect().height) + ' vs ' +
+                Math.round(shortName.getBoundingClientRect().height));
+        t.eq('and their size and date still stand on one line',
+             metaBottom(libBare), metaBottom(libCovered));
+        t.check('nor does a two-line title reach the remove control',
+                libBare.querySelector('.remove').getBoundingClientRect().top >=
+                  longName.getBoundingClientRect().bottom,
+                'the × starts above the title\'s foot');
+        longName.textContent = nameWas;
+
         /* The same assertion again at the width where it actually broke. A
            320px screen -- an SE, or a split-screen window -- leaves the list
            256px, and auto-fill resolves that to exactly `120px 120px`, so a
@@ -774,6 +803,23 @@
               washA !== washB && /^url\(/.test(washB),
               washA === washB ? 'both books washed the page the same'
                               : 'second wash ' + (washB.slice(0, 12) || '(none)'));
+
+      /* The book you are in, and only that one. The loop this replaced walked
+         past a book with no cover to the next cover down the shelf, so opening
+         a coverless book washed its pages with another book's art. Stubbed as
+         a coverless book on top of the one the page was just washed with --
+         and the memo, finding that one already painted, left it on without a
+         word, which is how it looked in use. */
+      var listWithArt = W.App.library.list;
+      W.App.library.list = async function () {
+        return [{ id: 'book-bare', title: '無封面', size: 1, lastOpenedAt: Date.now() },
+                { id: onShelf.id, title: '封面', size: 1, cover: onShelf.cover,
+                  coverType: 'image/png', lastOpenedAt: Date.now() - 1000 }];
+      };
+      await W.App.ui.repaintWash();
+      t.eq('a book with no cover is not washed with the next one\'s',
+           D.documentElement.style.getPropertyValue('--wash').slice(0, 24), '');
+      W.App.library.list = listWithArt;
 
       W.App.theme.apply('green');
       await W.App.ui.repaintWash();

@@ -692,6 +692,11 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .bar-panel:not(.hidden) { display: flex; }
 .bar-panel select { width: 100%; }
 .bar-panel label { justify-content: space-between; }
+/* That spread is for a name and the slider it names. A checkbox and its words
+   are one control, and spread apart the box sat across the panel from what it
+   ticks. The gap is restored too: these panels sit inside .topbar, whose
+   labels have none, and the box ended up touching its words. */
+.bar-panel label.check { justify-content: flex-start; gap: 8px; }
 .bar-panel .row { display: flex; gap: 8px; }
 .bar-panel .row button { flex: 1; }
 /* The action inside the export options, set apart from the settings above it. */
@@ -755,7 +760,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
    That panel is where you switch books, not where you browse them. */
 .library-list {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 24px 16px; align-items: start;
+  /* stretch, not start: every card in a row is the row's height, which is
+     what lets the size and date sit at the foot of each (see .meta) rather
+     than wherever its title happened to end. */
+  gap: 24px 16px; align-items: stretch;
 }
 .library-row {
   position: relative; display: flex; flex-direction: column;
@@ -774,7 +782,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 .library-row .open {
   width: 100%; min-width: 0; text-align: left; border: 0; background: none;
   padding: 0; display: flex; flex-direction: column; align-items: flex-start;
-  gap: 8px;
+  gap: 8px; flex: 1;
 }
 /* One fixed height and a width that follows the artwork, rather than a full
    cell width with object-fit inside it. Both put the covers on a common line,
@@ -811,6 +819,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
 }
 .library-row .text {
   width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 4px;
+  flex: 1;
 }
 /* Two lines rather than one with an ellipsis: under a 120px cover, one line
    of a Chinese title says almost nothing. */
@@ -819,7 +828,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
   overflow: hidden; display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
-.library-row .meta { font-size: 12px; color: var(--muted); }
+/* At the foot of the card, not the end of the title. Following the title, a
+   one-line one left them a line above a two-line one beside it, and a row of
+   books read as ragged. */
+.library-row .meta { font-size: 12px; color: var(--muted); margin-top: auto; }
 /* Bottom right, level with the size and date. On the cover it needed a panel
    behind it to stay legible against a photograph, and at the 44px a thumb
    needs, that panel is a block sitting on the book; down here the page's own
@@ -1006,6 +1018,10 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
      share a left edge and the controls share a right one. */
   .options { flex-direction: column; align-items: stretch; width: 100%; gap: 12px; }
   .options label { justify-content: space-between; }
+  /* Sharing a right edge was half of it. Each select was as wide as its
+     longest option, so the left edges were ragged; one width for both puts
+     them on a common line each side. */
+  .options select { width: 60%; }
 
   .topbar {
     flex-wrap: nowrap;
@@ -1109,22 +1125,32 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
     width: min(320px, 85vw);
     transform: translateX(0);
     transition: transform .2s ease;
-    box-shadow: 0 0 34px rgba(0, 0, 0, .32);
     overscroll-behavior: contain;
   }
   /* Closed is the DEFAULT here, expressed in CSS rather than applied by JS at
      init. A width read at startup can be wrong (a frame not yet at its final
      size), and nothing would correct it; a media query always reflects the
      real current width. `.hidden` is the desktop collapse state and must not
-     display:none the drawer, so it is neutralised. `.open` wins over both. */
+     display:none the drawer, so it is neutralised. `.open` wins over both.
+
+     No shadow while closed. A shadow is drawn outside the box, so a drawer
+     parked at translateX(-100%) still laid 34px of shade down the left edge of
+     every page. It goes only once the slide out has finished -- the delayed
+     0s transition holds it for the .2s the drawer is still moving -- and the
+     .open rule's own transition list, which has no delay, brings it straight
+     back on the way in. */
   .sidebar,
   .sidebar.hidden {
     display: block !important;
     transform: translateX(-100%);
+    box-shadow: none;
+    transition: transform .2s ease, box-shadow 0s linear .2s;
   }
   .sidebar.open {
     display: block !important;
     transform: translateX(0);
+    box-shadow: 0 0 34px rgba(0, 0, 0, .32);
+    transition: transform .2s ease;
   }
   .toc a { padding: 12px 8px; }
 

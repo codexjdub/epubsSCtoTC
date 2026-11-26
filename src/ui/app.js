@@ -710,14 +710,15 @@
   async function paintWash(books) {
     if (App.theme.current() !== 'cover') { clearWash(); return; }
     if (!books) books = await storedBooks();
-    var book = null;
-    for (var i = 0; i < books.length; i++) {
-      /* byteLength, not truthiness -- the same 0-byte cover the shelf guards
-         against would otherwise wash the page with nothing. list() is already
-         sorted most-recently-opened first, so this is the book you are in. */
-      if (books[i].cover && books[i].cover.byteLength) { book = books[i]; break; }
-    }
-    if (!book) { clearWash(); return; }
+    /* The book you are in, and only that one: list() is sorted
+       most-recently-opened first, so it is the first record. This used to walk
+       on past a book with no cover to the next one that had one, which washed
+       the pages of a coverless book with some other book's art -- the one
+       thing the theme must not do. No cover is the plain ground.
+       byteLength, not truthiness -- the same 0-byte cover the shelf guards
+       against would otherwise wash the page with nothing. */
+    var book = books[0];
+    if (!book || !book.cover || !book.cover.byteLength) { clearWash(); return; }
     if (book.id === washedId) return;
     try {
       var bmp = await createImageBitmap(
