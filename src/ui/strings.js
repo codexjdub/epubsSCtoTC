@@ -124,6 +124,7 @@
        break. Rare, but a blank row in the list is unreadable. */
     'bookmark.unlabelled': ['（沒有文字）', '(no text)'],
     'report.title': ['轉換報告', 'Conversion report'],
+    'report.close': ['關閉報告', 'Close report'],
     'report.target': ['轉換目標', 'Target'],
     'report.documents': ['已轉換文件', 'Documents converted'],
     'report.nodes': ['變更的文字節點', 'Text nodes changed'],
@@ -228,6 +229,12 @@
                        'That item is not in the reading order ({path}).'],
     'error.export': ['匯出失敗：{message}', 'Export failed: {message}'],
     'error.open': ['無法開啟：{message}', 'Could not open: {message}'],
+    'error.notEpub': ['這不是有效的 EPUB 檔，或檔案已損壞。',
+                      'That file is not a valid EPUB, or it is damaged.'],
+    'error.drm': ['這本書有 DRM 保護，無法轉換。',
+                  'This EPUB is DRM-protected and cannot be converted.'],
+    'error.unreadable': ['無法讀取這個檔案。', 'Could not read that file.'],
+    'error.gone': ['這本書已不在這部裝置上', 'that book is no longer stored on this device'],
 
     /* ---- themes ---- */
     'theme.system': ['系統', 'System'],

@@ -149,7 +149,12 @@
       id: idFor(book),
       cover: cover,
       coverType: coverType,
-      title: book.metadata.original ? book.metadata.original.title : book.metadata.title,
+      /* The converted title, as the bar, the tab and the export all have it.
+         The original's put 东京贫困女子 on the shelf of an app whose whole job is
+         to make it 東京貧困女子. Every open re-saves this record, so an entry
+         stored before takes the new title the next time it is opened, and
+         follows the preset if that changes. */
+      title: book.metadata.title,
       creator: book.metadata.creator || '',
       language: book.metadata.language || '',
       filename: filename || '',

@@ -103,16 +103,40 @@
 
 
   /* Written to both lines: the landing page's own, and the reader's, since the
-     landing one is hidden the moment a book opens. */
-  function setStatus(text) {
+     landing one is hidden the moment a book opens.
+
+     A message that reports something done, rather than work under way, is
+     given a hold and goes by itself. The reader's line floats over the text
+     (see .status-line), so one that stayed -- the export's, which nothing ever
+     cleared -- would sit on the page for good. A later message cancels the
+     hold, so it can never clear words it did not write. */
+  var NOTE_MS = 5000, WARN_MS = 8000;
+  var statusTimer = null;
+
+  function setStatus(text, holdMs) {
+    clearTimeout(statusTimer);
+    statusTimer = null;
     var value = text || '';
     el.status.textContent = value;
-    if (el.readerStatus) el.readerStatus.textContent = value;
+    if (el.readerStatus) {
+      el.readerStatus.textContent = value;
+      el.readerStatus.classList.remove('warn');
+    }
+    if (value && holdMs) statusTimer = setTimeout(function () { setStatus(''); }, holdMs);
   }
 
   function showError(message) {
     el.error.textContent = message;
     show(el.error, true);
+    /* That box is on the landing page, which is hidden once a book is open, so
+       an error raised while reading -- a file that will not open, an export
+       that fails -- used to go nowhere at all. The reader's line says it too,
+       as a warning. */
+    if (el.readerStatus && el.landing.classList.contains('hidden')) {
+      setStatus(message, WARN_MS);
+      el.status.textContent = '';
+      el.readerStatus.classList.add('warn');
+    }
   }
 
   function clearError() { show(el.error, false); }
@@ -233,6 +257,17 @@
     return link ? link.textContent : '';
   }
 
+  /* A name with its spacing and a cut-off ending taken away: a bookmark's
+     label is its first few dozen characters with … added, and a heading and
+     the contents entry for it rarely agree on spaces. */
+  function words(s) {
+    return String(s || '').replace(/[\s\u3000]+/g, '').replace(/…$/, '');
+  }
+  function sameWords(a, b) {
+    var x = words(a), y = words(b);
+    return !!x && !!y && (x.indexOf(y) === 0 || y.indexOf(x) === 0);
+  }
+
   function renderBookmarks() {
     if (!el.bookmarks) return;
     var marks = current.reader ? current.reader.bookmarks() : [];
@@ -247,12 +282,21 @@
       go.className = 'go';
       var label = document.createElement('span');
       label.className = 'label';
-      label.textContent = bm.label || S('bookmark.unlabelled');
-      var where = document.createElement('span');
-      where.className = 'where';
-      where.textContent = chapterName(bm.path);
+      var name = chapterName(bm.path);
+      /* Made at the head of a chapter, a bookmark is labelled with the heading,
+         which is the chapter's name again: the same words on both lines. Then
+         one line, whichever of the two says more. */
+      var once = sameWords(bm.label, name);
+      label.textContent = once
+        ? (words(name).length >= words(bm.label).length ? name : bm.label)
+        : (bm.label || S('bookmark.unlabelled'));
       go.appendChild(label);
-      go.appendChild(where);
+      if (!once) {
+        var where = document.createElement('span');
+        where.className = 'where';
+        where.textContent = name;
+        go.appendChild(where);
+      }
       go.addEventListener('click', function () {
         current.reader.goToBookmark(bm);
         if (isNarrowScreen() && api.setDrawer) api.setDrawer(false);
@@ -346,14 +390,17 @@
     clearError();
     setStatus(S('status.reading', { name: filename }));
 
-    if (current.reader) { current.reader.destroy(); current.reader = null; }
-
     var book;
     try {
       book = await App.parse.load(buffer);
     } catch (e) {
+      /* The parser's and the zip library's words are English and meant for
+         whoever is debugging -- "Can't find end of central directory : is this
+         a zip file ?" and a URL -- in an interface that is otherwise Chinese.
+         They go to the console; the reader is told what they mean. */
+      if (window.console) console.warn(e);
       setStatus('');
-      showError(e.message);
+      showError(S(e && e.code === 'drm' ? 'error.drm' : 'error.notEpub'));
       return;
     }
 
@@ -376,6 +423,12 @@
     } catch (e) {
       fontReport = [];
     }
+
+    /* Only now, with the new book read and converted, does the one on screen
+       close. Closing it first meant a file that failed either step left the
+       reader torn down under the old title and contents -- a blank page --
+       with its error sent to the landing page, which is hidden while reading. */
+    if (current.reader) { current.reader.destroy(); current.reader = null; }
 
     current.book = book;
     current.buffer = buffer;
@@ -456,10 +509,10 @@
        usually inert is worse than no button. */
     reader.on('trail', function (e) { el.back.hidden = e.depth === 0; });
     reader.on('external', function (e) {
-      setStatus(S('status.external', { href: e.href }));
+      setStatus(S('status.external', { href: e.href }), NOTE_MS);
     });
     reader.on('missing', function (e) {
-      setStatus(S('status.missing', { path: e.path }));
+      setStatus(S('status.missing', { path: e.path }), NOTE_MS);
     });
 
     buildToc(book, reader, reader.state.source === 'original');
@@ -475,7 +528,7 @@
     if (App.library.available()) {
       App.library.requestPersistence();
       App.library.save(book, buffer, filename).then(function (r) {
-        if (!r.saved && r.reason) setStatus(r.reason);
+        if (!r.saved && r.reason) setStatus(r.reason, WARN_MS);
         return renderLibrary().then(renderShelf);
       });
     }
@@ -525,7 +578,7 @@
     var ok = false;
     try {
       var bytes = await App.library.load(entry.id);
-      if (!bytes) throw new Error('that book is no longer stored');
+      if (!bytes) throw new Error(S('error.gone'));
       await loadBuffer(bytes, entry.title);
       ok = true;
     } catch (e) {
@@ -841,7 +894,7 @@
   function readFile(file) {
     var reader = new FileReader();
     reader.onload = function () { loadBuffer(reader.result, file.name); };
-    reader.onerror = function () { showError('Could not read that file.'); };
+    reader.onerror = function () { showError(S('error.unreadable')); };
     reader.readAsArrayBuffer(file);
   }
 
@@ -865,10 +918,12 @@
       setStatus(S('status.exported', { name: App.export.filenameFor(current.book, current.format) }) +
                 (summary.overrides ? S('status.exported.corrections', { n: summary.overrides }) : '') +
                 (summary.fontsStripped.length
-                  ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''));
+                  ? S('status.exported.fonts', { n: summary.fontsStripped.length }) : ''),
+                NOTE_MS);
     } catch (e) {
-      showError(S('error.export', { message: e.message }));
+      /* Cleared before, not after: the error now shows on this same line. */
       setStatus('');
+      showError(S('error.export', { message: e.message }));
     }
     el.exportRun.disabled = false;
   }
@@ -1446,6 +1501,9 @@
     $('toggleReport').addEventListener('click', function () {
       el.reportPanel.classList.toggle('hidden');
     });
+    $('reportClose').addEventListener('click', function () {
+      el.reportPanel.classList.add('hidden');
+    });
     current.keys = App.keys.create({
       reader: function () { return current.reader; },
       toggleToc: function () { el.toggleSidebar.click(); },
@@ -1588,13 +1646,12 @@
     });
     /* One button both ways. The list it feeds is in the sidebar, usually shut,
        so the press has to say what it did somewhere the reader is looking:
-       the status line, which sits in the pager beside the position. */
+       the status line, just above the pager. */
     el.toggleBookmark.addEventListener('click', function () {
       if (!current.reader) return;
       var result = current.reader.toggleBookmark();
       if (!result) return;
-      setStatus(S(result.added ? 'bookmark.added' : 'bookmark.removed'));
-      setTimeout(function () { setStatus(''); }, 1600);
+      setStatus(S(result.added ? 'bookmark.added' : 'bookmark.removed'), 1600);
     });
 
     $('toggleMarks').addEventListener('click', function () {
@@ -1623,7 +1680,15 @@
          left to guard -- anything added here wants one, and Escape stays above
          it, being the way out of focus mode wherever the keyboard happens to
          be. */
-      if (ev.key === 'Escape' && focusMode.on) setFocus(false);
+      if (ev.key !== 'Escape') return;
+      /* The report first: it is the nearest thing to close, and it had no way
+         out where it sits -- the only control that shut it was the one that
+         opened it, back inside the 文稿 panel. */
+      if (!el.reportPanel.classList.contains('hidden')) {
+        el.reportPanel.classList.add('hidden');
+        return;
+      }
+      if (focusMode.on) setFocus(false);
     });
   }
 

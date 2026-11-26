@@ -245,7 +245,11 @@
     var zip = await Z.open(data);
     var encryption = await Z.inspectEncryption(zip);
     if (encryption.drm) {
-      throw new Error('This EPUB is DRM-protected and cannot be converted.');
+      /* Coded, so the interface can say this in its own language; the message
+         stays for the console. */
+      var drm = new Error('This EPUB is DRM-protected and cannot be converted.');
+      drm.code = 'drm';
+      throw drm;
     }
 
     var entries = await Z.readEntries(zip);

@@ -416,6 +416,37 @@
       t.check('chrome takes under a fifth of the screen', chrome / W.innerHeight < 0.2,
               Math.round(chrome / W.innerHeight * 100) + '%');
 
+      /* ---- the conversion report, on a phone ----
+         In the flow it landed after the whole chapter -- on this 40-paragraph
+         fixture, far below the fold -- so pressing 轉換報告 showed nothing.
+         Measured against the screen, since being seen is the whole claim. */
+      var report = D.getElementById('reportPanel');
+      D.getElementById('docBtn').click();
+      await wait(60);
+      D.getElementById('toggleReport').click();
+      await wait(120);
+      var rr = px(report);
+      t.check('the report opens where you can see it',
+              rr.height > 0 && rr.top >= 0 && rr.bottom <= W.innerHeight + 1,
+              'spans ' + Math.round(rr.top) + ' to ' + Math.round(rr.bottom) +
+              ' of a ' + W.innerHeight + 'px screen');
+      var reportClose = D.getElementById('reportClose');
+      t.check('with a way to close it there', !!reportClose, 'no close control');
+      if (reportClose) reportClose.click();
+      await wait(60);
+      t.check('which closes it', report.classList.contains('hidden'), 'still open');
+      /* Shut by hand before the next part: if the × failed, the button below
+         would TOGGLE the report closed and Escape would pass on a report that
+         was never open. */
+      report.classList.add('hidden');
+      D.getElementById('docBtn').click();
+      await wait(60);
+      D.getElementById('toggleReport').click();
+      await wait(120);
+      D.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await wait(60);
+      t.check('and so does Escape', report.classList.contains('hidden'), 'still open');
+
       // drawer
       t.eq('sidebar is taken out of the flow',
            W.getComputedStyle(sidebar).position, 'fixed');
@@ -1031,6 +1062,20 @@
       var helpText = LD.querySelector('.keyhelp-panel').textContent;
       t.check('the key help follows the language too',
               helpText.indexOf('Scroll forward') >= 0, helpText.slice(0, 60));
+      /* All the room the overlay leaves before it scrolls: held to 80% of an
+         800px window, the sheet was 29px short and its last line was cut at
+         the edge. Asserted as "if it scrolls, it has taken everything", so a
+         machine whose fonts make the sheet shorter cannot fail it for that. */
+      var helpPanel = LD.querySelector('.keyhelp-panel');
+      var helpOverlay = LD.querySelector('.keyhelp');
+      var hocs = LW.getComputedStyle(helpOverlay);
+      var helpRoom = helpOverlay.clientHeight - parseFloat(hocs.paddingTop) -
+                     parseFloat(hocs.paddingBottom);
+      t.check('and only scrolls once it has all the room there is',
+              helpPanel.scrollHeight <= helpPanel.clientHeight + 1 ||
+                helpPanel.offsetHeight >= helpRoom - 1,
+              'sheet ' + helpPanel.offsetHeight + 'px of ' + Math.round(helpRoom) +
+              ', content ' + helpPanel.scrollHeight);
       LD.getElementById('toggleVim').click();     // leave vim off again
       await wait(80);
 
@@ -1288,9 +1333,25 @@
       t.check('with the section hidden while there are none',
               LD.getElementById('bookmarks').classList.contains('hidden'),
               'an empty bookmarks heading on every book');
+      /* At the head of the first chapter, so the label below is the heading. */
+      await LW.App.ui.current.reader.show(0);
+      LW.App.ui.current.reader.scrollToStart();
+      await wait(150);
+      var pagerAt = function () {
+        return ['prev', 'next'].map(function (id) {
+          return Math.round(LD.getElementById(id).getBoundingClientRect().left);
+        }).join(',');
+      };
+      var pagerBefore = pagerAt();
       bmBar.click();
       await wait(120);
       t.eq('pressing it marks the spot', bmBar.getAttribute('aria-pressed'), 'true');
+      /* The press says so on the status line, which used to sit between the
+         page buttons and take its width from them: 已加入書籤 moved both 31px,
+         and moved them back when it cleared. */
+      t.check('and says so', LD.getElementById('readerStatus').textContent.length > 0,
+              'no message');
+      t.eq('without moving the page buttons', pagerAt(), pagerBefore);
 
       /* The button is a ribbon, and the ribbon is DRAWN. Characters were tried
          on this bar and reverted: ≡ ▤ ⇩ sit in ranges the CJK fonts also
@@ -1318,9 +1379,17 @@
       var bmRow = LD.querySelector('.bookmark-row');
       t.check('labelled with the opening words',
               bmRow.querySelector('.label').textContent.length > 0, 'no label');
+      /* Made at the head of a chapter, the opening words ARE the heading, and
+         the chapter's name under them said it twice. Once, then -- and still
+         the chapter's own name, so two bookmarks in one book do not look
+         alike. The fixture's heading is 第一章 and its contents entry
+         第一章 乾淨, so the row used to read 第一章 / 第一章 乾淨. */
+      var bmChapter = LD.querySelector('#toc a').textContent;
       t.check('and with the chapter it is in',
-              bmRow.querySelector('.where').textContent.length > 0,
-              'no chapter name, so two bookmarks in one book look alike');
+              bmChapter.length > 0 && bmRow.textContent.indexOf(bmChapter) >= 0,
+              'no chapter name, so two bookmarks in one book look alike: ' + bmRow.textContent);
+      t.eq('which it names once, though the label is the heading',
+           bmRow.textContent.split('第一章').length - 1, 1);
       /* One button both ways. */
       bmBar.click();
       await wait(120);

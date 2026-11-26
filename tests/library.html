@@ -862,6 +862,53 @@
                 warnText >= 4.5, 'warn/warn-bg ' + warnText.toFixed(2));
       });
 
+      /* Native controls are drawn for a light page unless told otherwise, so
+         on the dark grounds the 「」 checkbox was a white box. Read off each
+         theme as applied, and whether a ground is dark is decided by which of
+         black and white reads better on it -- not by a list here that the next
+         theme could be missing from. 跟隨系統 follows the machine, so it is
+         left out. */
+      var themeNow = W.App.theme.current();
+      ['light', 'sepia', 'green', 'slate', 'grey', 'dark', 'cover'].forEach(function (id) {
+        W.App.theme.apply(id);
+        var rootCs = W.getComputedStyle(D.documentElement);
+        var ground = rootCs.getPropertyValue('--bg').trim();
+        var darkGround = contrast(ground, '#ffffff') > contrast(ground, '#000000');
+        t.eq(id + ': native controls are drawn for a ' + (darkGround ? 'dark' : 'light') + ' ground',
+             /\bdark\b/.test(rootCs.colorScheme || ''), darkGround);
+      });
+      W.App.theme.apply(themeNow);
+
+      /* The shelf keeps the title the rest of the app shows. It stored the
+         original's, so a simplified book sat on the shelf as 头发与发展 while
+         the bar, the tab and the export all said 頭髮與發展. */
+      await W.App.ui.loadBuffer(await make('头发与发展', 3, 'urn:uuid:title-case', W.JSZip), 'title.epub');
+      var shownTitle = W.App.ui.current.book && W.App.ui.current.book.metadata.title;
+      var titleId = W.App.ui.current.book && W.App.library.idFor(W.App.ui.current.book);
+      var kept = null;
+      for (var tries = 0; tries < 20 && !kept; tries++) {
+        await wait(100);
+        kept = (await W.App.library.list()).filter(function (b) { return b.id === titleId; })[0];
+      }
+      t.check('a simplified title is converted for the bar',
+              !!shownTitle && shownTitle !== '头发与发展', shownTitle || '(no book)');
+      t.eq('and the shelf keeps that one', kept ? kept.title : '(not stored)', shownTitle);
+
+      /* A file that will not open, with a book already open. The book used to
+         be closed first, so this left a blank page under the old title, and
+         the zip library's English went to the landing page -- hidden. Built in
+         the frame's realm, since JSZip checks types with instanceof. */
+      var openBook = W.App.ui.current.book;
+      await W.App.ui.loadBuffer(new W.Uint8Array([80, 75, 3, 4, 1, 2, 3]).buffer, 'broken.epub');
+      await wait(100);
+      t.check('a file that will not open leaves the book you were reading open',
+              !!W.App.ui.current.reader && W.App.ui.current.book === openBook,
+              W.App.ui.current.reader ? 'a different book is open' : 'no reader left');
+      var said = D.getElementById('readerStatus');
+      t.eq('and says so where you are reading, in words of its own',
+           said.textContent, W.App.strings.get('error.notEpub'));
+      t.check('as a warning', said.classList.contains('warn'), 'a plain status');
+
       frame.remove();
       await wipe();
     } catch (e) {
