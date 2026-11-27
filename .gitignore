@@ -1,5 +1,5 @@
 # Local test books. These are not distributable — keep them out of the repo.
-sampleEpubs/
+privateSampleEpubs/
 *.epub
 
 # macOS

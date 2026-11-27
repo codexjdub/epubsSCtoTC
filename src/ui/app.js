@@ -855,8 +855,6 @@
     if (open) renderShelf();
   }
 
-  function shelfOpen() { return !el.shelfPanel.classList.contains('hidden'); }
-
   async function switchToBook(entry) {
     if (current.book && App.library.idFor(current.book) === entry.id) {
       setShelfOpen(false);

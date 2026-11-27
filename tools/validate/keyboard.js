@@ -2,9 +2,10 @@
  * one page.
  *
  * This exists because the browser test pages cannot reach the defect it is
- * written for. None of them loads src/ui/app.js, so under tests/ only ONE
- * document keydown listener has ever been registered -- and the bug was that
- * the real app registers two. ui/app.js bound the arrows and PageUp/PageDown
+ * written for. The one that presses the page keys, tests/reader.html, loads
+ * the reader without src/ui/app.js, so it only ever registers ONE document
+ * keydown listener -- and the bug was that the real app registers two.
+ * library.html and mobile.html do load the whole app, but press no page keys. ui/app.js bound the arrows and PageUp/PageDown
  * for focus mode; reader/keys.js bound the same four keys days later, for
  * readers who do not use vim. Neither stops the other, so every press fired
  * both and ArrowRight turned two pages. tests/reader.html presses PageDown and

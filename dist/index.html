@@ -386,7 +386,6 @@ button:disabled { opacity: .5; cursor: default; }
    and wrapping the bar pushes Export onto a second row. */
 .topbar .title { font-weight: 600; font-size: 14px; flex: 1 1 6ch; min-width: 0;
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topbar .spacer { flex: 1; }
 
 .main { flex: 1; display: flex; min-height: 0; }
 
@@ -1308,7 +1307,7 @@ button.active { background: var(--accent); color: var(--accent-fg); border-color
       <p class="hint" id="drmNote" data-i18n="landing.drm">DRM-protected files cannot be
          converted. Text drawn inside images cannot be converted either — the report
          will tell you if the book contains any.</p>
-      <p class="hint build">v1.36.35</p>
+      <p class="hint build">v1.36.36</p>
     </div>
     <div id="error" class="error hidden"></div>
     <div id="status" class="status"></div>
@@ -5457,8 +5456,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     'sidebar.bookmarks': ['書籤', 'Bookmarks'],
     'bookmark.added': ['已加入書籤', 'Bookmark added'],
     'bookmark.removed': ['已移除書籤', 'Bookmark removed'],
-    'bookmark.empty': ['還沒有書籤。讀到想記住的地方，按上面的「書籤」。',
-                       'No bookmarks yet. Press Bookmark to keep the spot you are reading.'],
     'bookmark.removeNamed': ['移除書籤：{label}', 'Remove bookmark: {label}'],
     /* A bookmark on a block with no text of its own -- a picture, or a page
        break. Rare, but a blank row in the list is unreadable. */
@@ -6913,8 +6910,6 @@ var opentype=(()=>{var bn=Object.defineProperty;var ho=Object.getOwnPropertyDesc
     el.toggleShelf.setAttribute('aria-expanded', String(open));
     if (open) renderShelf();
   }
-
-  function shelfOpen() { return !el.shelfPanel.classList.contains('hidden'); }
 
   async function switchToBook(entry) {
     if (current.book && App.library.idFor(current.book) === entry.id) {

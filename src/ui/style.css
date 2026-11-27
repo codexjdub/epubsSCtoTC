@@ -379,7 +379,6 @@ button:disabled { opacity: .5; cursor: default; }
    and wrapping the bar pushes Export onto a second row. */
 .topbar .title { font-weight: 600; font-size: 14px; flex: 1 1 6ch; min-width: 0;
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topbar .spacer { flex: 1; }
 
 .main { flex: 1; display: flex; min-height: 0; }
 

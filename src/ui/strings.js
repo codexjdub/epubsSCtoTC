@@ -117,8 +117,6 @@
     'sidebar.bookmarks': ['書籤', 'Bookmarks'],
     'bookmark.added': ['已加入書籤', 'Bookmark added'],
     'bookmark.removed': ['已移除書籤', 'Bookmark removed'],
-    'bookmark.empty': ['還沒有書籤。讀到想記住的地方，按上面的「書籤」。',
-                       'No bookmarks yet. Press Bookmark to keep the spot you are reading.'],
     'bookmark.removeNamed': ['移除書籤：{label}', 'Remove bookmark: {label}'],
     /* A bookmark on a block with no text of its own -- a picture, or a page
        break. Rare, but a blank row in the list is unreadable. */
